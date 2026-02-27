@@ -1,0 +1,81 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\Customer;
+use App\Models\Order;
+use App\Models\IceType;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+
+class DashboardController extends Controller
+{
+    public function index()
+    {
+        // Get statistics
+        $totalCustomers = Customer::count();
+        $totalOrders = Order::count();
+        $approvedOrders = Order::where('status', 'approved')->count();
+        $pendingOrders = Order::where('status', 'pending')->count();
+        
+        // Get recent orders
+        $recentOrders = Order::with(['customer', 'iceType'])
+            ->latest()
+            ->take(5)
+            ->get();
+        
+        // Get top customers
+        $topCustomers = Customer::withCount('orders')
+            ->orderBy('orders_count', 'desc')
+            ->take(5)
+            ->get();
+        
+        // Get pending orders count for sidebar badge
+        $pendingOrdersCount = Order::where('status', 'pending')->count();
+        
+        // Get ice type statistics for pie chart
+        $iceTypeStats = Order::select('ice_type_id', DB::raw('count(*) as total'))
+            ->with('iceType')
+            ->whereNotNull('ice_type_id')
+            ->groupBy('ice_type_id')
+            ->orderBy('total', 'desc')
+            ->get()
+            ->map(function($stat) {
+                return [
+                    'name' => $stat->iceType ? $stat->iceType->name : 'Es Batu',
+                    'total' => $stat->total,
+                    'color' => $this->getRandomColor()
+                ];
+            });
+        
+        // Add orders without ice type (fallback)
+        $ordersWithoutType = Order::whereNull('ice_type_id')->count();
+        if ($ordersWithoutType > 0) {
+            $iceTypeStats->push([
+                'name' => 'Es Batu (Default)',
+                'total' => $ordersWithoutType,
+                'color' => '#95a5a6'
+            ]);
+        }
+        
+        return view('dashboard', compact(
+            'totalCustomers',
+            'totalOrders',
+            'approvedOrders',
+            'pendingOrders',
+            'recentOrders',
+            'topCustomers',
+            'pendingOrdersCount',
+            'iceTypeStats'
+        ));
+    }
+    
+    private function getRandomColor()
+    {
+        $colors = [
+            '#3498db', '#e74c3c', '#f39c12', '#27ae60', '#9b59b6', 
+            '#e67e22', '#1abc9c', '#34495e', '#f1c40f', '#e91e63'
+        ];
+        return $colors[array_rand($colors)];
+    }
+}

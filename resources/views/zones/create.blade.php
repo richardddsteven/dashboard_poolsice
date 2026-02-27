@@ -1,0 +1,43 @@
+@extends('layouts.dashboard')
+
+@section('content')
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Tambah Zona Baru</h1>
+        <p class="page-subtitle" style="margin-bottom: 24px;">Buat zona wilayah baru untuk mengelompokkan pelanggan.</p>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title">Formulir Zona</h3>
+    </div>
+    
+    <div class="card-body">
+        <form action="{{ route('zones.store') }}" method="POST">
+            @csrf
+            
+            <div style="margin-bottom: 24px;">
+                <label for="name" style="display: block; margin-bottom: 8px; font-weight: 600; color: var(--text-main);">Nama Zona <span style="color: #ef4444;">*</span></label>
+                <input type="text" name="name" id="name" class="form-control" value="{{ old('name') }}" placeholder="Contoh: Canggu, Jimbaran, Uluwatu" required>
+                @error('name')
+                    <div style="color: #ef4444; font-size: 13px; margin-top: 6px;">{{ $message }}</div>
+                @enderror
+                <p style="font-size: 13px; color: var(--text-muted); margin-top: 8px;">
+                    Nama zona digunakan untuk mengkategorikan pelanggan berdasarkan lokasi.
+                </p>
+            </div>
+
+            <div style="margin-top: 32px; padding-top: 24px; border-top: 1px solid var(--border-color); display: flex; gap: 12px; justify-content: flex-end;">
+                <a href="{{ route('customers.index') }}" class="btn btn-secondary">Batal</a>
+                <button type="submit" class="btn btn-primary">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="white" style="margin-right: 6px;">
+                        <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+                    </svg>
+                    Simpan Zona
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+@endsection
