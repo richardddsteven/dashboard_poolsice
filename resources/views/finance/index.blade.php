@@ -13,7 +13,7 @@
             <div style="flex: 1; min-width: 200px;">
                 <label style="display:block; font-size:12px; font-weight:700; color:var(--text-muted); margin-bottom:8px;">Periode</label>
                 <select name="filter_type" id="filter_type" onchange="updateFilterFields()" class="form-select" style="width: 100%;">
-                    <option value="all"   {{ $filterType === 'all'   ? 'selected' : '' }}>Semua (7 Hari Terakhir)</option>
+                    <option value="all"   {{ $filterType === 'all'   ? 'selected' : '' }}>Semua</option>
                     <option value="date"  {{ $filterType === 'date'  ? 'selected' : '' }}>Tanggal Spesifik</option>
                     <option value="range" {{ $filterType === 'range' ? 'selected' : '' }}>Rentang Tanggal</option>
                     <option value="month" {{ $filterType === 'month' ? 'selected' : '' }}>Bulanan</option>

@@ -33,9 +33,10 @@ class DashboardController extends Controller
         // Get pending orders count for sidebar badge
         $pendingOrdersCount = Order::where('status', 'pending')->count();
         
-        // Get ice type statistics for pie chart
+        // Get ice type statistics for pie chart (only approved orders)
         $iceTypeStats = Order::select('ice_type_id', DB::raw('count(*) as total'))
             ->with('iceType')
+            ->where('status', 'approved')
             ->whereNotNull('ice_type_id')
             ->groupBy('ice_type_id')
             ->orderBy('total', 'desc')
@@ -48,8 +49,8 @@ class DashboardController extends Controller
                 ];
             });
         
-        // Add orders without ice type (fallback)
-        $ordersWithoutType = Order::whereNull('ice_type_id')->count();
+        // Add orders without ice type (fallback, only approved orders)
+        $ordersWithoutType = Order::whereNull('ice_type_id')->where('status', 'approved')->count();
         if ($ordersWithoutType > 0) {
             $iceTypeStats->push([
                 'name' => 'Es Batu (Default)',

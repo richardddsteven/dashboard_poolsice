@@ -11,6 +11,8 @@ class Customer extends Model
         'address',
         'zone',
         'phone',
+        'conversation_state',
+        'pending_message',
     ];
 
     public function orders()

@@ -1,165 +1,261 @@
 <?php
-
 namespace App\Http\Controllers;
-
 use App\Models\Customer;
 use App\Models\Order;
 use App\Models\IceType;
+use App\Services\FonnteService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
 class WebhookController extends Controller
 {
+    protected FonnteService $fonnte;
+
+    public function __construct(FonnteService $fonnte)
+    {
+        $this->fonnte = $fonnte;
+    }
+
     public function fonnte(Request $request)
     {
         try {
-            // Skip status update (read/delivered) SECEPATNYA tanpa logging
-            // State-only payload: hanya punya device, stateid, state
+            // Skip state-only payloads (read/delivered)
             if ($request->has('state') && !$request->has('message') && !$request->has('text')) {
                 return response()->json(['status' => 'ok']);
             }
 
-            // Log semua data yang masuk untuk debugging (hanya message nyata)
             Log::info('Webhook received', $request->all());
 
-            // Ambil nomor pengirim dan pesan dari berbagai kemungkinan format Fonnte
             $phone = $this->cleanPhone(
-                $request->input('sender') ?? 
-                $request->input('from') ?? 
+                $request->input('sender') ??
+                $request->input('from') ??
                 $request->input('phone') ??
                 null
             );
-            
-            $message = $request->input('message') ?? 
-            $request->input('text') ?? 
-            $request->input('body') ??
-            null;
+
+            $message = $request->input('message') ??
+                $request->input('text') ??
+                $request->input('body') ??
+                null;
 
             if (!$phone || !$message) {
                 Log::warning('Webhook missing data', [
-                    'phone' => $phone,
+                    'phone'   => $phone,
                     'message' => $message,
-                    'payload' => $request->all()
+                    'payload' => $request->all(),
                 ]);
                 return response()->json([
-                    'status' => 'error', 
-                    'message' => 'Phone or message missing',
-                    'received' => $request->all()
+                    'status'   => 'error',
+                    'message'  => 'Phone or message missing',
+                    'received' => $request->all(),
                 ], 400);
             }
 
-            // Validasi pesan order yang komprehensif
-            $isValidOrder = $this->validateOrderMessage($message);
-
-            if (!$isValidOrder['is_valid']) {
-                Log::info('Message skipped - not a valid order', [
-                    'phone' => $phone,
-                    'message' => $message,
-                    'reason' => $isValidOrder['reason']
-                ]);
-                return response()->json([
-                    'status' => 'ok', 
-                    'message' => 'Message received but not a valid order: ' . $isValidOrder['reason']
-                ]);
-            }
-
-            // Parse pesan untuk mendapatkan jenis es dan jumlah
-            // Format: keyword - jenis es - jumlah pcs
-            // Contoh: "order - 5kg - 10 pcs" atau "pesan - 20kg - 5"
-            $parsedOrder = $this->parseOrderMessage($message);
-
-            // Validasi hasil parsing - pastikan ice type dan quantity berhasil diparse
-            if (!$parsedOrder['ice_type_id'] || $parsedOrder['quantity'] < 1) {
-                Log::warning('Order parsing failed', [
-                    'phone' => $phone,
-                    'message' => $message,
-                    'parsed_order' => $parsedOrder
-                ]);
-                return response()->json([
-                    'status' => 'error', 
-                    'message' => 'Unable to parse order details from message'
-                ], 400);
-            }
-
-            // Cari customer berdasarkan nomor telepon
+            // ----------------------------------------------------------------
+            // CONVERSATION FLOW: tanya nama & alamat untuk customer baru
+            // ----------------------------------------------------------------
             $customer = Customer::where('phone', $phone)->first();
 
-            // Jika customer tidak ada, buat customer baru dengan nama = nomor telepon
+            // 1. Customer baru
             if (!$customer) {
+                $hasOrderKw  = $this->hasOrderKeyword($message);
+                $hasInquiry  = $this->hasInquiryKeyword($message);
+
+                // Abaikan jika tidak ada keyword order maupun inquiry
+                if (!$hasOrderKw && !$hasInquiry) {
+                    Log::info('New number, no relevant keyword - ignored', ['phone' => $phone, 'message' => $message]);
+                    return response()->json(['status' => 'ok', 'message' => 'Ignored - no relevant keyword']);
+                }
+
+                // Tentukan pending_message:
+                // Jika pesan adalah order valid → simpan aslinya
+                // Jika inquiry / pertanyaan → tandai '__INQUIRY__'
+                $isValidOrder   = $hasOrderKw ? $this->validateOrderMessage($message) : ['is_valid' => false];
+                $pendingMessage = ($hasOrderKw && $isValidOrder['is_valid']) ? $message : '__INQUIRY__';
+
                 $customer = Customer::create([
-                    'name' => $phone,
-                    'phone' => $phone,
-                    'address' => null,
-                    'zone' => null,
+                    'name'               => $phone,
+                    'phone'              => $phone,
+                    'address'            => null,
+                    'zone'               => null,
+                    'conversation_state' => 'awaiting_name',
+                    'pending_message'    => $pendingMessage,
                 ]);
-                Log::info('New customer created', ['phone' => $phone]);
+
+                $this->fonnte->sendMessage(
+                    $phone,
+                    "Halo! Selamat datang di Pools Ice 🧊\n\nSebelum pesanan Anda diproses, boleh tahu nama toko Anda?"
+                );
+
+                Log::info('New customer created, awaiting name', ['phone' => $phone, 'pending' => $pendingMessage]);
+                return response()->json(['status' => 'ok', 'message' => 'Awaiting customer name']);
             }
 
-            // Buat order baru
-            $order = Order::create([
-                'customer_id' => $customer->id,
-                'ice_type_id' => $parsedOrder['ice_type_id'],
-                'quantity' => $parsedOrder['quantity'],
-                'phone' => $phone,
-                'items' => $message,
-                'status' => 'pending',
-                'raw_payload' => $request->all(),
-            ]);
+            // 2. Menunggu nama toko
+            if ($customer->conversation_state === 'awaiting_name') {
+                $name = trim($message);
+                $customer->update([
+                    'name'               => $name,
+                    'conversation_state' => 'awaiting_address',
+                ]);
 
-            Log::info('Order created', ['order_id' => $order->id, 'customer_id' => $customer->id]);
+                $this->fonnte->sendMessage(
+                    $phone,
+                    "Terima kasih, {$name}!\n\nSekarang, boleh tahu alamat toko Anda?"
+                );
 
-            return response()->json([
-                'status' => 'success', 
-                'message' => 'Order created',
-                'order_id' => $order->id,
-                'customer' => $customer->name
-            ]);
+                Log::info('Customer name saved', ['phone' => $phone, 'name' => $name]);
+                return response()->json(['status' => 'ok', 'message' => 'Awaiting customer address']);
+            }
+
+            // 3. Menunggu alamat toko
+            if ($customer->conversation_state === 'awaiting_address') {
+                $address        = trim($message);
+                $pendingMessage = $customer->pending_message;
+
+                Log::info('Customer address saved', ['phone' => $phone, 'address' => $address]);
+
+                // Jika pending_message adalah order yang valid → proses langsung
+                if ($pendingMessage && $pendingMessage !== '__INQUIRY__') {
+                    $customer->update([
+                        'address'            => $address,
+                        'conversation_state' => null,
+                        'pending_message'    => null,
+                    ]);
+                    return $this->processOrder($phone, $pendingMessage, $customer, $request);
+                }
+
+                // Inquiry / tidak ada order → tanya mau pesan apa
+                $customer->update([
+                    'address'            => $address,
+                    'conversation_state' => 'awaiting_order',
+                    'pending_message'    => null,
+                ]);
+
+                $this->fonnte->sendMessage(
+                    $phone,
+                    "Terima kasih, {$customer->name}! Data Anda sudah tersimpan 😊\n\nMau pesan apa ya kak?\n\nContoh: *20kg 2 pcs* atau *5kg 3 pcs*"
+                );
+
+                return response()->json(['status' => 'ok', 'message' => 'Awaiting order details']);
+            }
+
+            // 4. Menunggu detail pesanan (dari alur inquiry)
+            if ($customer->conversation_state === 'awaiting_order') {
+                $customer->update(['conversation_state' => null]);
+
+                Log::info('Processing order from inquiry flow', ['phone' => $phone, 'message' => $message]);
+                // Skip validasi keyword order - pelanggan sudah dalam konteks pemesanan
+                return $this->processOrder($phone, $message, $customer, $request, true);
+            }
+
+            // ----------------------------------------------------------------
+            // CUSTOMER SUDAH ADA - proses order langsung
+            // ----------------------------------------------------------------
+            return $this->processOrder($phone, $message, $customer, $request);
+
         } catch (\Exception $e) {
             Log::error('Webhook error: ' . $e->getMessage(), [
-                'trace' => $e->getTraceAsString(),
-                'payload' => $request->all()
+                'trace'   => $e->getTraceAsString(),
+                'payload' => $request->all(),
             ]);
             return response()->json([
-                'status' => 'error', 
-                'message' => $e->getMessage()
+                'status'  => 'error',
+                'message' => $e->getMessage(),
             ], 500);
         }
     }
 
-    /**
-     * Validasi pesan untuk memastikan ini adalah order yang valid
-     * Harus memiliki: 1) keyword order, 2) jenis es (5kg/20kg), 3) jumlah/pcs
-     */
+    private function processOrder(string $phone, string $message, Customer $customer, Request $request, bool $skipValidation = false)
+    {
+        if (!$skipValidation) {
+            $isValidOrder = $this->validateOrderMessage($message);
+
+            if (!$isValidOrder['is_valid']) {
+                Log::info('Message skipped - not a valid order', [
+                    'phone'   => $phone,
+                    'message' => $message,
+                    'reason'  => $isValidOrder['reason'],
+                ]);
+                return response()->json([
+                    'status'  => 'ok',
+                    'message' => 'Message received but not a valid order: ' . $isValidOrder['reason'],
+                ]);
+            }
+        }
+
+        $parsedOrder = $this->parseOrderMessage($message);
+
+        if (!$parsedOrder['ice_type_id'] || $parsedOrder['quantity'] < 1) {
+            Log::warning('Order parsing failed', [
+                'phone'        => $phone,
+                'message'      => $message,
+                'parsed_order' => $parsedOrder,
+                'skip_validation' => $skipValidation,
+            ]);
+
+            // Jika dari alur inquiry, beri tahu customer format yang benar
+            if ($skipValidation) {
+                // Set ulang state ke awaiting_order agar bisa coba lagi
+                $customer->update(['conversation_state' => 'awaiting_order']);
+
+                $this->fonnte->sendMessage(
+                    $phone,
+                    "Maaf kak, format pesanan belum dikenali 🙏\n\nSilakan kirim dengan format:\n*[jenis es] [jumlah] pcs*\n\nContoh:\n- *20kg 2 pcs*\n- *5kg 3 pcs*"
+                );
+
+                return response()->json([
+                    'status'  => 'error',
+                    'message' => 'Order format not recognized, asked customer to retry',
+                ]);
+            }
+
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Unable to parse order details from message',
+            ], 400);
+        }
+
+        $order = Order::create([
+            'customer_id' => $customer->id,
+            'ice_type_id' => $parsedOrder['ice_type_id'],
+            'quantity'    => $parsedOrder['quantity'],
+            'phone'       => $phone,
+            'items'       => $message,
+            'status'      => 'pending',
+            'raw_payload' => $request->all(),
+        ]);
+
+        Log::info('Order created', [
+            'order_id'    => $order->id,
+            'customer_id' => $customer->id,
+        ]);
+
+        return response()->json([
+            'status'   => 'success',
+            'message'  => 'Order created',
+            'order_id' => $order->id,
+            'customer' => $customer->name,
+        ]);
+    }
+
     private function validateOrderMessage($message)
     {
         $messageLower = strtolower($message);
-        
-        // 1. Cek keyword order
+
         $orderKeywords = ['pesan', 'order', 'kirim', 'memesan', 'beli', 'membeli', 'pesen'];
         $hasOrderKeyword = false;
-        
         foreach ($orderKeywords as $keyword) {
             if (str_contains($messageLower, $keyword)) {
                 $hasOrderKeyword = true;
                 break;
             }
         }
-        
         if (!$hasOrderKeyword) {
-            return [
-                'is_valid' => false,
-                'reason' => 'No order keywords found'
-            ];
+            return ['is_valid' => false, 'reason' => 'No order keywords found'];
         }
 
-        // 2. Cek jenis es (5kg, 20kg)
-        $iceTypePatterns = [
-            '/\b5\s?kg\b/i',
-            '/\b20\s?kg\b/i',
-            '/\b5\s?kilo\b/i',
-            '/\b20\s?kilo\b/i'
-        ];
-        
+        $iceTypePatterns = ['/\b5\s?kg\b/i', '/\b20\s?kg\b/i', '/\b5\s?kilo\b/i', '/\b20\s?kilo\b/i'];
         $hasIceType = false;
         foreach ($iceTypePatterns as $pattern) {
             if (preg_match($pattern, $message)) {
@@ -167,21 +263,18 @@ class WebhookController extends Controller
                 break;
             }
         }
-        
         if (!$hasIceType) {
-            return [
-                'is_valid' => false,
-                'reason' => 'No ice type (5kg/20kg) specified'
-            ];
+            return ['is_valid' => false, 'reason' => 'No ice type (5kg/20kg) specified'];
         }
 
-        // 3. Cek quantity/pcs
         $quantityPatterns = [
-            '/\d+\s*(?:pcs|pc|buah|biji|psc|pieces|lagi)/i', // "5 pcs", "10 pc", "3 buah", "2 lagi" dll
-            '/(?:pcs|pc|buah|biji|psc|pieces|lagi)\s*\d+/i', // "pcs 5", "pc 10", "lagi 2" dll  
-            '/\d+\s*(?:5kg|20kg|kilo)/i', // "3 5kg", "2 20kg"
+            '/\d+\s*(?:pcs|pc|buah|biji|psc|pieces|lagi)/i',
+            '/(?:pcs|pc|buah|biji|psc|pieces|lagi)\s*\d+/i',
+            '/\d+\s*(?:5kg|20kg|kilo)/i',
+            '/\bnya\s+(\d+)/i',                   // "5kg nya 5"
+            '/\bsebanyak\s+(\d+)/i',              // "sebanyak 5"
+            '/\b(\d+)\s*(?:ya|aja|saja)\b/i',    // "5 ya", "5 aja"
         ];
-        
         $hasQuantity = false;
         foreach ($quantityPatterns as $pattern) {
             if (preg_match($pattern, $message)) {
@@ -189,136 +282,99 @@ class WebhookController extends Controller
                 break;
             }
         }
-        
-        // Jika tidak ada pattern pcs/buah, cek apakah ada angka setelah/sebelum jenis es
         if (!$hasQuantity) {
-            // Pattern: "5kg 3", "20kg 5", "3 5kg", "5 20kg"
-            if (preg_match('/\d+\s*(?:kg|kilo)\s*\d+/i', $message) || 
+            if (preg_match('/\d+\s*(?:kg|kilo)\s*\d+/i', $message) ||
                 preg_match('/\d+\s*(?:5kg|20kg)/i', $message)) {
                 $hasQuantity = true;
             }
         }
-        
-        // Fallback: Cek apakah ada angka standalone yang bukan 5 atau 20 (kemungkinan quantity)
         if (!$hasQuantity) {
             preg_match_all('/\b(\d+)\b/', $message, $matches);
-            if (!empty($matches[1])) {
-                foreach ($matches[1] as $number) {
-                    $num = (int) $number;
-                    if ($num > 0 && $num <= 100 && $num != 5 && $num != 20) {
-                        $hasQuantity = true;
-                        break;
-                    }
+            foreach ($matches[1] ?? [] as $number) {
+                $num = (int) $number;
+                // Angka 5/20 dalam '5kg'/'20kg' tidak akan match \b\d+\b karena tidak ada
+                // word boundary - jadi aman untuk tidak mengecualikan 5 dan 20 lagi
+                if ($num > 0 && $num <= 100) {
+                    $hasQuantity = true;
+                    break;
                 }
             }
         }
-        
         if (!$hasQuantity) {
-            return [
-                'is_valid' => false,
-                'reason' => 'No quantity/pieces specified'
-            ];
+            return ['is_valid' => false, 'reason' => 'No quantity/pieces specified'];
         }
 
-        // Tambahan: Cek apakah ini pertanyaan (mengandung tanda tanya dan kata tanya)
         $questionWords = ['bagaimana', 'gimana', 'cara', 'how', 'what', 'apa', 'berapa'];
-        $isQuestion = str_contains($message, '?');
-        
-        if ($isQuestion) {
+        if (str_contains($message, '?')) {
             foreach ($questionWords as $qWord) {
                 if (str_contains($messageLower, $qWord)) {
-                    return [
-                        'is_valid' => false,
-                        'reason' => 'Detected as question, not an order'
-                    ];
+                    return ['is_valid' => false, 'reason' => 'Detected as question, not an order'];
                 }
             }
         }
 
-        return [
-            'is_valid' => true,
-            'reason' => 'Valid order message'
-        ];
+        return ['is_valid' => true, 'reason' => 'Valid order message'];
     }
 
     private function parseOrderMessage($message)
     {
-        $messageLower = strtolower($message);
-        
-        // Default values
-        $result = [
-            'ice_type_id' => null,
-            'quantity' => 0
-        ];
+        $result = ['ice_type_id' => null, 'quantity' => 0];
 
-        // Ambil semua ice types yang aktif
         $iceTypes = IceType::getActiveTypes();
-        
-        // 1. Cari jenis es (5kg atau 20kg)
         foreach ($iceTypes as $iceType) {
             $patterns = [
-                '/\b' . preg_quote($iceType->name, '/') . '\b/i', // exact match "5kg", "20kg"
-                '/\b' . preg_quote(str_replace('kg', '', $iceType->name), '/') . '\s?kg\b/i', // "5 kg", "20 kg"
-                '/\b' . preg_quote(str_replace('kg', '', $iceType->name), '/') . '\s?kilo\b/i', // "5 kilo", "20 kilo"
+                '/\b' . preg_quote($iceType->name, '/') . '\b/i',
+                '/\b' . preg_quote(str_replace('kg', '', $iceType->name), '/') . '\s?kg\b/i',
+                '/\b' . preg_quote(str_replace('kg', '', $iceType->name), '/') . '\s?kilo\b/i',
             ];
-            
             foreach ($patterns as $pattern) {
                 if (preg_match($pattern, $message)) {
                     $result['ice_type_id'] = $iceType->id;
-                    break 2; // break kedua loop
+                    break 2;
                 }
             }
         }
-        
-        // 2. Cari quantity dengan berbagai pattern
+
         $quantityPatterns = [
-            // Pattern: "5 pcs", "10 pc", "3 buah", "15 biji", "2 lagi"
-            '/(\d+)\s*(?:pcs|pc|buah|biji|psc|pieces|lagi)/i',
-            // Pattern: "pcs 5", "pc 10", "buah 3", "lagi 2"  
-            '/(?:pcs|pc|buah|biji|psc|pieces|lagi)\s*(\d+)/i',
-            // Pattern: "5kg 3", "20kg 5" (angka setelah jenis es)
+            // "3 pcs", "5 pc", "2 buah", "10 biji" - TANPA 'lagi' karena "pesen lagi 5kg" akan salah parse
+            '/(\d+)\s*(?:pcs|pc|buah|biji|psc|pieces)\b/i',
+            // "pcs 3", "pc 5", "buah 2"
+            '/(?:pcs|pc|buah|biji|psc|pieces)\s*(\d+)/i',
+            // "5kg 3", "20kg 5" (angka setelah jenis es)
             '/(?:5kg|20kg|5\s?kg|20\s?kg)\s*(\d+)/i',
-            // Pattern: "3 5kg", "5 20kg" (angka sebelum jenis es)
+            // "3 5kg", "5 20kg" (angka sebelum jenis es)
             '/(\d+)\s*(?:5kg|20kg|5\s?kg|20\s?kg)/i',
+            // "nya 3", "nya 5" - angka setelah kata "nya"
+            '/\bnya\s+(\d+)\b/i',
         ];
-        
         foreach ($quantityPatterns as $pattern) {
             if (preg_match($pattern, $message, $matches)) {
                 $quantity = (int) $matches[1];
-                if ($quantity > 0 && $quantity <= 100) { // Validasi range wajar
+                if ($quantity > 0 && $quantity <= 100) {
                     $result['quantity'] = $quantity;
                     break;
                 }
             }
         }
-        
-        // Fallback: jika belum dapat quantity, cari angka standalone yang masuk akal
+
         if ($result['quantity'] === 0) {
-            // Cari semua angka dalam pesan
             preg_match_all('/\b(\d+)\b/', $message, $matches);
-            if (!empty($matches[1])) {
-                foreach ($matches[1] as $number) {
-                    $num = (int) $number;
-                    // Skip angka yang kemungkinan bukan quantity (terlalu besar/kecil atau format tanggal/telepon)
-                    if ($num > 0 && $num <= 50 && $num != 5 && $num != 20) { // 5,20 kemungkinan dari "5kg", "20kg"
-                        $result['quantity'] = $num;
-                        break;
-                    }
+            foreach ($matches[1] ?? [] as $number) {
+                $num = (int) $number;
+                if ($num > 0 && $num <= 50 && $num != 5 && $num != 20) {
+                    $result['quantity'] = $num;
+                    break;
                 }
             }
         }
-        
-        // Jika masih belum dapat quantity, set default 1
+
         if ($result['quantity'] === 0) {
             $result['quantity'] = 1;
         }
 
-        // Log parsed result untuk debugging
         Log::info('Parsed order message', [
             'original_message' => $message,
-            'parsed_result' => $result,
-            'ice_type_found' => $result['ice_type_id'] ? 'yes' : 'no',
-            'quantity_found' => $result['quantity']
+            'parsed_result'    => $result,
         ]);
 
         return $result;
@@ -327,15 +383,45 @@ class WebhookController extends Controller
     private function cleanPhone($phone)
     {
         if (!$phone) return null;
-        
-        // Hapus karakter non-digit
+
         $phone = preg_replace('/[^0-9]/', '', $phone);
-        
-        // Normalisasi format Indonesia (hapus +62 atau 62 di depan, ganti dengan 0)
+
         if (substr($phone, 0, 2) === '62') {
             $phone = '0' . substr($phone, 2);
         }
-        
+
         return $phone;
+    }
+
+    private function hasOrderKeyword(string $message): bool
+    {
+        $messageLower = strtolower($message);
+        $keywords = ['pesan', 'order', 'kirim', 'memesan', 'beli', 'membeli', 'pesen'];
+
+        foreach ($keywords as $keyword) {
+            if (str_contains($messageLower, $keyword)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function hasInquiryKeyword(string $message): bool
+    {
+        $messageLower = strtolower($message);
+        $keywords = [
+            'bagaimana', 'gimana', 'cara', 'info', 'bisa pesen', 'mau pesen', 'ingin pesen',
+            'nanya', 'tanya', 'mau tau', 'mau tahu', 'boleh tau',
+            'boleh tahu', 'bisa pesan', 'ingin pesan', 'mau order',
+        ];
+
+        foreach ($keywords as $keyword) {
+            if (str_contains($messageLower, $keyword)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

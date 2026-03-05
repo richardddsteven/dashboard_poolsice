@@ -91,12 +91,7 @@ class FinanceController extends Controller
             ->join('ice_types', 'orders.ice_type_id', '=', 'ice_types.id')
             ->where('orders.status', 'approved');
 
-        if ($filterType === 'all') {
-            // Default: 7 hari terakhir
-            $dailySalesQuery->where('orders.created_at', '>=', now()->subDays(7));
-        } else {
-            $dailySalesQuery->when(true, $applyFilter);
-        }
+        $dailySalesQuery->when(true, $applyFilter);
 
         $dailySales = $dailySalesQuery
             ->groupBy('date')
@@ -113,7 +108,7 @@ class FinanceController extends Controller
                         ? \Carbon\Carbon::createFromDate($filterYear, $filterMonth, 1)->format('F Y')
                         : '—',
             'year'  => $filterYear ?? '—',
-            default => '7 Hari Terakhir',
+            default => 'Semua Data',
         };
 
         return view('finance.index', compact(
@@ -212,11 +207,7 @@ class FinanceController extends Controller
             ->join('ice_types', 'orders.ice_type_id', '=', 'ice_types.id')
             ->where('orders.status', 'approved');
 
-        if ($filterType === 'all') {
-            $dailySalesQuery->where('orders.created_at', '>=', now()->subDays(7));
-        } else {
-            $dailySalesQuery->when(true, $applyFilter);
-        }
+        $dailySalesQuery->when(true, $applyFilter);
 
         $dailySales = $dailySalesQuery
             ->groupBy('date')
@@ -232,7 +223,7 @@ class FinanceController extends Controller
                         ? \Carbon\Carbon::createFromDate($filterYear, $filterMonth, 1)->format('F Y')
                         : '—',
             'year'  => $filterYear ?? '—',
-            default => '7 Hari Terakhir',
+            default => 'Semua Data',
         };
 
         return view('finance.reports', compact(
