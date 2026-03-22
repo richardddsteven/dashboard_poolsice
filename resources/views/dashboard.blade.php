@@ -77,18 +77,27 @@
 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 24px; margin-bottom: 32px;">
     <!-- Ice Type Chart -->
     <div class="card">
-        <div class="card-header">
+        <div class="card-header" style="flex-wrap: wrap; gap: 10px;">
             <h3 class="card-title">Jenis Es Terlaris</h3>
+            <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                <button onclick="setIceFilter('all')"    id="ice-btn-all"    class="ice-filter-btn active">Semua</button>
+                <button onclick="setIceFilter('7d')"     id="ice-btn-7d"     class="ice-filter-btn">7 Hari</button>
+                <button onclick="setIceFilter('30d')"    id="ice-btn-30d"    class="ice-filter-btn">30 Hari</button>
+                <button onclick="setIceFilter('custom')" id="ice-btn-custom" class="ice-filter-btn">Kustom</button>
+            </div>
         </div>
-        <div style="height: 300px; position: relative;">
-            @if(isset($iceTypeStats) && $iceTypeStats->count() > 0)
-                <canvas id="iceTypeChart"></canvas>
-            @else
-                <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: var(--text-muted);">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="#E2E8F0" style="margin-bottom: 16px;"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/></svg>
-                    <p>Belum ada data pesanan</p>
-                </div>
-            @endif
+        <div id="ice-custom-range" style="display:none; padding: 8px 20px; gap: 8px; align-items: center; flex-wrap: wrap; border-bottom: 1px solid #e2e8f0;">
+            <input type="date" id="ice-start" style="padding: 5px 10px; font-size: 13px; border-radius: 6px; border: 1px solid #cbd5e1; font-family: inherit;">
+            <span style="color: var(--text-muted); font-size: 13px;">s/d</span>
+            <input type="date" id="ice-end" style="padding: 5px 10px; font-size: 13px; border-radius: 6px; border: 1px solid #cbd5e1; font-family: inherit;">
+            <button onclick="applyCustomIceFilter()" style="padding: 5px 14px; font-size: 13px; background: #3b82f6; color: white; border: none; border-radius: 6px; cursor: pointer; font-family: inherit;">Terapkan</button>
+        </div>
+        <div id="ice-chart-wrap" style="height: 300px; position: relative;">
+            <canvas id="iceTypeChart" style="display:none;"></canvas>
+            <div id="ice-empty" style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: var(--text-muted);">
+                <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="#E2E8F0" style="margin-bottom: 16px;"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/></svg>
+                <p>Belum ada data pesanan</p>
+            </div>
         </div>
     </div>
 
@@ -201,23 +210,47 @@
 
 @push('scripts')
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+.ice-filter-btn {
+    padding: 4px 12px;
+    font-size: 12px;
+    font-weight: 600;
+    border-radius: 20px;
+    border: 1px solid #cbd5e1;
+    background: transparent;
+    color: #64748b;
+    cursor: pointer;
+    transition: all .15s;
+    font-family: inherit;
+}
+.ice-filter-btn:hover { background: #f1f5f9; }
+.ice-filter-btn.active { background: #3b82f6; color: #fff; border-color: #3b82f6; }
+</style>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    @if(isset($iceTypeStats) && $iceTypeStats->count() > 0)
-    const ctx = document.getElementById('iceTypeChart');
-    if(ctx) {
-        const iceTypeData = {!! json_encode($iceTypeStats->values()) !!};
-        
-        new Chart(ctx.getContext('2d'), {
+    // ---- Ice Type Chart (with period filter, AJAX) ----
+    const ICE_COLORS = ['#3B82F6','#10B981','#F59E0B','#EF4444','#8B5CF6','#EC4899','#6366F1','#14B8A6'];
+    let iceChart = null;
+
+    function buildIceChart(data) {
+        const empty  = document.getElementById('ice-empty');
+        const canvas = document.getElementById('iceTypeChart');
+        if (!data || data.length === 0) {
+            if (iceChart) { iceChart.destroy(); iceChart = null; }
+            canvas.style.display = 'none';
+            empty.style.display  = 'flex';
+            return;
+        }
+        empty.style.display  = 'none';
+        canvas.style.display = 'block';
+        if (iceChart) { iceChart.destroy(); }
+        iceChart = new Chart(canvas.getContext('2d'), {
             type: 'doughnut',
             data: {
-                labels: iceTypeData.map(item => item.name),
+                labels: data.map(i => i.name),
                 datasets: [{
-                    data: iceTypeData.map(item => item.total),
-                    backgroundColor: [
-                        '#3B82F6', '#10B981', '#F59E0B', '#EF4444', 
-                        '#8B5CF6', '#EC4899', '#6366F1', '#14B8A6'
-                    ],
+                    data: data.map(i => i.total),
+                    backgroundColor: ICE_COLORS,
                     borderWidth: 0,
                     hoverOffset: 4
                 }]
@@ -229,20 +262,44 @@ document.addEventListener('DOMContentLoaded', function() {
                 plugins: {
                     legend: {
                         position: 'right',
-                        labels: {
-                            usePointStyle: true,
-                            boxWidth: 8,
-                            padding: 20,
-                            font: { family: "'Plus Jakarta Sans', sans-serif", size: 12 }
-                        }
+                        labels: { usePointStyle: true, boxWidth: 8, padding: 20,
+                            font: { family: "'Plus Jakarta Sans', sans-serif", size: 12 } }
                     }
                 }
             }
         });
     }
-    @endif
 
-    @if(($totalOrders ?? 0) > 0)
+    function fetchIceStats(params) {
+        const url = new URL('/dashboard/ice-type-stats', window.location.origin);
+        Object.keys(params).forEach(k => url.searchParams.set(k, params[k]));
+        fetch(url).then(r => r.json()).then(data => buildIceChart(data)).catch(e => console.error('Ice type fetch error:', e));
+    }
+
+    window.setIceFilter = function(period) {
+        document.querySelectorAll('.ice-filter-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById('ice-btn-' + period).classList.add('active');
+        const customRange = document.getElementById('ice-custom-range');
+        if (period === 'custom') {
+            customRange.style.display = 'flex';
+            return; // wait for Terapkan
+        }
+        customRange.style.display = 'none';
+        fetchIceStats({ period });
+    };
+
+    window.applyCustomIceFilter = function() {
+        const start = document.getElementById('ice-start').value;
+        const end   = document.getElementById('ice-end').value;
+        if (!start || !end) { alert('Pilih tanggal mulai dan akhir.'); return; }
+        fetchIceStats({ period: 'custom', start, end });
+    };
+
+    // Initial render using server-side data
+    const initialIceData = {!! json_encode(isset($iceTypeStats) ? $iceTypeStats->values() : collect()) !!};
+    buildIceChart(initialIceData);
+
+    // ---- Order Status Chart ----
     const statusCtx = document.getElementById('orderStatusChart');
     if(statusCtx) {
         const approved = {{ $approvedOrders ?? 0 }};
@@ -301,7 +358,6 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
-    @endif
 });
 </script>
 @endpush

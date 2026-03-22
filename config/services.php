@@ -39,4 +39,11 @@ return [
         'token' => env('FONNTE_TOKEN'),
     ],
 
+    'zone_geocoding' => [
+        'enabled' => env('ZONE_GEOCODING_ENABLED', true),
+        'endpoint' => env('ZONE_GEOCODING_ENDPOINT', 'https://nominatim.openstreetmap.org/search'),
+        'email' => env('ZONE_GEOCODING_EMAIL'),
+        'timeout' => env('ZONE_GEOCODING_TIMEOUT', 8),
+    ],
+
 ];

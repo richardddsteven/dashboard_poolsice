@@ -52,17 +52,19 @@ class OrderController extends Controller
         ));
     }
 
-    public function approve(Order $order)
+    public function update(Request $request, Order $order)
     {
-        $order->update(['status' => 'approved']);
-        return redirect()->route('orders.index')
-            ->with('success', 'Order berhasil di-approve.');
-    }
+        $validated = $request->validate([
+            'status' => 'required|in:approved,rejected',
+        ]);
 
-    public function reject(Order $order)
-    {
-        $order->update(['status' => 'rejected']);
+        $order->update(['status' => $validated['status']]);
+
+        $message = $validated['status'] === 'approved'
+            ? 'Order berhasil di-approve.'
+            : 'Order berhasil di-reject.';
+
         return redirect()->route('orders.index')
-            ->with('success', 'Order berhasil di-reject.');
+            ->with('success', $message);
     }
 }

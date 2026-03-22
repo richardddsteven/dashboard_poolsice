@@ -26,6 +26,7 @@ Route::middleware('guest')->group(function () {
 // Protected routes (require authentication)
 Route::middleware('auth')->group(function () {
     Route::get('dashboard', [DashboardController::class, 'index'])->name('dashboard');
+    Route::get('dashboard/ice-type-stats', [DashboardController::class, 'iceTypeStats'])->name('dashboard.ice-type-stats');
 
     // Zone routes
     Route::resource('zones', ZoneController::class)->only(['create', 'store']);
@@ -34,9 +35,7 @@ Route::middleware('auth')->group(function () {
     Route::resource('customers', CustomerController::class);
     
     // Order routes
-    Route::get('orders', [OrderController::class, 'index'])->name('orders.index');
-    Route::post('orders/{order}/approve', [OrderController::class, 'approve'])->name('orders.approve');
-    Route::post('orders/{order}/reject', [OrderController::class, 'reject'])->name('orders.reject');
+    Route::resource('orders', OrderController::class)->only(['index', 'update']);
     
     // Finance routes
     Route::get('finance', [FinanceController::class, 'index'])->name('finance.index');

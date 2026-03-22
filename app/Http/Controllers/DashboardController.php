@@ -79,4 +79,37 @@ class DashboardController extends Controller
         ];
         return $colors[array_rand($colors)];
     }
+
+    public function iceTypeStats(Request $request)
+    {
+        $period = $request->input('period', 'all'); // all | 7d | 30d | custom
+        $start  = $request->input('start');
+        $end    = $request->input('end');
+
+        $query = Order::select('ice_type_id', DB::raw('count(*) as total'))
+            ->with('iceType')
+            ->where('status', 'approved')
+            ->whereNotNull('ice_type_id');
+
+        if ($period === '7d') {
+            $query->where('created_at', '>=', now()->subDays(7)->startOfDay());
+        } elseif ($period === '30d') {
+            $query->where('created_at', '>=', now()->subDays(30)->startOfDay());
+        } elseif ($period === 'custom' && $start && $end) {
+            $query->whereDate('created_at', '>=', $start)
+                  ->whereDate('created_at', '<=', $end);
+        }
+
+        $stats = $query->groupBy('ice_type_id')
+            ->orderBy('total', 'desc')
+            ->get()
+            ->map(function ($stat) {
+                return [
+                    'name'  => $stat->iceType ? $stat->iceType->name : 'Es Batu',
+                    'total' => $stat->total,
+                ];
+            });
+
+        return response()->json($stats->values());
+    }
 }

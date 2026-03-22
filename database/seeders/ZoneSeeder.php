@@ -11,8 +11,10 @@ class ZoneSeeder extends Seeder
     {
         DB::table('zones')->insert([
             ['name' => 'Canggu'],
-            ['name' => 'Jimbaran 1'],
-            ['name' => 'Jimbaran 2'],
+            ['name' => 'Jimbaran'],
+            ['name' => 'Uluwatu'],
+            ['name'=> 'Tabanan'],
+            ['name' => 'Denpasar'],
         ]);
     }
 }

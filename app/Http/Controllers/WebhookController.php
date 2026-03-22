@@ -3,8 +3,11 @@ namespace App\Http\Controllers;
 use App\Models\Customer;
 use App\Models\Order;
 use App\Models\IceType;
+use App\Models\Zone;
 use App\Services\FonnteService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 class WebhookController extends Controller
@@ -112,13 +115,19 @@ class WebhookController extends Controller
             if ($customer->conversation_state === 'awaiting_address') {
                 $address        = trim($message);
                 $pendingMessage = $customer->pending_message;
+                $detectedZone   = $this->detectZoneFromAddress($address);
 
-                Log::info('Customer address saved', ['phone' => $phone, 'address' => $address]);
+                Log::info('Customer address saved', [
+                    'phone'   => $phone,
+                    'address' => $address,
+                    'zone'    => $detectedZone,
+                ]);
 
                 // Jika pending_message adalah order yang valid → proses langsung
                 if ($pendingMessage && $pendingMessage !== '__INQUIRY__') {
                     $customer->update([
                         'address'            => $address,
+                        'zone'               => $detectedZone,
                         'conversation_state' => null,
                         'pending_message'    => null,
                     ]);
@@ -128,6 +137,7 @@ class WebhookController extends Controller
                 // Inquiry / tidak ada order → tanya mau pesan apa
                 $customer->update([
                     'address'            => $address,
+                    'zone'               => $detectedZone,
                     'conversation_state' => 'awaiting_order',
                     'pending_message'    => null,
                 ]);
@@ -423,5 +433,168 @@ class WebhookController extends Controller
         }
 
         return false;
+    }
+
+    private function detectZoneFromAddress(string $address): ?string
+    {
+        $zones = Zone::query()->pluck('name');
+
+        if ($zones->isEmpty()) {
+            return null;
+        }
+
+        $zoneNameMap = $zones->mapWithKeys(function ($name) {
+            return [strtolower($name) => $name];
+        });
+
+        $normalizedAddress = $this->normalizeText($address);
+        $apiAddressContext = $this->getAddressContextFromApi($address);
+        $searchHaystack = $normalizedAddress . $apiAddressContext;
+
+        // Prioritas 1: cocokkan langsung nama zona yang ada di database.
+        foreach ($zoneNameMap as $zoneLower => $zoneName) {
+            if (str_contains($searchHaystack, $this->normalizeText($zoneLower))) {
+                return $zoneName;
+            }
+        }
+
+        // Prioritas 2: cocokkan keyword area umum per zona.
+        $zoneAliases = [
+            'canggu' => ['canggu', 'berawa', 'batu bolong', 'batubolong', 'pererenan', 'padonan', 'babakan'],
+            'jimbaran' => ['jimbaran', 'kuta selatan', 'kedonganan', 'balangan', 'ungasan'],
+            'uluwatu' => ['uluwatu', 'pecatu', 'padang padang', 'bingin', 'suluban'],
+            'tabanan' => ['tabanan', 'kediri', 'marga', 'kerambitan', 'selemadeg'],
+            'denpasar' => ['denpasar', 'renon', 'sanur', 'teuku umar', 'imam bonjol'],
+        ];
+
+        foreach ($zoneAliases as $zoneLower => $aliases) {
+            if (!$zoneNameMap->has($zoneLower)) {
+                continue;
+            }
+
+            foreach ($aliases as $alias) {
+                if (str_contains($searchHaystack, $this->normalizeText($alias))) {
+                    return $zoneNameMap->get($zoneLower);
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private function normalizeText(string $text): string
+    {
+        $normalized = strtolower($text);
+        $normalized = preg_replace('/[^a-z0-9]+/', '', $normalized);
+
+        return $normalized ?? '';
+    }
+
+    private function getAddressContextFromApi(string $address): string
+    {
+        if (!config('services.zone_geocoding.enabled', true)) {
+            return '';
+        }
+
+        $cacheKey = 'zone-geocoding:' . md5(strtolower(trim($address)));
+
+        return Cache::remember($cacheKey, now()->addDays(14), function () use ($address) {
+            $endpoint = config('services.zone_geocoding.endpoint', 'https://nominatim.openstreetmap.org/search');
+            $timeout = (int) config('services.zone_geocoding.timeout', 8);
+            $email = trim((string) config('services.zone_geocoding.email', ''));
+
+            $queries = $this->buildGeocodingQueries($address);
+
+            try {
+                foreach ($queries as $q) {
+                    $payload = [
+                        'q' => $q,
+                        'format' => 'jsonv2',
+                        'addressdetails' => 1,
+                        'limit' => 1,
+                        'countrycodes' => 'id',
+                        'accept-language' => 'id',
+                    ];
+
+                    if ($email !== '') {
+                        $payload['email'] = $email;
+                    }
+
+                    $response = Http::timeout($timeout)
+                        ->retry(1, 200)
+                        ->withHeaders([
+                            'User-Agent' => config('app.name', 'Laravel') . '/1.0 (zone-detection)',
+                        ])
+                        ->acceptJson()
+                        ->get($endpoint, $payload);
+
+                    if (!$response->ok()) {
+                        continue;
+                    }
+
+                    $data = $response->json();
+                    if (!is_array($data) || empty($data[0]) || !is_array($data[0])) {
+                        continue;
+                    }
+
+                    $first = $data[0];
+                    $parts = [];
+
+                    if (!empty($first['display_name'])) {
+                        $parts[] = $first['display_name'];
+                    }
+
+                    $addr = $first['address'] ?? [];
+                    if (is_array($addr)) {
+                        foreach (['road', 'suburb', 'village', 'city_district', 'city', 'county', 'state'] as $field) {
+                            if (!empty($addr[$field])) {
+                                $parts[] = $addr[$field];
+                            }
+                        }
+                    }
+
+                    return $this->normalizeText(implode(' ', array_unique($parts)));
+                }
+
+                Log::info('Zone geocoding returned empty results', [
+                    'address' => $address,
+                ]);
+
+                return '';
+            } catch (\Throwable $e) {
+                Log::warning('Zone geocoding API failed', [
+                    'address' => $address,
+                    'error' => $e->getMessage(),
+                ]);
+
+                return '';
+            }
+        });
+    }
+
+    private function buildGeocodingQueries(string $address): array
+    {
+        $cleaned = $this->simplifyAddressForGeocoding($address);
+
+        return array_values(array_unique([
+            trim($address . ', Bali, Indonesia'),
+            trim($cleaned . ', Bali, Indonesia'),
+            trim($cleaned . ', Denpasar, Bali, Indonesia'),
+            trim($cleaned),
+        ]));
+    }
+
+    private function simplifyAddressForGeocoding(string $address): string
+    {
+        $text = strtolower($address);
+
+        // Samakan penulisan jalan agar mudah dikenali geocoder.
+        $text = preg_replace('/\b(jln|jl\.|jl)\b/i', 'jalan', $text);
+
+        // Buang nomor rumah/blok agar pencarian lokasi lebih umum.
+        $text = preg_replace('/\b(no|nomor|no\.)\s*\d+[a-zA-Z0-9\/-]*\b/i', '', $text);
+        $text = preg_replace('/\s+/', ' ', $text);
+
+        return trim($text);
     }
 }
