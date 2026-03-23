@@ -32,6 +32,7 @@ class DashboardController extends Controller
         
         // Get pending orders count for sidebar badge
         $pendingOrdersCount = Order::where('status', 'pending')->count();
+        $latestOrderId = Order::max('id') ?? 0;
         
         // Get ice type statistics for pie chart (only approved orders)
         $iceTypeStats = Order::select('ice_type_id', DB::raw('count(*) as total'))
@@ -67,7 +68,8 @@ class DashboardController extends Controller
             'recentOrders',
             'topCustomers',
             'pendingOrdersCount',
-            'iceTypeStats'
+            'iceTypeStats',
+            'latestOrderId'
         ));
     }
     

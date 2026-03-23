@@ -18,6 +18,6 @@ class ZoneController extends Controller
             'name' => 'required|string|max:255|unique:zones,name',
         ]);
         Zone::create($validated);
-        return redirect()->route('customers.index')->with('success', 'Zone created successfully!');
+        return redirect()->route('customers.index')->with('success', 'Zone berhasil ditambahkan!');
     }
 }

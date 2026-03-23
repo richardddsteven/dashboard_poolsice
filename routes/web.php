@@ -8,6 +8,7 @@ use App\Http\Controllers\WebhookController;
 use App\Http\Controllers\ZoneController;
 use App\Http\Controllers\FinanceController;
 use App\Http\Controllers\ExpenseController;
+use App\Http\Controllers\DriverController;
 use Illuminate\Support\Facades\Route;
 
 
@@ -33,9 +34,18 @@ Route::middleware('auth')->group(function () {
     
     // Customer routes
     Route::resource('customers', CustomerController::class);
+
+    // Driver routes
+    Route::resource('drivers', DriverController::class);
     
     // Order routes
     Route::resource('orders', OrderController::class)->only(['index', 'update']);
+    Route::get('orders/realtime/status', [OrderController::class, 'realtimeStatus'])
+        ->middleware('auth:sanctum')
+        ->name('orders.realtime.status');
+    Route::get('orders/realtime/table', [OrderController::class, 'tableData'])
+        ->middleware('auth:sanctum')
+        ->name('orders.realtime.table');
     
     // Finance routes
     Route::get('finance', [FinanceController::class, 'index'])->name('finance.index');

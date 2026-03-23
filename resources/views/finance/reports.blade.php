@@ -34,13 +34,22 @@
         <form method="GET" action="{{ route('finance.reports') }}" id="filterForm" class="filter-container" style="display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end;">
             <div style="flex: 1; min-width: 200px;">
                 <label style="display:block; font-size:12px; font-weight:700; color:var(--text-muted); margin-bottom:8px;">Periode</label>
-                <select name="filter_type" id="filter_type" onchange="updateFilterFields()" class="form-select" style="width: 100%;">
-                    <option value="all"   {{ $filterType === 'all'   ? 'selected' : '' }}>Semua</option>
-                    <option value="date"  {{ $filterType === 'date'  ? 'selected' : '' }}>Tanggal Spesifik</option>
-                    <option value="range" {{ $filterType === 'range' ? 'selected' : '' }}>Rentang Tanggal</option>
-                    <option value="month" {{ $filterType === 'month' ? 'selected' : '' }}>Bulanan</option>
-                    <option value="year"  {{ $filterType === 'year'  ? 'selected' : '' }}>Tahunan</option>
-                </select>
+                <div class="custom-select-wrapper" id="financeFilterSelectWrapper" style="width: 100%;">
+                    <div class="custom-select-trigger" onclick="toggleFinanceFilterSelect()">
+                        <span id="financeFilterSelectText" class="text-placeholder">
+                            {{ $filterType === 'date' ? 'Tanggal Spesifik' : ($filterType === 'range' ? 'Rentang Tanggal' : ($filterType === 'month' ? 'Bulanan' : ($filterType === 'year' ? 'Tahunan' : 'Semua'))) }}
+                        </span>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="select-icon"><path d="M6 9l6 6 6-6"/></svg>
+                    </div>
+                    <div class="custom-options">
+                        <div class="custom-option {{ $filterType === 'all' ? 'selected' : '' }}" data-value="all" onclick="selectFinanceFilterOption(this)">Semua</div>
+                        <div class="custom-option {{ $filterType === 'date' ? 'selected' : '' }}" data-value="date" onclick="selectFinanceFilterOption(this)">Tanggal Spesifik</div>
+                        <div class="custom-option {{ $filterType === 'range' ? 'selected' : '' }}" data-value="range" onclick="selectFinanceFilterOption(this)">Rentang Tanggal</div>
+                        <div class="custom-option {{ $filterType === 'month' ? 'selected' : '' }}" data-value="month" onclick="selectFinanceFilterOption(this)">Bulanan</div>
+                        <div class="custom-option {{ $filterType === 'year' ? 'selected' : '' }}" data-value="year" onclick="selectFinanceFilterOption(this)">Tahunan</div>
+                    </div>
+                    <input type="hidden" name="filter_type" id="filter_type" value="{{ $filterType }}">
+                </div>
             </div>
 
             <div id="field_date" style="display:none; flex: 1; min-width: 200px;">
@@ -59,22 +68,39 @@
 
             <div id="field_month" style="display:none; flex: 1; min-width: 200px;">
                 <label style="display:block; font-size:12px; font-weight:700; color:var(--text-muted); margin-bottom:8px;">Bulan</label>
-                <select name="filter_month" class="form-select" style="width: 100%;">
-                    @foreach(range(1,12) as $m)
-                    <option value="{{ $m }}" {{ ($filterMonth ?? '') == $m ? 'selected' : '' }}>
-                        {{ \Carbon\Carbon::createFromDate(null, $m, 1)->format('F') }}
-                    </option>
-                    @endforeach
-                </select>
+                <div class="custom-select-wrapper" id="monthFilterSelectWrapper" style="width: 100%;">
+                    <div class="custom-select-trigger" onclick="toggleMonthFilterSelect()">
+                        <span id="monthFilterSelectText" class="text-placeholder">{{ \Carbon\Carbon::createFromDate(null, $filterMonth, 1)->format('F') }}</span>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="select-icon"><path d="M6 9l6 6 6-6"/></svg>
+                    </div>
+                    <div class="custom-options">
+                        @foreach(range(1,12) as $m)
+                            @php $mName = \Carbon\Carbon::createFromDate(null, $m, 1)->format('F') @endphp
+                            <div class="custom-option {{ ($filterMonth ?? '') == $m ? 'selected' : '' }}" data-value="{{ $m }}" onclick="selectMonthFilterOption(this)">
+                                {{ $mName }}
+                            </div>
+                        @endforeach
+                    </div>
+                    <input type="hidden" name="filter_month" id="filter_month" value="{{ $filterMonth }}">
+                </div>
             </div>
 
             <div id="field_year" style="display:none; flex: 1; min-width: 200px;">
                 <label style="display:block; font-size:12px; font-weight:700; color:var(--text-muted); margin-bottom:8px;">Tahun</label>
-                <select name="filter_year" class="form-select" style="width: 100%;">
-                    @foreach(range(date('Y'), date('Y') - 4) as $y)
-                    <option value="{{ $y }}" {{ ($filterYear ?? '') == $y ? 'selected' : '' }}>{{ $y }}</option>
-                    @endforeach
-                </select>
+                <div class="custom-select-wrapper" id="yearFilterSelectWrapper" style="width: 100%;">
+                    <div class="custom-select-trigger" onclick="toggleYearFilterSelect()">
+                        <span id="yearFilterSelectText" class="text-placeholder">{{ $filterYear ?? date('Y') }}</span>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="select-icon"><path d="M6 9l6 6 6-6"/></svg>
+                    </div>
+                    <div class="custom-options">
+                        @foreach(range(date('Y') + 1, date('Y') - 4) as $y)
+                            <div class="custom-option {{ ($filterYear ?? '') == $y ? 'selected' : '' }}" data-value="{{ $y }}" onclick="selectYearFilterOption(this)">
+                                {{ $y }}
+                            </div>
+                        @endforeach
+                    </div>
+                    <input type="hidden" name="filter_year" id="filter_year" value="{{ $filterYear }}">
+                </div>
             </div>
 
             <div style="display: flex; gap: 8px;">
@@ -343,8 +369,150 @@
     margin: 4px 0;
     font-size: 14px;
 }
+
+/* Custom Select Dropdown CSS */
+.custom-select-wrapper {
+    position: relative;
+    width: 100%;
+    user-select: none;
+}
+.custom-select-trigger {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 16px;
+    background: #fff;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    color: #334155;
+    transition: all 0.2s ease;
+}
+.custom-select-wrapper.open .custom-select-trigger {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59,130,246,0.1);
+}
+.custom-select-wrapper.open .select-icon {
+    transform: rotate(180deg);
+}
+.select-icon {
+    transition: transform 0.3s ease;
+}
+.text-placeholder {
+    color: #94a3b8;
+}
+.custom-options {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    margin-top: 8px;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transform: translateY(-10px);
+    transition: all 0.2s ease;
+    z-index: 1050;
+    max-height: 250px;
+    overflow-y: auto;
+}
+.custom-select-wrapper.open .custom-options {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: all;
+    transform: translateY(0);
+}
+.custom-option {
+    padding: 10px 16px;
+    font-size: 14px;
+    color: #475569;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+.custom-option:hover {
+    background: #f8fafc;
+    color: #1e293b;
+}
+.custom-option.selected {
+    background: #eff6ff;
+    color: #2563eb;
+    font-weight: 500;
+}
 </style>
 <script>
+    function toggleFinanceFilterSelect() {
+        document.getElementById('financeFilterSelectWrapper').classList.toggle('open');
+    }
+    
+    function toggleMonthFilterSelect() {
+        document.getElementById('monthFilterSelectWrapper').classList.toggle('open');
+    }
+    
+    function toggleYearFilterSelect() {
+        document.getElementById('yearFilterSelectWrapper').classList.toggle('open');
+    }
+
+    function selectFinanceFilterOption(element) {
+        const value = element.getAttribute('data-value');
+        const text = element.textContent.trim();
+        
+        document.getElementById('filter_type').value = value;
+        const textElement = document.getElementById('financeFilterSelectText');
+        textElement.textContent = text;
+        textElement.classList.remove('text-placeholder');
+        
+        const options = document.querySelectorAll('#financeFilterSelectWrapper .custom-option');
+        options.forEach(opt => opt.classList.remove('selected'));
+        element.classList.add('selected');
+        
+        document.getElementById('financeFilterSelectWrapper').classList.remove('open');
+        updateFilterFields();
+    }
+    
+    function selectMonthFilterOption(element) {
+        const value = element.getAttribute('data-value');
+        const text = element.textContent.trim();
+        
+        document.getElementById('filter_month').value = value;
+        document.getElementById('monthFilterSelectText').textContent = text;
+        
+        const options = document.querySelectorAll('#monthFilterSelectWrapper .custom-option');
+        options.forEach(opt => opt.classList.remove('selected'));
+        element.classList.add('selected');
+        
+        document.getElementById('monthFilterSelectWrapper').classList.remove('open');
+    }
+
+    function selectYearFilterOption(element) {
+        const value = element.getAttribute('data-value');
+        const text = element.textContent.trim();
+        
+        document.getElementById('filter_year').value = value;
+        document.getElementById('yearFilterSelectText').textContent = text;
+        
+        const options = document.querySelectorAll('#yearFilterSelectWrapper .custom-option');
+        options.forEach(opt => opt.classList.remove('selected'));
+        element.classList.add('selected');
+        
+        document.getElementById('yearFilterSelectWrapper').classList.remove('open');
+    }
+
+    document.addEventListener('click', function(e) {
+        const typeWrapper = document.getElementById('financeFilterSelectWrapper');
+        if (typeWrapper && !typeWrapper.contains(e.target)) { typeWrapper.classList.remove('open'); }
+        
+        const monthWrapper = document.getElementById('monthFilterSelectWrapper');
+        if (monthWrapper && !monthWrapper.contains(e.target)) { monthWrapper.classList.remove('open'); }
+        
+        const yearWrapper = document.getElementById('yearFilterSelectWrapper');
+        if (yearWrapper && !yearWrapper.contains(e.target)) { yearWrapper.classList.remove('open'); }
+    });
+
 function updateFilterFields() {
     const type = document.getElementById('filter_type').value;
     document.getElementById('field_date').style.display  = (type === 'date')  ? 'block' : 'none';

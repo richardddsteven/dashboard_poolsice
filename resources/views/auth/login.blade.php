@@ -122,7 +122,7 @@
             <div class="logo-section" style="margin-bottom: 0;">
                 <span style="font-size:22px;font-weight:700;color:#222;margin-bottom:18px;display:block;">Pools Ice</span>
             </div>
-            <div class="login-title">Welcome back</div>
+            <div class="login-title">Selamat Datang</div>
             @if(session('error'))
                 <div class="alert alert-danger">{{ session('error') }}</div>
             @endif

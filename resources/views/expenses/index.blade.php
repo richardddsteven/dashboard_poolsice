@@ -1,6 +1,6 @@
 @extends('layouts.dashboard')
 
-@section('title', 'Pengeluaran')
+@section('title')
 
 @section('content')
 <div class="page-header">
@@ -16,12 +16,6 @@
     </a>
 </div>
 
-@if(session('success'))
-<div class="alert alert-success" style="background-color: #d1fae5; color: #065f46; padding: 12px 16px; border-radius: 8px; margin-bottom: 24px; border: 1px solid #a7f3d0;">
-    {{ session('success') }}
-</div>
-@endif
-
 <div class="card">
     <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
         <h3 class="card-title">Daftar Pengeluaran</h3>
@@ -35,15 +29,22 @@
                 <input type="text" name="search" value="{{ request('search') }}" placeholder="Cari nama atau catatan..." class="form-control" style="padding-left: 36px; width: 250px;">
             </div>
             
-            <div>
-                <select name="category" class="form-select" style="min-width: 180px;">
-                    <option value="">Semua Kategori</option>
-                    @foreach($categories as $category)
-                        <option value="{{ $category->id }}" {{ request('category') == $category->id ? 'selected' : '' }}>
-                            {{ $category->name }}
-                        </option>
-                    @endforeach
-                </select>
+            <div style="min-width: 180px;">
+                <div class="custom-select-wrapper" id="categorySelectWrapper">
+                    <div class="custom-select-trigger" onclick="toggleCategorySelect()">
+                        <span id="categorySelectText" class="text-placeholder">Semua Kategori</span>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="select-icon"><path d="M6 9l6 6 6-6"/></svg>
+                    </div>
+                    <div class="custom-options">
+                        <div class="custom-option {{ request('category') == '' ? 'selected' : '' }}" data-value="" onclick="selectCategoryOption(this)">Semua Kategori</div>
+                        @foreach($categories as $category)
+                            <div class="custom-option {{ request('category') == $category->id ? 'selected' : '' }}" data-value="{{ $category->id }}" onclick="selectCategoryOption(this)">
+                                {{ $category->name }}
+                            </div>
+                        @endforeach
+                    </div>
+                    <input type="hidden" name="category" id="categoryInput" value="{{ request('category') }}">
+                </div>
             </div>
             
             <button type="submit" class="btn btn-primary">Cari</button>
@@ -88,12 +89,16 @@
                             <td style="font-weight: 600;">Rp {{ number_format($expense->amount, 0, ',', '.') }}</td>
                             <td style="color: var(--text-muted); font-size: 13px;">{{ $expense->notes ?: '-' }}</td>
                             <td style="text-align: right;">
-                                <div style="display: flex; justify-content: flex-end; gap: 8px;">
-                                    <a href="{{ route('expenses.edit', $expense) }}" class="btn btn-secondary" style="padding: 6px 12px; font-size: 13px;">Edit</a>
-                                    <form action="{{ route('expenses.destroy', $expense) }}" method="POST" onsubmit="return confirm('Apakah Anda yakin ingin menghapus pengeluaran ini?');" style="display: inline;">
+                                <div style="display: flex; justify-content: flex-end; gap: 6px;">
+                                    <a href="{{ route('expenses.edit', $expense) }}" class="btn btn-secondary" style="padding: 6px; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;" title="Edit">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+                                    </a>
+                                    <form action="{{ route('expenses.destroy', $expense) }}" method="POST" onsubmit="event.preventDefault(); showDeleteModal(this);" style="display: inline;">
                                         @csrf
                                         @method('DELETE')
-                                        <button type="submit" class="btn btn-secondary" style="padding: 6px 12px; font-size: 13px; color: #ef4444; border-color: #fca5a5; background-color: #fef2f2;">Hapus</button>
+                                        <button type="submit" class="btn btn-danger" style="padding: 6px; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;" title="Hapus">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="white"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+                                        </button>
                                     </form>
                                 </div>
                             </td>
@@ -105,4 +110,239 @@
         @endif
     </div>
 </div>
+
+<!-- Delete Confirmation Modal -->
+<div id="deleteConfirmModal" class="custom-modal-overlay" style="display: none;">
+    <div class="custom-modal-content">
+        <div class="modal-icon warning-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 6h18"></path>
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                <line x1="10" y1="11" x2="10" y2="17"></line>
+                <line x1="14" y1="11" x2="14" y2="17"></line>
+            </svg>
+        </div>
+        <h3 class="modal-title">Hapus Pengeluaran</h3>
+        <p class="modal-text">Apakah Anda yakin ingin menghapus data pengeluaran ini? Tindakan ini tidak dapat dibatalkan.</p>
+        <div class="modal-actions">
+            <button type="button" class="btn btn-secondary" onclick="closeDeleteModal()">Batal</button>
+            <button type="button" class="btn" style="background: #ef4444; color: white; border: none; padding: 10px 20px; font-weight: 500;" onclick="confirmDelete()">Ya, Hapus</button>
+        </div>
+    </div>
+</div>
+
+<style>
+.custom-modal-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+.custom-modal-overlay.show {
+    opacity: 1;
+}
+.custom-modal-content {
+    background: white;
+    border-radius: 16px;
+    padding: 32px;
+    width: 100%;
+    max-width: 400px;
+    text-align: center;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    transform: scale(0.95) translateY(10px);
+    transition: all 0.3s ease;
+}
+.custom-modal-overlay.show .custom-modal-content {
+    transform: scale(1) translateY(0);
+}
+.modal-icon {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 16px;
+}
+.warning-icon {
+    background: #fef2f2;
+    color: #ef4444;
+}
+.modal-title {
+    font-size: 20px;
+    font-weight: 600;
+    color: #1e293b;
+    margin-bottom: 8px;
+}
+.modal-text {
+    font-size: 14px;
+    color: #64748b;
+    margin-bottom: 24px;
+    line-height: 1.5;
+}
+.modal-actions {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+}
+.modal-actions .btn-secondary {
+    padding: 10px 20px;
+    font-weight: 500;
+}
+
+/* Custom Select Dropdown CSS */
+.custom-select-wrapper {
+    position: relative;
+    width: 100%;
+    user-select: none;
+}
+.custom-select-trigger {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 16px;
+    background: #fff;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    color: #334155;
+    transition: all 0.2s ease;
+}
+.custom-select-wrapper.open .custom-select-trigger {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59,130,246,0.1);
+}
+.custom-select-wrapper.open .select-icon {
+    transform: rotate(180deg);
+}
+.select-icon {
+    transition: transform 0.3s ease;
+}
+.text-placeholder {
+    color: #94a3b8;
+}
+.custom-options {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    margin-top: 8px;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transform: translateY(-10px);
+    transition: all 0.2s ease;
+    z-index: 10;
+    max-height: 250px;
+    overflow-y: auto;
+}
+.custom-select-wrapper.open .custom-options {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: all;
+    transform: translateY(0);
+}
+.custom-option {
+    padding: 10px 16px;
+    font-size: 14px;
+    color: #475569;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+.custom-option:hover {
+    background: #f8fafc;
+    color: #1e293b;
+}
+.custom-option.selected {
+    background: #eff6ff;
+    color: #2563eb;
+    font-weight: 500;
+}
+</style>
+
+@push('scripts')
+<script>
+    function toggleCategorySelect() {
+        document.getElementById('categorySelectWrapper').classList.toggle('open');
+    }
+
+    function selectCategoryOption(element) {
+        const value = element.getAttribute('data-value');
+        const text = element.textContent.trim();
+        
+        document.getElementById('categoryInput').value = value;
+        const textElement = document.getElementById('categorySelectText');
+        textElement.textContent = text;
+        
+        if (value === "") {
+            textElement.classList.add('text-placeholder');
+        } else {
+            textElement.classList.remove('text-placeholder');
+        }
+        
+        const options = document.querySelectorAll('#categorySelectWrapper .custom-option');
+        options.forEach(opt => opt.classList.remove('selected'));
+        element.classList.add('selected');
+        
+        document.getElementById('categorySelectWrapper').classList.remove('open');
+    }
+
+    document.addEventListener('click', function(e) {
+        const selectWrapper = document.getElementById('categorySelectWrapper');
+        if (selectWrapper && !selectWrapper.contains(e.target)) {
+            selectWrapper.classList.remove('open');
+        }
+    });
+
+    window.addEventListener('DOMContentLoaded', () => {
+        const selectedOption = document.querySelector('#categorySelectWrapper .custom-option.selected');
+        if (selectedOption) {
+            const textElement = document.getElementById('categorySelectText');
+            textElement.textContent = selectedOption.textContent.trim();
+            if (selectedOption.getAttribute('data-value') !== "") {
+                textElement.classList.remove('text-placeholder');
+            } else {
+                textElement.classList.add('text-placeholder');
+            }
+        }
+    });
+
+    let formToSubmit = null;
+
+    function showDeleteModal(form) {
+        formToSubmit = form;
+        const modal = document.getElementById('deleteConfirmModal');
+        modal.style.display = 'flex';
+        // Trigger reflow untuk animasi
+        void modal.offsetWidth;
+        modal.classList.add('show');
+    }
+
+    function closeDeleteModal() {
+        const modal = document.getElementById('deleteConfirmModal');
+        modal.classList.remove('show');
+        setTimeout(() => {
+            modal.style.display = 'none';
+            formToSubmit = null;
+        }, 300);
+    }
+
+    function confirmDelete() {
+        if (formToSubmit) {
+            formToSubmit.submit();
+        }
+    }
+</script>
+@endpush
+
 @endsection

@@ -81,7 +81,12 @@
     <div class="card">
         <div class="card-header">
             <h3 class="card-title">Pelanggan Baru</h3>
-            <a href="{{ route('customers.create') }}" class="btn btn-secondary" style="margin-left: auto;">Tambah Pelanggan</a>
+            <a href="{{ route('customers.create') }}" class="btn btn-primary" style="margin-left: auto;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style="margin-right: 6px;">
+                    <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+                </svg>
+                Tambah Pelanggan
+            </a>
         </div>
         <div class="card-body">
             @if($latestCustomers->isEmpty())
@@ -117,7 +122,13 @@
                                     </div>
                                 </td>
                                 <td>
-                                    <span class="badge" style="background: #F3F4F6; color: var(--text-main);">{{ ucfirst($customer->zone ?? '-') }}</span>
+                                    <span class="badge" style="font-weight: 600; color: var(--text-main);">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 6px; color: #3B82F6;">
+                                            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                                            <circle cx="12" cy="10" r="3"></circle>
+                                        </svg>
+                                        {{ ucfirst($customer->zone ?? '-') }}
+                                    </span>
                                 </td>
                                 <td style="color: var(--text-muted); font-size: 13px;">
                                     {{ $customer->created_at ? $customer->created_at->diffForHumans() : '-' }}

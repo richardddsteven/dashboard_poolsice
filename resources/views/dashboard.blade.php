@@ -67,7 +67,7 @@
             @endif
         </div>
         <div>
-            <h3 style="margin: 0; font-size: 32px; font-weight: 700; color: var(--text-main); letter-spacing: -1px;">{{ $pendingOrders ?? 0 }}</h3>
+            <h3 id="dashboardPendingOrdersCount" style="margin: 0; font-size: 32px; font-weight: 700; color: var(--text-main); letter-spacing: -1px;">{{ $pendingOrders ?? 0 }}</h3>
             <p style="margin: 4px 0 0; font-size: 14px; font-weight: 500; color: var(--text-muted);">Perlu Approval</p>
         </div>
     </div>
@@ -86,11 +86,17 @@
                 <button onclick="setIceFilter('custom')" id="ice-btn-custom" class="ice-filter-btn">Kustom</button>
             </div>
         </div>
-        <div id="ice-custom-range" style="display:none; padding: 8px 20px; gap: 8px; align-items: center; flex-wrap: wrap; border-bottom: 1px solid #e2e8f0;">
-            <input type="date" id="ice-start" style="padding: 5px 10px; font-size: 13px; border-radius: 6px; border: 1px solid #cbd5e1; font-family: inherit;">
-            <span style="color: var(--text-muted); font-size: 13px;">s/d</span>
-            <input type="date" id="ice-end" style="padding: 5px 10px; font-size: 13px; border-radius: 6px; border: 1px solid #cbd5e1; font-family: inherit;">
-            <button onclick="applyCustomIceFilter()" style="padding: 5px 14px; font-size: 13px; background: #3b82f6; color: white; border: none; border-radius: 6px; cursor: pointer; font-family: inherit;">Terapkan</button>
+        <div id="ice-custom-range" class="ice-custom-range">
+            <div class="ice-date-group">
+                <label for="ice-start">Dari Tanggal</label>
+                <input type="date" id="ice-start" class="ice-date-input">
+            </div>
+            <div class="ice-separator">s/d</div>
+            <div class="ice-date-group">
+                <label for="ice-end">Sampai Tanggal</label>
+                <input type="date" id="ice-end" class="ice-date-input">
+            </div>
+            <button type="button" onclick="applyCustomIceFilter()" class="ice-apply-btn">Terapkan</button>
         </div>
         <div id="ice-chart-wrap" style="height: 300px; position: relative;">
             <canvas id="iceTypeChart" style="display:none;"></canvas>
@@ -206,6 +212,11 @@
         </div>
     </div>
 </div>
+
+<div id="dashboardRealtimeToast" style="position: fixed; top: 24px; right: 24px; background: #ffffff; border: 1px solid #dbeafe; border-left: 4px solid #2563eb; border-radius: 10px; padding: 12px 14px; box-shadow: 0 8px 20px rgba(15, 23, 42, 0.12); z-index: 1200; min-width: 280px; display: none;">
+    <div style="font-size: 13px; font-weight: 700; color: #1e3a8a; margin-bottom: 4px;">Order baru diterima</div>
+    <div id="dashboardRealtimeToastText" style="font-size: 12px; color: #334155;"></div>
+</div>
 @endsection
 
 @push('scripts')
@@ -225,6 +236,91 @@
 }
 .ice-filter-btn:hover { background: #f1f5f9; }
 .ice-filter-btn.active { background: #3b82f6; color: #fff; border-color: #3b82f6; }
+
+.ice-custom-range {
+    display: none;
+    margin: 0 20px 10px;
+    padding: 0;
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    gap: 8px;
+    align-items: flex-end;
+    flex-wrap: nowrap;
+}
+
+.ice-date-group {
+    display: flex;
+    flex-direction: column;
+    min-width: 170px;
+    gap: 4px;
+}
+
+.ice-date-group label {
+    font-size: 12px;
+    font-weight: 500;
+    color: #64748b;
+}
+
+.ice-date-input {
+    height: 32px;
+    padding: 0 8px;
+    border: 1px solid #d7deea;
+    border-radius: 7px;
+    font-size: 12px;
+    color: #1e293b;
+    background: #ffffff;
+    font-family: inherit;
+    outline: none;
+}
+
+.ice-date-input:focus {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+}
+
+.ice-separator {
+    font-size: 11px;
+    color: #94a3b8;
+    margin-bottom: 8px;
+    font-weight: 500;
+}
+
+.ice-apply-btn {
+    height: 32px;
+    padding: 0 12px;
+    border: none;
+    border-radius: 7px;
+    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+    color: #ffffff;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    white-space: nowrap;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.ice-apply-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 12px rgba(37, 99, 235, 0.25);
+}
+
+@media (max-width: 768px) {
+    .ice-custom-range {
+        margin: 0 12px 10px;
+        flex-wrap: wrap;
+    }
+
+    .ice-date-group,
+    .ice-apply-btn {
+        width: 100%;
+    }
+
+    .ice-separator {
+        margin-bottom: 0;
+    }
+}
 </style>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
@@ -273,7 +369,10 @@ document.addEventListener('DOMContentLoaded', function() {
     function fetchIceStats(params) {
         const url = new URL('/dashboard/ice-type-stats', window.location.origin);
         Object.keys(params).forEach(k => url.searchParams.set(k, params[k]));
-        fetch(url).then(r => r.json()).then(data => buildIceChart(data)).catch(e => console.error('Ice type fetch error:', e));
+        fetch(url, { headers: window.getRealtimeAuthHeaders() })
+            .then(r => r.json())
+            .then(data => buildIceChart(data))
+            .catch(e => console.error('Ice type fetch error:', e));
     }
 
     window.setIceFilter = function(period) {
@@ -358,6 +457,33 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
+
+    function showDashboardRealtimeToast(order) {
+        const toast = document.getElementById('dashboardRealtimeToast');
+        const text = document.getElementById('dashboardRealtimeToastText');
+        const productName = order.iceType || order.product || 'Es Batu';
+        text.textContent = `${order.customer} (${order.phone}) - ${productName} ${order.quantity} pcs`;
+        toast.style.display = 'block';
+
+        clearTimeout(window.dashboardRealtimeToastTimeout);
+        window.dashboardRealtimeToastTimeout = setTimeout(() => {
+            toast.style.display = 'none';
+        }, 5000);
+    }
+
+    window.addEventListener('realtime:new-order', (event) => {
+        const result = event.detail || {};
+        if (!result.newOrder) {
+            return;
+        }
+
+        showDashboardRealtimeToast(result.newOrder);
+
+        const pendingCountEl = document.getElementById('dashboardPendingOrdersCount');
+        if (pendingCountEl && typeof result.pendingCount !== 'undefined') {
+            pendingCountEl.textContent = result.pendingCount;
+        }
+    });
 });
 </script>
 @endpush

@@ -26,6 +26,12 @@ class AuthController extends Controller
 
         if (Auth::attempt($credentials, $request->boolean('remember'))) {
             $request->session()->regenerate();
+
+            $user = Auth::user();
+            $user->tokens()->where('name', 'admin-web')->delete();
+            $token = $user->createToken('admin-web')->plainTextToken;
+            $request->session()->put('sanctum_token', $token);
+
             return redirect()->intended('dashboard');
         }
 
@@ -55,12 +61,23 @@ class AuthController extends Controller
         ]);
 
         Auth::login($user);
+        $request->session()->regenerate();
+
+        $user->tokens()->where('name', 'admin-web')->delete();
+        $token = $user->createToken('admin-web')->plainTextToken;
+        $request->session()->put('sanctum_token', $token);
 
         return redirect()->route('dashboard');
     }
 
     public function logout(Request $request)
     {
+        $user = Auth::user();
+        if ($user) {
+            $user->tokens()->where('name', 'admin-web')->delete();
+        }
+
+        $request->session()->forget('sanctum_token');
         Auth::logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();

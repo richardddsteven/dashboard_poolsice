@@ -702,7 +702,7 @@
 
             <nav class="sidebar-nav">
                 <div class="nav-section">
-                    <div class="nav-section-title">Overview</div>
+                    <div class="nav-section-title">Keseluruhan</div>
                     <a href="{{ route('dashboard') }}" class="nav-item {{ request()->routeIs('dashboard') ? 'active' : '' }}">
                         <span class="nav-icon">
                             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
@@ -714,7 +714,7 @@
                 </div>
 
                 <div class="nav-section">
-                    <div class="nav-section-title">Management</div>
+                    <div class="nav-section-title">Manajemen</div>
                     <a href="{{ route('orders.index') }}" class="nav-item {{ request()->routeIs('orders.*') ? 'active' : '' }}">
                         <span class="nav-icon">
                             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
@@ -722,9 +722,8 @@
                             </svg>
                         </span>
                         <span>Pesanan</span>
-                        @if(isset($pendingOrdersCount) && $pendingOrdersCount > 0)
-                        <span class="nav-badge">{{ $pendingOrdersCount }}</span>
-                        @endif
+                        @php $initialPendingCount = isset($pendingOrdersCount) ? (int) $pendingOrdersCount : 0; @endphp
+                        <span id="sidebarPendingBadge" class="nav-badge" style="{{ $initialPendingCount > 0 ? '' : 'display: none;' }}">{{ $initialPendingCount }}</span>
                     </a>
                     <a href="{{ route('customers.index') }}" class="nav-item {{ request()->routeIs('customers.*') ? 'active' : '' }}">
                         <span class="nav-icon">
@@ -733,6 +732,12 @@
                             </svg>
                         </span>
                         <span>Pelanggan</span>
+                    </a>
+                    <a href="{{ route('drivers.index') }}" class="nav-item {{ request()->routeIs('drivers.*') ? 'active' : '' }}">
+                        <span class="nav-icon">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.21.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99zM6.5 16c-.83 0-1.5-.67-1.5-1.5S5.67 13 6.5 13s1.5.67 1.5 1.5S7.33 16 6.5 16zm11 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zM5 11l1.5-4.5h11L19 11H5z"/></svg>
+                        </span>
+                        <span>Supir</span>
                     </a>
                 </div>
 
@@ -807,7 +812,7 @@
                     </button>
                     <div class="welcome-text">
                         <h2>Halo, {{ explode(' ', auth()->user()->name ?? 'Admin')[0] }}!</h2>
-                        <div class="welcome-subtitle">Welcome back to Pools Ice Dashboard</div>
+                        <div class="welcome-subtitle">Selamat Datang di Pools Ice Dashboard</div>
                     </div>
                 </div>
             </div>
@@ -836,8 +841,199 @@
             const isExpanded = element.getAttribute('aria-expanded') === 'true';
             element.setAttribute('aria-expanded', !isExpanded);
         }
+
+        window.getRealtimeAuthHeaders = function(extraHeaders = {}) {
+            const token = @json(session('sanctum_token'));
+            const headers = {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json',
+                ...extraHeaders,
+            };
+
+            if (token) {
+                headers.Authorization = `Bearer ${token}`;
+            }
+
+            return headers;
+        };
+
+        let globalRealtimeLastOrderId = Number(@json($latestOrderIdGlobal ?? 0));
+
+        function renderPendingBadge(pendingCount) {
+            const badge = document.getElementById('sidebarPendingBadge');
+            if (!badge) {
+                return;
+            }
+
+            badge.textContent = String(pendingCount);
+            badge.style.display = pendingCount > 0 ? 'inline-block' : 'none';
+        }
+
+        async function pollNewOrdersOnly() {
+            const badge = document.getElementById('sidebarPendingBadge');
+            if (!badge) {
+                return;
+            }
+
+            try {
+                const statusUrl = `{{ route('orders.realtime.status') }}?last_id=${globalRealtimeLastOrderId}`;
+                const response = await fetch(statusUrl, {
+                    headers: window.getRealtimeAuthHeaders()
+                });
+
+                if (!response.ok) {
+                    return;
+                }
+
+                const result = await response.json();
+                const latestOrderId = Number(result.latestOrderId || 0);
+
+                if (latestOrderId > globalRealtimeLastOrderId) {
+                    globalRealtimeLastOrderId = latestOrderId;
+                }
+
+                if (result.newOrder) {
+                    const pendingCount = Number(result.pendingCount || 0);
+                    renderPendingBadge(pendingCount);
+
+                    window.dispatchEvent(new CustomEvent('realtime:new-order', {
+                        detail: result,
+                    }));
+                }
+            } catch (error) {
+                console.error(error);
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            setInterval(pollNewOrdersOnly, 5000);
+        });
     </script>
     
+    <!-- Global Success Toast Notification -->
+    @if(session('success'))
+    <div id="globalSuccessToast" class="toast-notification">
+        <div class="toast-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                <polyline points="22 4 12 14.01 9 11.01"></polyline>
+            </svg>
+        </div>
+        <div class="toast-content">
+            <h4>Berhasil!</h4>
+            <p>{{ session('success') }}</p>
+        </div>
+        <button class="toast-close" onclick="closeToast()">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+        </button>
+    </div>
+
+    <style>
+        .toast-notification {
+            position: fixed;
+            top: 32px;
+            right: 32px;
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            display: flex;
+            align-items: flex-start;
+            padding: 16px;
+            gap: 16px;
+            width: 340px;
+            z-index: 9999;
+            transform: translateX(120%);
+            opacity: 0;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .toast-notification.show {
+            transform: translateX(0);
+            opacity: 1;
+        }
+        .toast-icon {
+            background: #dcfce7;
+            color: #22c55e;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+        .toast-icon svg {
+            width: 18px;
+            height: 18px;
+        }
+        .toast-content {
+            flex: 1;
+        }
+        .toast-content h4 {
+            margin: 0 0 4px 0;
+            font-size: 15px;
+            color: #1e293b;
+            font-weight: 700;
+        }
+        .toast-content p {
+            margin: 0;
+            font-size: 13px;
+            color: #64748b;
+            line-height: 1.4;
+        }
+        .toast-close {
+            background: none;
+            border: none;
+            color: #cbd5e1;
+            cursor: pointer;
+            padding: 4px;
+            margin: -4px;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+        .toast-close:hover {
+            color: #64748b;
+            background: #f1f5f9;
+        }
+        @media (max-width: 768px) {
+            .toast-notification {
+                top: 20px;
+                right: 20px;
+                left: 20px;
+                width: auto;
+            }
+        }
+    </style>
+
+    <script>
+        const toast = document.getElementById('globalSuccessToast');
+        
+        function closeToast() {
+            toast.classList.remove('show');
+            setTimeout(() => {
+                toast.style.display = 'none';
+            }, 400); // Wait for transition
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            // Show toast automatically
+            setTimeout(() => {
+                toast.classList.add('show');
+            }, 100);
+
+            // Auto hide after 4 seconds
+            setTimeout(() => {
+                closeToast();
+            }, 4000);
+        });
+    </script>
+    @endif
+
     @stack('scripts')
 </body>
 </html>
