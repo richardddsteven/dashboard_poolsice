@@ -51,9 +51,9 @@ class CustomerController extends Controller
             'phone' => 'required|string|unique:customers,phone',
         ]);
 
-        Customer::create($validated);
+        $customer = Customer::create($validated);
 
-        return redirect()->route('customers.index')
+        return redirect()->route('customers.index', ['zone' => $customer->zone])
             ->with('success', 'Customer berhasil ditambahkan.');
     }
 
@@ -88,7 +88,7 @@ class CustomerController extends Controller
 
         $customer->update($validated);
 
-        return redirect()->route('customers.index')
+        return redirect()->route('customers.index', ['zone' => $customer->zone])
             ->with('success', 'Customer berhasil diupdate.');
     }
 
@@ -97,9 +97,10 @@ class CustomerController extends Controller
      */
     public function destroy(Customer $customer)
     {
+        $zone = $customer->zone;
         $customer->delete();
 
-        return redirect()->route('customers.index')
+        return redirect()->route('customers.index', ['zone' => $zone])
             ->with('success', 'Customer berhasil dihapus.');
     }
 }

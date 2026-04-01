@@ -154,7 +154,13 @@
                                 @elseif(strtolower($order->status) == 'pending') background: #ede9fe; color: #5b21b6;
                                 @else background: #fee2e2; color: #991b1b; @endif 
                                 padding: 4px 8px; border-radius: 6px; font-size: 12px; font-weight: 600;">
-                                {{ ucfirst($order->status) }}
+                                @if(strtolower($order->status) == 'approved')
+                                    Diterima
+                                @elseif(strtolower($order->status) == 'pending')
+                                    Pending
+                                @else
+                                    Ditolak
+                                @endif
                             </span>
                         </td>
                         <td style="font-weight: 600;">{{ $order->quantity ?? 1 }} pcs</td>
@@ -408,7 +414,7 @@ document.addEventListener('DOMContentLoaded', function() {
         new Chart(statusCtx.getContext('2d'), {
             type: 'bar',
             data: {
-                labels: ['Approved', 'Pending', 'Dibatalkan'],
+                labels: ['Diterima', 'Pending', 'Ditolak'],
                 datasets: [{
                     label: 'Jumlah Pesanan',
                     data: [approved, pending, rejected],

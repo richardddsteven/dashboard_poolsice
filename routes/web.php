@@ -30,7 +30,7 @@ Route::middleware('auth')->group(function () {
     Route::get('dashboard/ice-type-stats', [DashboardController::class, 'iceTypeStats'])->name('dashboard.ice-type-stats');
 
     // Zone routes
-    Route::resource('zones', ZoneController::class)->only(['create', 'store']);
+    Route::resource('zones', ZoneController::class)->only(['create', 'store', 'edit', 'update', 'destroy']);
     
     // Customer routes
     Route::resource('customers', CustomerController::class);

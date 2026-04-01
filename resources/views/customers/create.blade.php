@@ -39,25 +39,35 @@
 
             <div style="margin-bottom: 24px;">
                 <label for="zone" style="display: block; margin-bottom: 8px; font-weight: 600; color: var(--text-main);">Zona Wilayah</label>
-                
-                <div class="custom-select-wrapper" id="zoneSelectWrapper">
-                    <div class="custom-select-trigger" onclick="toggleSelect()">
-                        <span id="zoneSelectText" class="text-placeholder">Pilih Zona</span>
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="select-icon"><path d="M6 9l6 6 6-6"/></svg>
+
+                @if(request('zone'))
+                    <div class="custom-select-wrapper zone-locked" id="zoneSelectWrapper">
+                        <div class="custom-select-trigger custom-select-disabled" aria-disabled="true">
+                            <span id="zoneSelectText">{{ ucfirst(old('zone', request('zone'))) }}</span>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="select-icon"><path d="M6 9l6 6 6-6"/></svg>
+                        </div>
+                        <input type="hidden" name="zone" id="zoneInput" value="{{ old('zone', request('zone')) }}">
                     </div>
-                    <div class="custom-options">
-                        <div class="custom-option {{ (old('zone') == '' && !request('zone')) ? 'selected' : '' }}" data-value="" onclick="selectOption(this)">Pilih Zona</div>
-                        @foreach($zones as $zone)
-                            @php
-                                $isSelected = old('zone') == $zone->name || (request('zone') == $zone->name && !old('zone'));
-                            @endphp
-                            <div class="custom-option {{ $isSelected ? 'selected' : '' }}" data-value="{{ $zone->name }}" onclick="selectOption(this)">
-                                {{ ucfirst($zone->name) }}
-                            </div>
-                        @endforeach
+                @else
+                    <div class="custom-select-wrapper" id="zoneSelectWrapper">
+                        <div class="custom-select-trigger" onclick="toggleSelect()">
+                            <span id="zoneSelectText" class="text-placeholder">Pilih Zona</span>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="select-icon"><path d="M6 9l6 6 6-6"/></svg>
+                        </div>
+                        <div class="custom-options">
+                            <div class="custom-option {{ (old('zone') == '' && !request('zone')) ? 'selected' : '' }}" data-value="" onclick="selectOption(this)">Pilih Zona</div>
+                            @foreach($zones as $zone)
+                                @php
+                                    $isSelected = old('zone') == $zone->name;
+                                @endphp
+                                <div class="custom-option {{ $isSelected ? 'selected' : '' }}" data-value="{{ $zone->name }}" onclick="selectOption(this)">
+                                    {{ ucfirst($zone->name) }}
+                                </div>
+                            @endforeach
+                        </div>
+                        <input type="hidden" name="zone" placeholder="Pilih Zona" id="zoneInput" value="{{ old('zone') }}">
                     </div>
-                    <input type="hidden" name="zone" placeholder="Pilih Zona" id="zoneInput" value="{{ old('zone', request('zone')) }}">
-                </div>
+                @endif
 
                 @error('zone')
                     <div style="color: #ef4444; font-size: 13px; margin-top: 6px;">{{ $message }}</div>
@@ -73,7 +83,7 @@
             </div>
 
             <div style="margin-top: 32px; padding-top: 24px; border-top: 1px solid var(--border-color); display: flex; gap: 12px; justify-content: flex-end;">
-                <a href="{{ route('customers.index') }}" class="btn btn-secondary">Batal</a>
+                <a href="{{ route('customers.index', ['zone' => request('zone')]) }}" class="btn btn-secondary">Batal</a>
                 <button type="submit" class="btn btn-primary">
                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="white" style="margin-right: 6px;">
                         <path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/>
@@ -107,6 +117,14 @@
 .custom-select-wrapper.open .custom-select-trigger {
     border-color: #3b82f6;
     box-shadow: 0 0 0 3px rgba(59,130,246,0.1);
+}
+.custom-select-disabled {
+    background: #f8fafc;
+    cursor: not-allowed;
+    color: #475569;
+}
+.zone-locked .select-icon {
+    opacity: 0.6;
 }
 .custom-select-wrapper.open .select-icon {
     transform: rotate(180deg);
