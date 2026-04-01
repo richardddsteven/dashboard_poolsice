@@ -702,7 +702,7 @@
 
             <nav class="sidebar-nav">
                 <div class="nav-section">
-                    <div class="nav-section-title">Keseluruhan</div>
+                    <div class="nav-section-title">Ringkasan</div>
                     <a href="{{ route('dashboard') }}" class="nav-item {{ request()->routeIs('dashboard') ? 'active' : '' }}">
                         <span class="nav-icon">
                             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
@@ -910,18 +910,31 @@
         });
     </script>
     
-    <!-- Global Success Toast Notification -->
-    @if(session('success'))
-    <div id="globalSuccessToast" class="toast-notification">
+    <!-- Global Toast Notification -->
+    @if(session('success') || session('error'))
+    @php
+        $toastType = session('error') ? 'error' : 'success';
+        $toastTitle = session('error') ? 'Gagal!' : 'Berhasil!';
+        $toastMessage = session('error') ?? session('success');
+    @endphp
+    <div id="globalToast" class="toast-notification {{ $toastType === 'error' ? 'toast-error' : 'toast-success' }}">
         <div class="toast-icon">
+            @if($toastType === 'error')
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="12" y1="8" x2="12" y2="12"></line>
+                    <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                </svg>
+            @else
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
                 <polyline points="22 4 12 14.01 9 11.01"></polyline>
             </svg>
+            @endif
         </div>
         <div class="toast-content">
-            <h4>Berhasil!</h4>
-            <p>{{ session('success') }}</p>
+            <h4>{{ $toastTitle }}</h4>
+            <p>{{ $toastMessage }}</p>
         </div>
         <button class="toast-close" onclick="closeToast()">
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -954,8 +967,6 @@
             opacity: 1;
         }
         .toast-icon {
-            background: #dcfce7;
-            color: #22c55e;
             width: 32px;
             height: 32px;
             border-radius: 50%;
@@ -963,6 +974,14 @@
             align-items: center;
             justify-content: center;
             flex-shrink: 0;
+        }
+        .toast-success .toast-icon {
+            background: #dcfce7;
+            color: #22c55e;
+        }
+        .toast-error .toast-icon {
+            background: #fef2f2;
+            color: #ef4444;
         }
         .toast-icon svg {
             width: 18px;
@@ -1014,19 +1033,25 @@
         const toast = document.getElementById('globalSuccessToast');
         
         function closeToast() {
+            if (!toast) {
+                return;
+            }
+
             toast.classList.remove('show');
             setTimeout(() => {
                 toast.style.display = 'none';
-            }, 400); // Wait for transition
+            }, 400);
         }
 
         document.addEventListener('DOMContentLoaded', () => {
-            // Show toast automatically
+            if (!toast) {
+                return;
+            }
+
             setTimeout(() => {
                 toast.classList.add('show');
             }, 100);
 
-            // Auto hide after 4 seconds
             setTimeout(() => {
                 closeToast();
             }, 4000);
