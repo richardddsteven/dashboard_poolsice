@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\Driver;
 use App\Models\Zone;
+use Illuminate\Support\Facades\Hash;
 
 class DriverController extends Controller
 {
@@ -35,13 +36,21 @@ class DriverController extends Controller
 
     public function store(Request $request)
     {
-        $request->validate([
+        $validated = $request->validate([
             'name' => 'required|string|max:255',
             'phone' => 'required|string|max:20',
             'zone_id' => 'required|exists:zones,id',
+            'username' => 'required|string|max:50|unique:drivers,username',
+            'password' => 'required|string|min:6|max:100',
         ]);
 
-        Driver::create($request->all());
+        Driver::create([
+            'name' => $validated['name'],
+            'phone' => $validated['phone'],
+            'zone_id' => $validated['zone_id'],
+            'username' => $validated['username'],
+            'password' => Hash::make($validated['password']),
+        ]);
 
         return redirect()->route('drivers.index')->with('success', 'Driver berhasil ditambahkan');
     }
@@ -54,13 +63,26 @@ class DriverController extends Controller
 
     public function update(Request $request, Driver $driver)
     {
-        $request->validate([
+        $validated = $request->validate([
             'name' => 'required|string|max:255',
             'phone' => 'required|string|max:20',
             'zone_id' => 'required|exists:zones,id',
+            'username' => 'required|string|max:50|unique:drivers,username,' . $driver->id,
+            'password' => 'nullable|string|min:6|max:100',
         ]);
 
-        $driver->update($request->all());
+        $payload = [
+            'name' => $validated['name'],
+            'phone' => $validated['phone'],
+            'zone_id' => $validated['zone_id'],
+            'username' => $validated['username'],
+        ];
+
+        if (!empty($validated['password'])) {
+            $payload['password'] = Hash::make($validated['password']);
+        }
+
+        $driver->update($payload);
 
         return redirect()->route('drivers.index')->with('success', 'Driver berhasil diperbarui');
     }

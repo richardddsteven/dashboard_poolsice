@@ -81,6 +81,8 @@ class OrderController extends Controller
     {
         $latestOrder = Order::with(['customer', 'iceType'])->latest('id')->first();
         $latestOrderId = $latestOrder?->id ?? 0;
+        $latestUpdatedOrder = Order::query()->latest('updated_at')->first();
+        $latestUpdateToken = $latestUpdatedOrder?->updated_at?->timestamp ?? 0;
         $lastSeenId = $request->integer('last_id', 0);
 
         $newOrder = null;
@@ -99,6 +101,7 @@ class OrderController extends Controller
 
         return response()->json([
             'latestOrderId' => $latestOrderId,
+            'latestUpdateToken' => $latestUpdateToken,
             'pendingCount' => Order::where('status', 'pending')->count(),
             'newOrder' => $newOrder,
         ]);

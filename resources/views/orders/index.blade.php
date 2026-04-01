@@ -393,6 +393,10 @@
 
         await refreshOrdersTable();
     });
+
+    window.addEventListener('realtime:orders-changed', async () => {
+        await refreshOrdersTable();
+    });
 </script>
 @endpush
 @endsection

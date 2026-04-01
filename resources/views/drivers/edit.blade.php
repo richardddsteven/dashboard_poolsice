@@ -65,6 +65,27 @@
                         <div style="color: #ef4444; font-size: 13px; margin-top: 6px;">{{ $message }}</div>
                     @enderror
                 </div>
+
+                <!-- Username Login -->
+                <div>
+                    <label for="username" style="display: block; margin-bottom: 8px; font-weight: 600; color: var(--text-main);">Username Login <span style="color: #ef4444;">*</span></label>
+                    <input type="text" id="username" name="username" class="form-control" value="{{ old('username', $driver->username) }}" placeholder="Contoh: supir.jimbaran" required style="width: 100%;">
+                    @error('username')
+                        <div style="color: #ef4444; font-size: 13px; margin-top: 6px;">{{ $message }}</div>
+                    @enderror
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 24px; margin-bottom: 24px;">
+                <!-- Password Login -->
+                <div>
+                    <label for="password" style="display: block; margin-bottom: 8px; font-weight: 600; color: var(--text-main);">Password Login Baru</label>
+                    <input type="password" id="password" name="password" class="form-control" placeholder="Kosongkan jika tidak ingin mengubah" style="width: 100%;">
+                    <small style="display: block; margin-top: 6px; color: var(--text-muted);">Minimal 6 karakter jika diisi.</small>
+                    @error('password')
+                        <div style="color: #ef4444; font-size: 13px; margin-top: 6px;">{{ $message }}</div>
+                    @enderror
+                </div>
             </div>
 
             <div style="margin-top: 32px; padding-top: 24px; border-top: 1px solid var(--border-color); display: flex; gap: 12px; justify-content: flex-end;">

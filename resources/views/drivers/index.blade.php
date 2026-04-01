@@ -74,6 +74,7 @@
                         <tr>
                             <th>NO</th>
                             <th>NAMA SUPIR</th>
+                            <th>USERNAME</th>
                             <th>NO TELEPON</th>
                             <th>ZONA</th>
                             <th style="text-align: right;">AKSI</th>
@@ -84,6 +85,7 @@
                         <tr>
                             <td>{{ $index + 1 }}</td>
                             <td style="font-weight: 500; color: var(--text-main);">{{ $driver->name }}</td>
+                            <td>{{ $driver->username ?? '-' }}</td>
                             <td>{{ $driver->phone }}</td>
                             <td>
                                 <span style="display: inline-flex; font-weight: 600; color: var(--text-main); align-items: center;">

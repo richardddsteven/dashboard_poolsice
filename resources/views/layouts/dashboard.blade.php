@@ -858,6 +858,7 @@
         };
 
         let globalRealtimeLastOrderId = Number(@json($latestOrderIdGlobal ?? 0));
+        let globalRealtimeLastUpdateToken = 0;
 
         function renderPendingBadge(pendingCount) {
             const badge = document.getElementById('sidebarPendingBadge');
@@ -887,16 +888,28 @@
 
                 const result = await response.json();
                 const latestOrderId = Number(result.latestOrderId || 0);
+                const latestUpdateToken = Number(result.latestUpdateToken || 0);
+                const hasStatusUpdate = latestUpdateToken > globalRealtimeLastUpdateToken;
 
                 if (latestOrderId > globalRealtimeLastOrderId) {
                     globalRealtimeLastOrderId = latestOrderId;
                 }
 
-                if (result.newOrder) {
-                    const pendingCount = Number(result.pendingCount || 0);
-                    renderPendingBadge(pendingCount);
+                if (latestUpdateToken > globalRealtimeLastUpdateToken) {
+                    globalRealtimeLastUpdateToken = latestUpdateToken;
+                }
 
+                const pendingCount = Number(result.pendingCount || 0);
+                renderPendingBadge(pendingCount);
+
+                if (result.newOrder) {
                     window.dispatchEvent(new CustomEvent('realtime:new-order', {
+                        detail: result,
+                    }));
+                }
+
+                if (hasStatusUpdate) {
+                    window.dispatchEvent(new CustomEvent('realtime:orders-changed', {
                         detail: result,
                     }));
                 }

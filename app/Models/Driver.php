@@ -6,7 +6,9 @@ use Illuminate\Database\Eloquent\Model;
 
 class Driver extends Model
 {
-    protected $fillable = ['name', 'phone', 'zone_id'];
+    protected $fillable = ['name', 'phone', 'zone_id', 'username', 'password'];
+
+    protected $hidden = ['password'];
 
     public function zone()
     {
