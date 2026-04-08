@@ -81,8 +81,10 @@ class OrderController extends Controller
     {
         $latestOrder = Order::with(['customer', 'iceType'])->latest('id')->first();
         $latestOrderId = $latestOrder?->id ?? 0;
-        $latestUpdatedOrder = Order::query()->latest('updated_at')->first();
-        $latestUpdateToken = $latestUpdatedOrder?->updated_at?->timestamp ?? 0;
+        $latestUpdatedOrder = Order::query()->latest('updated_at')->latest('id')->first();
+        $latestUpdateToken = $latestUpdatedOrder
+            ? ($latestUpdatedOrder->id . '-' . $latestUpdatedOrder->updated_at->format('YmdHisu'))
+            : '';
         $lastSeenId = $request->integer('last_id', 0);
 
         $newOrder = null;

@@ -9,6 +9,7 @@ use App\Http\Controllers\ZoneController;
 use App\Http\Controllers\FinanceController;
 use App\Http\Controllers\ExpenseController;
 use App\Http\Controllers\DriverController;
+use App\Http\Controllers\StockController;
 use Illuminate\Support\Facades\Route;
 
 
@@ -37,6 +38,10 @@ Route::middleware('auth')->group(function () {
 
     // Driver routes
     Route::resource('drivers', DriverController::class);
+
+    // Stock routes
+    Route::get('stocks', [StockController::class, 'index'])->name('stocks.index');
+    Route::post('stocks', [StockController::class, 'store'])->name('stocks.store');
     
     // Order routes
     Route::resource('orders', OrderController::class)->only(['index', 'update']);

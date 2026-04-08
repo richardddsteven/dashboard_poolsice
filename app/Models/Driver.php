@@ -6,12 +6,17 @@ use Illuminate\Database\Eloquent\Model;
 
 class Driver extends Model
 {
-    protected $fillable = ['name', 'phone', 'zone_id', 'username', 'password'];
+    protected $fillable = ['name', 'phone', 'zone_id', 'username', 'password', 'api_token'];
 
-    protected $hidden = ['password'];
+    protected $hidden = ['password', 'api_token'];
 
     public function zone()
     {
         return $this->belongsTo(Zone::class);
+    }
+
+    public function stocks()
+    {
+        return $this->hasMany(DriverStock::class);
     }
 }

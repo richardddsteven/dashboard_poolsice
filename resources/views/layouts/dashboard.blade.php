@@ -715,6 +715,14 @@
 
                 <div class="nav-section">
                     <div class="nav-section-title">Manajemen</div>
+                    <a href="{{ route('stocks.index') }}" class="nav-item {{ request()->routeIs('stocks.*') ? 'active' : '' }}">
+                        <span class="nav-icon">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                                <path d="M20 6h-2V5a3 3 0 0 0-6 0v1h-2V5a3 3 0 0 0-6 0v1H2v16h20V6zM6 5a1 1 0 0 1 2 0v1H6V5zm8 0a1 1 0 0 1 2 0v1h-2V5zM4 8h16v12H4V8zm3 2h10v2H7v-2zm0 4h6v2H7v-2z"/>
+                            </svg>
+                        </span>
+                        <span>Stok</span>
+                    </a>
                     <a href="{{ route('orders.index') }}" class="nav-item {{ request()->routeIs('orders.*') ? 'active' : '' }}">
                         <span class="nav-icon">
                             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
@@ -858,7 +866,7 @@
         };
 
         let globalRealtimeLastOrderId = Number(@json($latestOrderIdGlobal ?? 0));
-        let globalRealtimeLastUpdateToken = 0;
+        let globalRealtimeLastUpdateToken = '';
 
         function renderPendingBadge(pendingCount) {
             const badge = document.getElementById('sidebarPendingBadge');
@@ -888,14 +896,14 @@
 
                 const result = await response.json();
                 const latestOrderId = Number(result.latestOrderId || 0);
-                const latestUpdateToken = Number(result.latestUpdateToken || 0);
-                const hasStatusUpdate = latestUpdateToken > globalRealtimeLastUpdateToken;
+                const latestUpdateToken = String(result.latestUpdateToken || '');
+                const hasStatusUpdate = latestUpdateToken !== '' && latestUpdateToken !== globalRealtimeLastUpdateToken;
 
                 if (latestOrderId > globalRealtimeLastOrderId) {
                     globalRealtimeLastOrderId = latestOrderId;
                 }
 
-                if (latestUpdateToken > globalRealtimeLastUpdateToken) {
+                if (latestUpdateToken !== '') {
                     globalRealtimeLastUpdateToken = latestUpdateToken;
                 }
 
