@@ -28,6 +28,85 @@ $resolveDriverFromToken = function (Request $request): ?Driver {
         ->first();
 };
 
+$extractQtyByWeight = function (string $text, int $weight): ?int {
+    $pattern = '/(?:\b' . $weight . '\s*kg\b\D{0,18}(\d+)|(\d+)\D{0,18}\b' . $weight . '\s*kg\b)/i';
+
+    if (!preg_match($pattern, $text, $matches)) {
+        return null;
+    }
+
+    $front = $matches[1] ?? null;
+    $back = $matches[2] ?? null;
+    $qty = (int) ($front ?: $back ?: 0);
+
+    return $qty > 0 ? $qty : null;
+};
+
+$resolveOrderStockDemand = function (Order $order) use ($extractQtyByWeight): array {
+    $required = [
+        'stock_5kg' => 0,
+        'stock_20kg' => 0,
+    ];
+
+    $quantity = max(1, (int) $order->quantity);
+    $iceTypeName = strtolower(trim((string) ($order->iceType?->name ?? '')));
+    $weight = (float) ($order->iceType?->weight ?? 0);
+
+    if ($weight > 0) {
+        if (abs($weight - 5.0) < 0.01) {
+            $required['stock_5kg'] = $quantity;
+            return $required;
+        }
+
+        if (abs($weight - 20.0) < 0.01) {
+            $required['stock_20kg'] = $quantity;
+            return $required;
+        }
+    }
+
+    if ($iceTypeName !== '') {
+        if (str_contains($iceTypeName, '5')) {
+            $required['stock_5kg'] = $quantity;
+            return $required;
+        }
+
+        if (str_contains($iceTypeName, '20')) {
+            $required['stock_20kg'] = $quantity;
+            return $required;
+        }
+    }
+
+    $items = strtolower(trim((string) $order->items));
+    if ($items === '') {
+        return $required;
+    }
+
+    $qty5 = $extractQtyByWeight($items, 5);
+    $qty20 = $extractQtyByWeight($items, 20);
+
+    if (!is_null($qty5)) {
+        $required['stock_5kg'] = $qty5;
+    }
+
+    if (!is_null($qty20)) {
+        $required['stock_20kg'] = $qty20;
+    }
+
+    if ($required['stock_5kg'] > 0 || $required['stock_20kg'] > 0) {
+        return $required;
+    }
+
+    if (preg_match('/\b5\s*kg\b/i', $items)) {
+        $required['stock_5kg'] = $quantity;
+    }
+
+    if (preg_match('/\b20\s*kg\b/i', $items)) {
+        $required['stock_20kg'] = $quantity;
+    }
+
+    return $required;
+};
+
 Route::post('/driver/login', function (Request $request) {
     $validated = $request->validate([
         'username' => 'required|string',
@@ -78,7 +157,7 @@ Route::post('/driver/logout', function (Request $request) use ($resolveDriverFro
     ]);
 });
 
-Route::get('/driver/orders/notifications', function (Request $request) use ($resolveDriverFromToken) {
+Route::get('/driver/orders/notifications', function (Request $request) use ($resolveDriverFromToken, $resolveOrderStockDemand) {
     $driver = $resolveDriverFromToken($request);
     if (!$driver) {
         return response()->json([
@@ -93,6 +172,63 @@ Route::get('/driver/orders/notifications', function (Request $request) use ($res
             'message' => 'Zona supir tidak ditemukan.',
             'data' => [],
         ], 422);
+    }
+
+    $pendingOrdersInZone = Order::query()
+        ->with(['customer:id,name,zone', 'iceType:id,name,weight'])
+        ->where('status', 'pending')
+        ->where(function ($query) use ($driver) {
+            $query->whereNull('driver_id')
+                ->orWhere('driver_id', (int) $driver->id);
+        })
+        ->whereHas('customer', function ($query) use ($zone) {
+            $query->whereRaw('LOWER(zone) = ?', [$zone]);
+        })
+        ->latest('id')
+        ->limit(150)
+        ->get();
+
+    foreach ($pendingOrdersInZone as $pendingOrder) {
+        $requiredStock = $resolveOrderStockDemand($pendingOrder);
+        if ((int) $requiredStock['stock_5kg'] === 0 && (int) $requiredStock['stock_20kg'] === 0) {
+            continue;
+        }
+
+        DB::transaction(function () use ($pendingOrder, $driver, $resolveOrderStockDemand) {
+            $freshOrder = Order::query()
+                ->with('iceType:id,name,weight')
+                ->lockForUpdate()
+                ->find($pendingOrder->id);
+
+            if (!$freshOrder || $freshOrder->status !== 'pending') {
+                return;
+            }
+
+            if (!is_null($freshOrder->driver_id) && (int) $freshOrder->driver_id !== (int) $driver->id) {
+                return;
+            }
+
+            $required = $resolveOrderStockDemand($freshOrder);
+            $driverStock = DriverStock::query()
+                ->where('driver_id', (int) $driver->id)
+                ->whereDate('date', now()->toDateString())
+                ->lockForUpdate()
+                ->first();
+
+            $current5Kg = (int) ($driverStock->stock_5kg ?? 0);
+            $current20Kg = (int) ($driverStock->stock_20kg ?? 0);
+
+            $isStockEnough =
+                $current5Kg >= (int) $required['stock_5kg'] &&
+                $current20Kg >= (int) $required['stock_20kg'];
+
+            if (!$isStockEnough) {
+                $freshOrder->update([
+                    'driver_id' => (int) $driver->id,
+                    'status' => 'rejected',
+                ]);
+            }
+        });
     }
 
     $orders = Order::query()
@@ -119,7 +255,7 @@ Route::get('/driver/orders/notifications', function (Request $request) use ($res
     return response()->json(['data' => $orders]);
 });
 
-Route::patch('/driver/orders/{order}/status', function (Request $request, Order $order) use ($resolveDriverFromToken) {
+Route::patch('/driver/orders/{order}/status', function (Request $request, Order $order) use ($resolveDriverFromToken, $resolveOrderStockDemand) {
     $driver = $resolveDriverFromToken($request);
     if (!$driver) {
         return response()->json([
@@ -131,8 +267,9 @@ Route::patch('/driver/orders/{order}/status', function (Request $request, Order 
         'status' => 'required|in:approved,rejected',
     ]);
 
-    $statusUpdateResult = DB::transaction(function () use ($order, $validated, $driver) {
+    $statusUpdateResult = DB::transaction(function () use ($order, $validated, $driver, $resolveOrderStockDemand) {
         $freshOrder = Order::query()
+            ->with('iceType:id,name,weight')
             ->lockForUpdate()
             ->findOrFail($order->id);
 
@@ -152,6 +289,43 @@ Route::patch('/driver/orders/{order}/status', function (Request $request, Order 
             ];
         }
 
+        if ($validated['status'] === 'approved') {
+            $requiredStock = $resolveOrderStockDemand($freshOrder);
+
+            $driverStock = DriverStock::query()
+                ->where('driver_id', (int) $driver->id)
+                ->whereDate('date', now()->toDateString())
+                ->lockForUpdate()
+                ->first();
+
+            $current5Kg = (int) ($driverStock->stock_5kg ?? 0);
+            $current20Kg = (int) ($driverStock->stock_20kg ?? 0);
+
+            $isStockEnough =
+                $current5Kg >= (int) $requiredStock['stock_5kg'] &&
+                $current20Kg >= (int) $requiredStock['stock_20kg'];
+
+            if (!$isStockEnough) {
+                $freshOrder->update([
+                    'driver_id' => (int) $driver->id,
+                    'status' => 'rejected',
+                ]);
+
+                return [
+                    'ok' => true,
+                    'order' => $freshOrder->fresh(),
+                    'message' => 'Stok bawaan tidak cukup. Order otomatis ditolak.',
+                ];
+            }
+
+            if ($driverStock && ((int) $requiredStock['stock_5kg'] > 0 || (int) $requiredStock['stock_20kg'] > 0)) {
+                $driverStock->update([
+                    'stock_5kg' => max(0, $current5Kg - (int) $requiredStock['stock_5kg']),
+                    'stock_20kg' => max(0, $current20Kg - (int) $requiredStock['stock_20kg']),
+                ]);
+            }
+        }
+
         $freshOrder->update([
             'driver_id' => (int) $driver->id,
             'status' => $validated['status'],
@@ -159,7 +333,10 @@ Route::patch('/driver/orders/{order}/status', function (Request $request, Order 
 
         return [
             'ok' => true,
-            'order' => $freshOrder,
+            'order' => $freshOrder->fresh(),
+            'message' => $validated['status'] === 'approved'
+                ? 'Order berhasil diterima dan stok telah dikurangi.'
+                : 'Order berhasil ditolak.',
         ];
     });
 
@@ -171,15 +348,22 @@ Route::patch('/driver/orders/{order}/status', function (Request $request, Order 
 
     /** @var \App\Models\Order $updatedOrder */
     $updatedOrder = $statusUpdateResult['order'];
+    $todayStock = DriverStock::query()
+        ->where('driver_id', (int) $driver->id)
+        ->whereDate('date', now()->toDateString())
+        ->first();
 
     return response()->json([
-        'message' => $validated['status'] === 'approved'
-            ? 'Order berhasil diterima.'
-            : 'Order berhasil ditolak.',
+        'message' => $statusUpdateResult['message'] ?? 'Order berhasil diproses.',
         'data' => [
             'id' => $updatedOrder->id,
             'status' => $updatedOrder->status,
             'driver_id' => $updatedOrder->driver_id,
+            'stock_today' => [
+                'date' => now()->toDateString(),
+                'stock_5kg' => (int) ($todayStock->stock_5kg ?? 0),
+                'stock_20kg' => (int) ($todayStock->stock_20kg ?? 0),
+            ],
         ],
     ]);
 });
@@ -226,6 +410,31 @@ Route::post('/driver/stocks', function (Request $request) use ($resolveDriverFro
             'date' => $stock->date?->format('Y-m-d'),
             'stock_5kg' => $stock->stock_5kg,
             'stock_20kg' => $stock->stock_20kg,
+        ],
+    ]);
+});
+
+Route::get('/driver/stocks/today', function (Request $request) use ($resolveDriverFromToken) {
+    $driver = $resolveDriverFromToken($request);
+    if (!$driver) {
+        return response()->json([
+            'message' => 'Unauthorized.',
+        ], 401);
+    }
+
+    $today = now()->toDateString();
+    $stock = DriverStock::query()
+        ->where('driver_id', (int) $driver->id)
+        ->whereDate('date', $today)
+        ->first();
+
+    return response()->json([
+        'data' => [
+            'date' => $today,
+            'stock_5kg' => (int) ($stock->stock_5kg ?? 0),
+            'stock_20kg' => (int) ($stock->stock_20kg ?? 0),
+            'has_stock_input' => !is_null($stock),
+            'updated_at' => $stock?->updated_at,
         ],
     ]);
 });

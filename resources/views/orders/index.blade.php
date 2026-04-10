@@ -370,8 +370,8 @@
                 countEl.textContent = result.total;
             }
 
-            if (typeof result.latestOrderId !== 'undefined' && result.latestOrderId > latestOrderId) {
-                latestOrderId = result.latestOrderId;
+            if (typeof result.latestOrderId !== 'undefined') {
+                latestOrderId = Number(result.latestOrderId || 0);
             }
         } catch (error) {
             console.error(error);

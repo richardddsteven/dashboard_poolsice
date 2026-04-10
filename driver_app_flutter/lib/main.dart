@@ -45,11 +45,56 @@ class DriverApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    const seed = Color(0xFF0F766E);
+    final colorScheme = ColorScheme.fromSeed(
+      seedColor: seed,
+      brightness: Brightness.light,
+    );
+
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Driver Notifier',
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF0B6E4F)),
+        colorScheme: colorScheme,
+        scaffoldBackgroundColor: const Color(0xFFF3F6FB),
+        appBarTheme: AppBarTheme(
+          elevation: 0,
+          backgroundColor: const Color(0xFFF3F6FB),
+          foregroundColor: const Color(0xFF0F172A),
+          centerTitle: false,
+          titleTextStyle: const TextStyle(
+            color: Color(0xFF0F172A),
+            fontSize: 18,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 0.2,
+          ),
+        ),
+        cardTheme: CardThemeData(
+          elevation: 0,
+          color: Colors.white,
+          margin: EdgeInsets.zero,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+            side: const BorderSide(color: Color(0xFFE2E8F0)),
+          ),
+        ),
+        inputDecorationTheme: InputDecorationTheme(
+          filled: true,
+          fillColor: const Color(0xFFF8FAFC),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(color: colorScheme.primary, width: 1.4),
+          ),
+        ),
         useMaterial3: true,
       ),
       home: const LoginScreen(),
@@ -175,36 +220,95 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Masuk Supir')),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            TextField(
-              controller: _usernameController,
-              decoration: const InputDecoration(
-                labelText: 'Username',
-                border: OutlineInputBorder(),
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color(0xFFE6FFFA), Color(0xFFF3F6FB)],
+          ),
+        ),
+        child: SafeArea(
+          child: Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 24),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 420),
+                child: Card(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 52,
+                          height: 52,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF0F766E).withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: const Icon(
+                            Icons.local_shipping_rounded,
+                            color: Color(0xFF0F766E),
+                            size: 28,
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        const Text(
+                          'Masuk Aplikasi Supir',
+                          style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
+                        ),
+                        const SizedBox(height: 6),
+                        const Text(
+                          'Pantau order dan stok harian dengan cepat.',
+                          style: TextStyle(color: Color(0xFF64748B)),
+                        ),
+                        const SizedBox(height: 18),
+                        TextField(
+                          controller: _usernameController,
+                          decoration: const InputDecoration(
+                            labelText: 'Username',
+                            prefixIcon: Icon(Icons.person_outline),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: _passwordController,
+                          obscureText: true,
+                          decoration: const InputDecoration(
+                            labelText: 'Password',
+                            prefixIcon: Icon(Icons.lock_outline),
+                          ),
+                        ),
+                        const SizedBox(height: 18),
+                        SizedBox(
+                          width: double.infinity,
+                          child: FilledButton.icon(
+                            onPressed: _isSubmitting ? null : _submitLogin,
+                            icon: _isSubmitting
+                                ? const SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(strokeWidth: 2),
+                                  )
+                                : const Icon(Icons.login_rounded),
+                            label: Text(_isSubmitting ? 'Memproses...' : 'Login Supir'),
+                            style: FilledButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 13),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               ),
             ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _passwordController,
-              obscureText: true,
-              decoration: const InputDecoration(
-                labelText: 'Password',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 16),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton(
-                onPressed: _isSubmitting ? null : _submitLogin,
-                child: Text(_isSubmitting ? 'Memproses...' : 'Login Supir'),
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );
@@ -237,10 +341,14 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
   bool _isOnline = true;
   bool _isLoading = false;
   bool _isLoadingStockHistory = false;
+  bool _isLoadingTodayStock = false;
   bool _isSubmittingStock = false;
   bool _isLoggingOut = false;
   bool _isSessionExpiredHandled = false;
   final Set<int> _isUpdatingOrderIds = <int>{};
+  int _todayStock5Kg = 0;
+  int _todayStock20Kg = 0;
+  bool _hasTodayStockInput = false;
 
   final _stock5KgController = TextEditingController();
   final _stock20KgController = TextEditingController();
@@ -249,6 +357,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
   void initState() {
     super.initState();
     _startPolling();
+    _fetchTodayStock();
     _fetchStockHistory();
   }
 
@@ -457,6 +566,62 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
     }
   }
 
+  Future<void> _fetchTodayStock() async {
+    if (_isLoadingTodayStock) {
+      return;
+    }
+
+    setState(() {
+      _isLoadingTodayStock = true;
+    });
+
+    try {
+      final uri = Uri.parse('$apiBaseUrl/driver/stocks/today');
+      final response = await http.get(
+        uri,
+        headers: _authHeaders(),
+      );
+
+      final payload = jsonDecode(response.body) as Map<String, dynamic>;
+      if (response.statusCode == 401) {
+        _handleUnauthorized();
+        return;
+      }
+
+      if (response.statusCode != 200) {
+        final message =
+            (payload['message'] as String?) ?? 'Gagal memuat stok hari ini.';
+        throw Exception(message);
+      }
+
+      final data = payload['data'] as Map<String, dynamic>? ?? {};
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _todayStock5Kg = (data['stock_5kg'] as num?)?.toInt() ?? 0;
+        _todayStock20Kg = (data['stock_20kg'] as num?)?.toInt() ?? 0;
+        _hasTodayStockInput = data['has_stock_input'] == true;
+      });
+    } catch (e) {
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Gagal ambil stok hari ini: $e')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoadingTodayStock = false;
+        });
+      }
+    }
+  }
+
   Future<void> _submitDriverStock() async {
     if (_isSubmittingStock) {
       return;
@@ -510,6 +675,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
           (payload['message'] as String?) ?? 'Stok bawaan berhasil disimpan.';
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
       _fetchStockHistory();
+      _fetchTodayStock();
     } catch (e) {
       if (!mounted) {
         return;
@@ -530,9 +696,11 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
   void _startPolling() {
     _timer?.cancel();
     _fetchOrders();
+    _fetchTodayStock();
     _timer = Timer.periodic(const Duration(seconds: 10), (_) {
       if (_isOnline) {
         _fetchOrders();
+        _fetchTodayStock();
       }
     });
   }
@@ -692,6 +860,12 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
         throw Exception(errorMessage);
       }
 
+      final responseData = payload['data'] as Map<String, dynamic>?;
+      final updatedStatus =
+          (responseData?['status'] as String? ?? status).trim().toLowerCase();
+      final updatedDriverId = (responseData?['driver_id'] as num?)?.toInt();
+        final stockToday = responseData?['stock_today'] as Map<String, dynamic>?;
+
       if (!mounted) {
         return;
       }
@@ -703,8 +877,16 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
         if (index >= 0) {
           _orders[index] = {
             ..._orders[index],
-            'status': status,
+            'status': updatedStatus,
+            'driver_id': updatedDriverId,
           };
+        }
+
+        if (stockToday != null) {
+          _todayStock5Kg = (stockToday['stock_5kg'] as num?)?.toInt() ?? _todayStock5Kg;
+          _todayStock20Kg =
+              (stockToday['stock_20kg'] as num?)?.toInt() ?? _todayStock20Kg;
+          _hasTodayStockInput = true;
         }
       });
 
@@ -764,8 +946,224 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
   Future<void> _refreshAll() async {
     await Future.wait([
       _fetchOrders(),
+      _fetchTodayStock(),
       _fetchStockHistory(),
     ]);
+  }
+
+  Color _statusBgColor(String status, bool isClaimedByOtherDriver) {
+    if (isClaimedByOtherDriver) {
+      return const Color(0xFFE2E8F0);
+    }
+
+    switch (status) {
+      case 'approved':
+        return const Color(0xFFD1FAE5);
+      case 'rejected':
+        return const Color(0xFFFEE2E2);
+      default:
+        return const Color(0xFFFFF1CC);
+    }
+  }
+
+  Color _statusTextColor(String status, bool isClaimedByOtherDriver) {
+    if (isClaimedByOtherDriver) {
+      return const Color(0xFF334155);
+    }
+
+    switch (status) {
+      case 'approved':
+        return const Color(0xFF047857);
+      case 'rejected':
+        return const Color(0xFFB91C1C);
+      default:
+        return const Color(0xFF92400E);
+    }
+  }
+
+  String _statusLabel(String status, bool isClaimedByOtherDriver) {
+    if (isClaimedByOtherDriver) {
+      return 'Diproses Supir Lain';
+    }
+
+    switch (status) {
+      case 'approved':
+        return 'Diterima';
+      case 'rejected':
+        return 'Ditolak';
+      default:
+        return 'Pending';
+    }
+  }
+
+  Widget _buildTodayStockTile({
+    required String label,
+    required int value,
+    required Color accent,
+  }) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: accent.withValues(alpha: 0.09),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: accent.withValues(alpha: 0.35)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(label, style: const TextStyle(color: Color(0xFF475569), fontSize: 12)),
+            const SizedBox(height: 4),
+            Text(
+              '$value pcs',
+              style: TextStyle(
+                color: accent,
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildOrderCard(Map<String, dynamic> order) {
+    final orderId = order['id'] as int? ?? 0;
+    final status = (order['status'] as String? ?? '-').trim().toLowerCase();
+    final isPending = status != 'approved' && status != 'rejected';
+    final orderDriverId = (order['driver_id'] as num?)?.toInt();
+    final isClaimedByOtherDriver =
+        isPending && orderDriverId != null && orderDriverId != widget.driverId;
+    final isUpdating = _isUpdatingOrderIds.contains(orderId);
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                CircleAvatar(
+                  radius: 18,
+                  backgroundColor: const Color(0xFFE2E8F0),
+                  child: Text(
+                    '#$orderId',
+                    style: const TextStyle(
+                      color: Color(0xFF0F172A),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        order['customer_name']?.toString().trim().isNotEmpty == true
+                            ? order['customer_name'].toString()
+                            : 'Pelanggan',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 15,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Zona ${order['zone'] ?? '-'}',
+                        style: const TextStyle(color: Color(0xFF64748B), fontSize: 12),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: _statusBgColor(status, isClaimedByOtherDriver),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    _statusLabel(status, isClaimedByOtherDriver),
+                    style: TextStyle(
+                      color: _statusTextColor(status, isClaimedByOtherDriver),
+                      fontWeight: FontWeight.w700,
+                      fontSize: 11,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: Text(
+                _formatOrderItems(order['items']),
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
+            ),
+            const SizedBox(height: 12),
+            if (isPending && !isClaimedByOtherDriver)
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: isUpdating || orderId == 0
+                          ? null
+                          : () => _confirmAndUpdateOrderStatus(
+                                orderId: orderId,
+                                status: 'rejected',
+                              ),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: const Color(0xFFB91C1C),
+                        side: const BorderSide(color: Color(0xFFEF4444)),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                      child: const Text('Tolak'),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: FilledButton(
+                      onPressed: isUpdating || orderId == 0
+                          ? null
+                          : () => _confirmAndUpdateOrderStatus(
+                                orderId: orderId,
+                                status: 'approved',
+                              ),
+                      style: FilledButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                      child: Text(isUpdating ? 'Memproses...' : 'Terima'),
+                    ),
+                  ),
+                ],
+              )
+            else
+              Row(
+                children: [
+                  const Icon(Icons.info_outline, size: 16, color: Color(0xFF64748B)),
+                  const SizedBox(width: 6),
+                  Text(
+                    isClaimedByOtherDriver
+                        ? 'Order sedang diproses oleh supir lain'
+                        : 'Order sudah diproses',
+                    style: const TextStyle(color: Color(0xFF64748B)),
+                  ),
+                ],
+              ),
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _buildStockHistorySection() {
@@ -789,12 +1187,30 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
         final stock5 = row['stock_5kg']?.toString() ?? '0';
         final stock20 = row['stock_20kg']?.toString() ?? '0';
 
-        return ListTile(
-          dense: true,
-          contentPadding: EdgeInsets.zero,
-          title: Text(date),
-          subtitle: Text('5kg: $stock5 pcs | 20kg: $stock20 pcs'),
-          leading: const Icon(Icons.history, size: 18),
+        return Container(
+          margin: const EdgeInsets.only(bottom: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF8FAFC),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: const Color(0xFFE2E8F0)),
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.history, size: 18, color: Color(0xFF64748B)),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  date,
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+              ),
+              Text(
+                '5kg: $stock5 | 20kg: $stock20',
+                style: const TextStyle(color: Color(0xFF475569), fontSize: 12),
+              ),
+            ],
+          ),
         );
       }).toList(),
     );
@@ -805,8 +1221,48 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
     return Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: false,
-        title: Text('${widget.driverName} - ${widget.zone}'),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(widget.driverName),
+            const SizedBox(height: 2),
+            Text(
+              widget.zone,
+              style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+            ),
+          ],
+        ),
         actions: [
+          Container(
+            margin: const EdgeInsets.only(right: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 6),
+            decoration: BoxDecoration(
+              color: _isOnline
+                  ? const Color(0xFFDCFCE7)
+                  : const Color(0xFFE2E8F0),
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: Row(
+              children: [
+                Text(
+                  _isOnline ? 'Online' : 'Offline',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: _isOnline ? const Color(0xFF166534) : const Color(0xFF475569),
+                  ),
+                ),
+                Switch(
+                  value: _isOnline,
+                  onChanged: (value) {
+                    setState(() {
+                      _isOnline = value;
+                    });
+                  },
+                ),
+              ],
+            ),
+          ),
           IconButton(
             tooltip: 'Logout',
             onPressed: _isLoggingOut ? null : _logout,
@@ -818,166 +1274,143 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                   )
                 : const Icon(Icons.logout),
           ),
-          Switch(
-            value: _isOnline,
-            onChanged: (value) {
-              setState(() {
-                _isOnline = value;
-              });
-            },
-          ),
         ],
       ),
-      body: Column(
-        children: [
-          Container(
-            width: double.infinity,
-            margin: const EdgeInsets.fromLTRB(12, 12, 12, 0),
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFFE2E8F0)),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Input Stok Bawaan Hari Ini',
-                  style: TextStyle(fontWeight: FontWeight.w600),
-                ),
-                const SizedBox(height: 10),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
+      body: RefreshIndicator(
+        onRefresh: _refreshAll,
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(12, 6, 12, 18),
+          children: [
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    Row(
+                      children: [
+                        const Icon(Icons.inventory_2_outlined, size: 18),
+                        const SizedBox(width: 8),
+                        const Text(
+                          'Stok Bawaan Hari Ini',
+                          style: TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                        const Spacer(),
+                        Chip(
+                          visualDensity: VisualDensity.compact,
+                          label: Text(_formatDateYmd(DateTime.now())),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        _buildTodayStockTile(
+                          label: 'Sisa 5kg',
+                          value: _todayStock5Kg,
+                          accent: const Color(0xFF0F766E),
+                        ),
+                        const SizedBox(width: 10),
+                        _buildTodayStockTile(
+                          label: 'Sisa 20kg',
+                          value: _todayStock20Kg,
+                          accent: const Color(0xFF1D4ED8),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    if (_isLoadingTodayStock)
+                      const LinearProgressIndicator(minHeight: 2),
+                    if (!_isLoadingTodayStock)
+                      Text(
+                        _hasTodayStockInput
+                            ? 'Stok tersinkron otomatis setiap 10 detik.'
+                            : 'Belum ada input stok untuk hari ini.',
+                        style: const TextStyle(color: Color(0xFF64748B), fontSize: 12),
+                      ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: _stock5KgController,
+                            keyboardType: TextInputType.number,
+                            decoration: const InputDecoration(
+                              labelText: 'Input 5kg',
+                              prefixIcon: Icon(Icons.icecream_outlined),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: TextField(
+                            controller: _stock20KgController,
+                            keyboardType: TextInputType.number,
+                            decoration: const InputDecoration(
+                              labelText: 'Input 20kg',
+                              prefixIcon: Icon(Icons.ac_unit_outlined),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
                     SizedBox(
-                      width: 150,
-                      child: TextField(
-                        controller: _stock5KgController,
-                        keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(
-                          labelText: 'Stok 5kg',
-                          border: OutlineInputBorder(),
-                          isDense: true,
+                      width: double.infinity,
+                      child: FilledButton.icon(
+                        onPressed: _isSubmittingStock ? null : _submitDriverStock,
+                        icon: _isSubmittingStock
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : const Icon(Icons.save_outlined),
+                        label: Text(_isSubmittingStock ? 'Menyimpan...' : 'Simpan Stok'),
+                        style: FilledButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
                         ),
                       ),
                     ),
-                    SizedBox(
-                      width: 150,
-                      child: TextField(
-                        controller: _stock20KgController,
-                        keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(
-                          labelText: 'Stok 20kg',
-                          border: OutlineInputBorder(),
-                          isDense: true,
-                        ),
-                      ),
+                    const SizedBox(height: 14),
+                    const Text(
+                      'Riwayat Input Terakhir',
+                      style: TextStyle(fontWeight: FontWeight.w700),
                     ),
-                    OutlinedButton.icon(
-                      onPressed: null,
-                      icon: const Icon(Icons.calendar_today_outlined),
-                      label: Text('Hari ini: ${_formatDateYmd(DateTime.now())}'),
-                    ),
-                    FilledButton(
-                      onPressed: _isSubmittingStock ? null : _submitDriverStock,
-                      child: Text(_isSubmittingStock ? 'Menyimpan...' : 'Simpan Stok'),
-                    ),
+                    const SizedBox(height: 8),
+                    _buildStockHistorySection(),
                   ],
                 ),
-                const SizedBox(height: 12),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
                 const Text(
-                  'Riwayat Input Stok Anda',
-                  style: TextStyle(fontWeight: FontWeight.w600),
+                  'Daftar Order',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
                 ),
-                _buildStockHistorySection(),
+                const SizedBox(width: 8),
+                if (_isLoading)
+                  const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
               ],
             ),
-          ),
-          Expanded(
-            child: RefreshIndicator(
-              onRefresh: _refreshAll,
-              child: _orders.isEmpty
-                  ? ListView(
-                      children: const [
-                        SizedBox(height: 120),
-                        Center(child: Text('Belum ada order yang cocok.')),
-                      ],
-                    )
-                  : ListView.separated(
-                      itemCount: _orders.length,
-                      separatorBuilder: (_, _) => const Divider(height: 1),
-                      itemBuilder: (context, index) {
-                  final order = _orders[index];
-                  final orderId = order['id'] as int? ?? 0;
-                  final status =
-                      (order['status'] as String? ?? '-').trim().toLowerCase();
-                  final isPending =
-                      status != 'approved' && status != 'rejected';
-                  final orderDriverId = (order['driver_id'] as num?)?.toInt();
-                  final isClaimedByOtherDriver =
-                      isPending && orderDriverId != null && orderDriverId != widget.driverId;
-                  final isUpdating = _isUpdatingOrderIds.contains(orderId);
-
-                      return ListTile(
-                        leading: CircleAvatar(child: Text('${order['id'] ?? '-'}')),
-                        title: Text('Pelanggan: ${order['customer_name'] ?? '-'}'),
-                        subtitle: Text(
-                          'Zona: ${order['zone'] ?? '-'}\n'
-                          'Items: ${_formatOrderItems(order['items'])}',
-                        ),
-                        isThreeLine: true,
-                        trailing: isPending && !isClaimedByOtherDriver
-                            ? Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  OutlinedButton(
-                                    onPressed: isUpdating || orderId == 0
-                                        ? null
-                                        : () => _confirmAndUpdateOrderStatus(
-                                              orderId: orderId,
-                                              status: 'rejected',
-                                            ),
-                                    style: OutlinedButton.styleFrom(
-                                      foregroundColor: Colors.red,
-                                      side: const BorderSide(color: Colors.red),
-                                      minimumSize: const Size(0, 32),
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 12,
-                                      ),
-                                    ),
-                                    child: const Text('Tolak'),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  FilledButton(
-                                    onPressed: isUpdating || orderId == 0
-                                        ? null
-                                        : () => _confirmAndUpdateOrderStatus(
-                                              orderId: orderId,
-                                              status: 'approved',
-                                            ),
-                                    style: FilledButton.styleFrom(
-                                      minimumSize: const Size(0, 32),
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 12,
-                                      ),
-                                    ),
-                                    child: Text(isUpdating ? '...' : 'Terima'),
-                                  ),
-                                ],
-                              )
-                            : Text(
-                                isClaimedByOtherDriver
-                                    ? 'DIPROSES SUPIR LAIN'
-                                    : status.toUpperCase(),
-                              ),
-                      );
-                    },
-                  ),
-            ),
-          ),
-        ],
+            const SizedBox(height: 8),
+            if (_orders.isEmpty)
+              const Card(
+                child: Padding(
+                  padding: EdgeInsets.all(18),
+                  child: Center(child: Text('Belum ada order yang cocok.')),
+                ),
+              )
+            else
+              ..._orders.map(_buildOrderCard),
+          ],
+        ),
       ),
     );
   }

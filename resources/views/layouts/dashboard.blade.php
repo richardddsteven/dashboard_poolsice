@@ -897,15 +897,16 @@
                 const result = await response.json();
                 const latestOrderId = Number(result.latestOrderId || 0);
                 const latestUpdateToken = String(result.latestUpdateToken || '');
-                const hasStatusUpdate = latestUpdateToken !== '' && latestUpdateToken !== globalRealtimeLastUpdateToken;
+                const hasStatusUpdate = latestUpdateToken !== globalRealtimeLastUpdateToken;
+                const hasOrderIdReset = latestOrderId < globalRealtimeLastOrderId;
 
                 if (latestOrderId > globalRealtimeLastOrderId) {
                     globalRealtimeLastOrderId = latestOrderId;
+                } else if (hasOrderIdReset) {
+                    globalRealtimeLastOrderId = latestOrderId;
                 }
 
-                if (latestUpdateToken !== '') {
-                    globalRealtimeLastUpdateToken = latestUpdateToken;
-                }
+                globalRealtimeLastUpdateToken = latestUpdateToken;
 
                 const pendingCount = Number(result.pendingCount || 0);
                 renderPendingBadge(pendingCount);
@@ -916,7 +917,7 @@
                     }));
                 }
 
-                if (hasStatusUpdate) {
+                if (hasStatusUpdate || hasOrderIdReset) {
                     window.dispatchEvent(new CustomEvent('realtime:orders-changed', {
                         detail: result,
                     }));
