@@ -64,7 +64,7 @@
             </form>
         </div>
 
-        <!-- Filter Tabs (dipindah ke dalam header, di atas garis) -->
+        <!-- Filter Tabs (dipindah ke dalam header, di atas gariss) -->
         <div class="filter-tabs" style="display: flex; gap: 8px; justify-content: flex-start;">
             <a href="{{ route('orders.index', array_merge(request()->except('status', 'page'), [])) }}" class="btn {{ request('status') == null ? 'btn-primary' : 'btn-secondary' }}" style="padding: 6px 12px; font-size: 13px;">Semua</a>
             <a href="{{ route('orders.index', array_merge(request()->except('status', 'page'), ['status' => 'pending'])) }}" class="btn {{ request('status') == 'pending' ? 'btn-primary' : 'btn-secondary' }}" style="padding: 6px 12px; font-size: 13px;">Pending</a>
