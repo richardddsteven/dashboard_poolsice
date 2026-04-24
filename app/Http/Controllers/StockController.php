@@ -8,44 +8,36 @@ use Illuminate\Http\Request;
 
 class StockController extends Controller
 {
-    public function index(Request $request)
+    public function index()
     {
-        $query = Stock::query()->orderByDesc('date');
-        $driverStockQuery = DriverStock::query()
+        $today = now()->toDateString();
+        $this->cleanupOldStockData($today);
+
+        $stock = Stock::query()
+            ->whereDate('date', $today)
+            ->first();
+
+        $driverStocks = DriverStock::query()
             ->with(['driver:id,name'])
-            ->orderByDesc('date')
-            ->orderByDesc('updated_at');
+            ->whereDate('date', $today)
+            ->orderByDesc('updated_at')
+            ->get();
 
-        if ($request->filled('month')) {
-            $parts = explode('-', (string) $request->month);
-            if (count($parts) === 2) {
-                $year = (int) $parts[0];
-                $month = (int) $parts[1];
-
-                $query->whereYear('date', $year)
-                    ->whereMonth('date', $month);
-
-                $driverStockQuery->whereYear('date', $year)
-                    ->whereMonth('date', $month);
-            }
-        }
-
-        $stocks = $query->get();
-        $driverStocks = $driverStockQuery->get();
-
-        return view('stocks.index', compact('stocks', 'driverStocks'));
+        return view('stocks.index', compact('stock', 'driverStocks', 'today'));
     }
 
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'date' => ['required', 'date'],
             'stock_5kg' => ['required', 'integer', 'min:0'],
             'stock_20kg' => ['required', 'integer', 'min:0'],
         ]);
 
+        $today = now()->toDateString();
+        $this->cleanupOldStockData($today);
+
         $stock = Stock::updateOrCreate(
-            ['date' => $validated['date']],
+            ['date' => $today],
             [
                 'stock_5kg' => $validated['stock_5kg'],
                 'stock_20kg' => $validated['stock_20kg'],
@@ -53,9 +45,61 @@ class StockController extends Controller
         );
 
         $message = $stock->wasRecentlyCreated
-            ? 'Stok harian berhasil ditambahkan.'
-            : 'Stok harian untuk tanggal tersebut berhasil diperbarui.';
+            ? 'Stok hari ini berhasil disimpan.'
+            : 'Stok hari ini berhasil diperbarui.';
 
         return redirect()->route('stocks.index')->with('success', $message);
+    }
+
+    public function realtimeToday()
+    {
+        $today = now()->toDateString();
+        $this->cleanupOldStockData($today);
+
+        $stock = Stock::query()
+            ->whereDate('date', $today)
+            ->first();
+
+        $driverStocks = DriverStock::query()
+            ->with(['driver:id,name'])
+            ->whereDate('date', $today)
+            ->orderByDesc('updated_at')
+            ->get()
+            ->map(function (DriverStock $driverStock) {
+                return [
+                    'id' => $driverStock->id,
+                    'driver_id' => $driverStock->driver_id,
+                    'driver_name' => $driverStock->driver?->name,
+                    'date' => $driverStock->date?->format('Y-m-d'),
+                    'stock_5kg' => (int) $driverStock->stock_5kg,
+                    'stock_20kg' => (int) $driverStock->stock_20kg,
+                    'updated_at' => $driverStock->updated_at,
+                ];
+            })
+            ->values();
+
+        return response()->json([
+            'data' => [
+                'date' => $today,
+                'stock' => [
+                    'stock_5kg' => (int) ($stock->stock_5kg ?? 0),
+                    'stock_20kg' => (int) ($stock->stock_20kg ?? 0),
+                    'has_stock_input' => !is_null($stock),
+                    'updated_at' => $stock?->updated_at,
+                ],
+                'driver_stocks' => $driverStocks,
+            ],
+        ]);
+    }
+
+    private function cleanupOldStockData(string $today): void
+    {
+        Stock::query()
+            ->whereDate('date', '<', $today)
+            ->delete();
+
+        DriverStock::query()
+            ->whereDate('date', '<', $today)
+            ->delete();
     }
 }

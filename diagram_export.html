@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Export Diagram - Bab 3 Desain Sistem</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: #f0f2f5;
+            color: #1a1a2e;
+            padding: 32px;
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 12px;
+            font-size: 28px;
+            color: #1565C0;
+        }
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 40px;
+            font-size: 15px;
+        }
+        .diagram-section {
+            background: #fff;
+            border-radius: 16px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+            padding: 32px;
+            margin-bottom: 32px;
+            max-width: 1400px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        .diagram-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+        .diagram-header h2 {
+            font-size: 20px;
+            color: #333;
+        }
+        .btn-group { display: flex; gap: 8px; flex-wrap: wrap; }
+        .btn-download {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 20px;
+            background: #1565C0;
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .btn-download:hover { background: #0D47A1; }
+        .btn-download.svg-btn { background: #6A1B9A; }
+        .btn-download.svg-btn:hover { background: #4A148C; }
+        .btn-download:active { transform: scale(0.97); }
+        .diagram-container {
+            overflow-x: auto;
+            display: flex;
+            justify-content: center;
+            padding: 16px 0;
+            min-height: 200px;
+        }
+        .btn-download-all {
+            display: block;
+            margin: 0 auto 20px;
+            padding: 14px 36px;
+            background: #2E7D32;
+            color: #fff;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .btn-download-all:hover { background: #1B5E20; }
+        .status {
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 14px;
+            color: #888;
+            min-height: 24px;
+        }
+        .loading { color: #E65100; font-weight: 600; }
+        .success { color: #2E7D32; font-weight: 600; }
+    </style>
+</head>
+<body>
+
+<h1>📊 Export Diagram - Bab 3 Desain Sistem</h1>
+<p class="subtitle">Tunggu semua diagram ter-render, lalu klik tombol download.</p>
+
+<button class="btn-download-all" onclick="downloadAllPNG()">⬇️ Download Semua Diagram (PNG)</button>
+<div class="status" id="global-status"></div>
+
+<!-- Containers for each diagram -->
+<div class="diagram-section" id="section1">
+    <div class="diagram-header">
+        <h2>1. Diagram Arsitektur Sistem</h2>
+        <div class="btn-group">
+            <button class="btn-download svg-btn" onclick="downloadSVG('diagram1', 'Diagram_Arsitektur_Sistem')">⬇ SVG</button>
+            <button class="btn-download" onclick="downloadPNG('diagram1', 'Diagram_Arsitektur_Sistem')">⬇ PNG</button>
+        </div>
+    </div>
+    <div class="diagram-container" id="diagram1"></div>
+</div>
+
+<div class="diagram-section" id="section2">
+    <div class="diagram-header">
+        <h2>2. Diagram Aliran Data Pemesanan via WhatsApp</h2>
+        <div class="btn-group">
+            <button class="btn-download svg-btn" onclick="downloadSVG('diagram2', 'Diagram_Sequence_Pemesanan')">⬇ SVG</button>
+            <button class="btn-download" onclick="downloadPNG('diagram2', 'Diagram_Sequence_Pemesanan')">⬇ PNG</button>
+        </div>
+    </div>
+    <div class="diagram-container" id="diagram2"></div>
+</div>
+
+<div class="diagram-section" id="section3">
+    <div class="diagram-header">
+        <h2>3. Diagram Entity-Relationship Database</h2>
+        <div class="btn-group">
+            <button class="btn-download svg-btn" onclick="downloadSVG('diagram3', 'Diagram_ERD_Database')">⬇ SVG</button>
+            <button class="btn-download" onclick="downloadPNG('diagram3', 'Diagram_ERD_Database')">⬇ PNG</button>
+        </div>
+    </div>
+    <div class="diagram-container" id="diagram3"></div>
+</div>
+
+<div class="diagram-section" id="section4">
+    <div class="diagram-header">
+        <h2>4. Diagram Deployment</h2>
+        <div class="btn-group">
+            <button class="btn-download svg-btn" onclick="downloadSVG('diagram4', 'Diagram_Deployment')">⬇ SVG</button>
+            <button class="btn-download" onclick="downloadPNG('diagram4', 'Diagram_Deployment')">⬇ PNG</button>
+        </div>
+    </div>
+    <div class="diagram-container" id="diagram4"></div>
+</div>
+
+<script>
+// Diagram definitions
+const diagrams = {
+    diagram1: {
+        name: 'Diagram_Arsitektur_Sistem',
+        code: `graph LR
+    ADMIN["Admin Dashboard\\n(Web Browser)"]
+    DRIVER["Driver App\\n(Flutter Mobile)"]
+    WA["Pelanggan\\n(WhatsApp)"]
+    FONNTE["Fonnte API\\n(WhatsApp Gateway)"]
+    NOMINATIM["Nominatim API\\n(Geocoding)"]
+
+    BACKEND[("Backend\\nLaravel 11")]
+
+    subgraph Database["Database MySQL"]
+        direction TB
+        DB_USERS[("users")]
+        DB_CUSTOMERS[("customers")]
+        DB_ORDERS[("orders")]
+        DB_DRIVERS[("drivers")]
+        DB_DSTOCKS[("driver_stocks")]
+        DB_STOCKS[("stocks")]
+        DB_ZONES[("zones")]
+        DB_ICE[("ice_types")]
+        DB_EXP[("expenses &\\nexpense_categories")]
+    end
+
+    ADMIN -->|"HTTP /login, /register"| BACKEND
+    ADMIN -->|"HTTP /dashboard"| BACKEND
+    ADMIN -->|"HTTP /orders/..."| BACKEND
+    ADMIN -->|"HTTP /customers/..."| BACKEND
+    ADMIN -->|"HTTP /drivers/..."| BACKEND
+    ADMIN -->|"HTTP /stocks, /zones/..."| BACKEND
+    ADMIN -->|"HTTP /finance, /expenses/..."| BACKEND
+
+    DRIVER -->|"REST /api/driver/login"| BACKEND
+    DRIVER -->|"REST /api/driver/orders/..."| BACKEND
+    DRIVER -->|"REST /api/driver/stocks/..."| BACKEND
+
+    WA <-->|"Pesan WA"| FONNTE
+    FONNTE -->|"POST /webhook/fonnte"| BACKEND
+    BACKEND -->|"HTTPS send message"| FONNTE
+    BACKEND -->|"HTTPS geocoding"| NOMINATIM
+
+    BACKEND --> DB_USERS
+    BACKEND --> DB_CUSTOMERS
+    BACKEND --> DB_ORDERS
+    BACKEND --> DB_DRIVERS
+    BACKEND --> DB_DSTOCKS
+    BACKEND --> DB_STOCKS
+    BACKEND --> DB_ZONES
+    BACKEND --> DB_ICE
+    BACKEND --> DB_EXP`
+    },
+    diagram2: {
+        name: 'Diagram_Sequence_Pemesanan',
+        code: `sequenceDiagram
+    actor Pelanggan
+    participant WA as WhatsApp
+    participant FN as Fonnte API
+    participant SRV as Laravel Server
+    participant DB as MySQL Database
+    participant DRV as Driver App Flutter
+    Note over Pelanggan,DRV: Alur Pelanggan Baru
+    Pelanggan->>WA: Kirim pesan Pesan 5kg 3 pcs
+    WA->>FN: Forward message
+    FN->>SRV: POST /webhook/fonnte
+    SRV->>DB: Cek Customer by phone
+    DB-->>SRV: Customer tidak ditemukan
+    SRV->>DB: Buat Customer baru state awaiting_name
+    SRV->>FN: Kirim balasan Boleh tahu nama toko?
+    FN->>WA: Kirim pesan
+    WA->>Pelanggan: Boleh tahu nama toko?
+    Pelanggan->>WA: Toko Makmur
+    WA->>FN: Forward
+    FN->>SRV: POST /webhook/fonnte
+    SRV->>DB: Update nama state awaiting_address
+    SRV->>FN: Boleh tahu alamat toko?
+    FN->>WA: Kirim pesan
+    WA->>Pelanggan: Boleh tahu alamat toko?
+    Pelanggan->>WA: Jl Raya Canggu No 5
+    WA->>FN: Forward
+    FN->>SRV: POST /webhook/fonnte
+    SRV->>SRV: Deteksi zona + Nominatim Geocoding
+    SRV->>DB: Update alamat dan zona
+    SRV->>DB: Buat Order status pending
+    SRV-->>FN: Response OK
+    Note over Pelanggan,DRV: Alur Supir Menerima Order
+    loop Setiap 10 detik
+        DRV->>SRV: GET /api/driver/orders/notifications
+        SRV->>DB: Ambil order pending sesuai zona
+        DB-->>SRV: Daftar order
+        SRV-->>DRV: JSON orders
+    end
+    DRV->>DRV: Tampilkan notifikasi order baru
+    DRV->>SRV: PATCH /api/driver/orders/id/status approved
+    SRV->>DB: Cek dan kurangi stok bawaan supir
+    SRV->>DB: Update order status approved
+    SRV-->>DRV: JSON message dan stock_today`
+    },
+    diagram3: {
+        name: 'Diagram_ERD_Database',
+        code: `erDiagram
+    users {
+        bigint id PK
+        string name
+        string email
+        string password
+        string remember_token
+        timestamp created_at
+        timestamp updated_at
+    }
+    zones {
+        bigint id PK
+        string name
+        decimal latitude
+        decimal longitude
+        timestamp created_at
+        timestamp updated_at
+    }
+    customers {
+        bigint id PK
+        string name
+        string phone
+        string address
+        string zone
+        decimal latitude
+        decimal longitude
+        string conversation_state
+        text pending_message
+        timestamp created_at
+        timestamp updated_at
+    }
+    ice_types {
+        bigint id PK
+        string name
+        string description
+        decimal weight
+        decimal price
+        boolean is_active
+        timestamp created_at
+        timestamp updated_at
+    }
+    drivers {
+        bigint id PK
+        string name
+        string phone
+        bigint zone_id FK
+        string username
+        string password
+        string api_token
+        timestamp created_at
+        timestamp updated_at
+    }
+    orders {
+        bigint id PK
+        bigint customer_id FK
+        bigint driver_id FK
+        bigint ice_type_id FK
+        integer quantity
+        string phone
+        text items
+        string status "pending|approved|rejected|completed"
+        json raw_payload
+        timestamp created_at
+        timestamp updated_at
+    }
+    stocks {
+        bigint id PK
+        date date
+        integer stock_5kg
+        integer stock_20kg
+        timestamp created_at
+        timestamp updated_at
+    }
+    driver_stocks {
+        bigint id PK
+        bigint driver_id FK
+        date date
+        integer stock_5kg
+        integer stock_20kg
+        timestamp created_at
+        timestamp updated_at
+    }
+    expenses {
+        bigint id PK
+        string name
+        decimal amount
+        bigint expense_category_id FK
+        text notes
+        date date
+        timestamp created_at
+        timestamp updated_at
+    }
+    expense_categories {
+        bigint id PK
+        string name
+        timestamp created_at
+        timestamp updated_at
+    }
+    zones ||--o{ drivers : "memiliki"
+    customers ||--o{ orders : "membuat"
+    drivers ||--o{ orders : "mengerjakan"
+    ice_types ||--o{ orders : "tipe_es"
+    drivers ||--o{ driver_stocks : "memiliki"
+    expense_categories ||--o{ expenses : "kategori"`
+    },
+    diagram4: {
+        name: 'Diagram_Deployment',
+        code: `graph LR
+    subgraph PERANGKAT_PELANGGAN["Perangkat Pelanggan"]
+        WA_CLIENT["WhatsApp\\nSmartphone"]
+    end
+    subgraph PERANGKAT_SUPIR["Perangkat Supir"]
+        FLUTTER["Driver App Flutter\\nAndroid / iOS"]
+    end
+    subgraph PERANGKAT_ADMIN["Perangkat Admin"]
+        BROWSER["Web Browser\\nChrome / Firefox"]
+    end
+    subgraph CLOUD["Cloud Services"]
+        FONNTE_SRV["Fonnte Server\\napi.fonnte.com"]
+        OSM["OpenStreetMap\\nnominatim.openstreetmap.org"]
+    end
+    subgraph SERVER["Application Server"]
+        direction TB
+        APACHE["Web Server\\nApache / Nginx"]
+        PHP["PHP 8.x Runtime"]
+        LARAVEL_APP["Laravel Application"]
+        MYSQL_SRV["MySQL Server\\nPort 3306"]
+        FS["Local Filesystem\\nstorage/"]
+    end
+    WA_CLIENT <-->|"Internet"| FONNTE_SRV
+    FONNTE_SRV <-->|"HTTPS"| APACHE
+    FLUTTER <-->|"REST API\\nHTTPS"| APACHE
+    BROWSER <-->|"HTTP/HTTPS"| APACHE
+    APACHE --> PHP --> LARAVEL_APP
+    LARAVEL_APP --> MYSQL_SRV
+    LARAVEL_APP --> FS
+    LARAVEL_APP -->|"HTTPS"| FONNTE_SRV
+    LARAVEL_APP -->|"HTTPS"| OSM
+    style PERANGKAT_PELANGGAN fill:#FFF9C4,stroke:#F57F17
+    style PERANGKAT_SUPIR fill:#E8F5E9,stroke:#2E7D32
+    style PERANGKAT_ADMIN fill:#E3F2FD,stroke:#1565C0
+    style CLOUD fill:#FFF3E0,stroke:#E65100
+    style SERVER fill:#F3E5F5,stroke:#6A1B9A`
+    }
+};
+
+// Initialize Mermaid with htmlLabels OFF to avoid foreignObject (critical for PNG export)
+mermaid.initialize({
+    startOnLoad: false,
+    theme: 'default',
+    securityLevel: 'loose',
+    flowchart: {
+        useMaxWidth: false,
+        htmlLabels: false,
+        curve: 'basis'
+    },
+    sequence: {
+        useMaxWidth: false,
+        wrap: true
+    },
+    er: {
+        useMaxWidth: false
+    }
+});
+
+// Render all diagrams on load
+async function renderAll() {
+    const status = document.getElementById('global-status');
+    status.innerHTML = '<span class="loading">⏳ Rendering semua diagram...</span>';
+
+    for (const [id, diag] of Object.entries(diagrams)) {
+        try {
+            const { svg } = await mermaid.render(id + '_svg', diag.code);
+            document.getElementById(id).innerHTML = svg;
+        } catch (e) {
+            document.getElementById(id).innerHTML = '<p style="color:red;">Error rendering: ' + e.message + '</p>';
+            console.error('Error rendering ' + id, e);
+        }
+    }
+
+    status.innerHTML = '<span class="success">✅ Semua diagram berhasil di-render! Silakan download.</span>';
+}
+
+// Download as SVG
+function downloadSVG(containerId, filename) {
+    const container = document.getElementById(containerId);
+    const svgEl = container.querySelector('svg');
+    if (!svgEl) { alert('Diagram belum ter-render.'); return; }
+
+    const clone = svgEl.cloneNode(true);
+    clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+
+    const serializer = new XMLSerializer();
+    const svgString = '<?xml version="1.0" encoding="UTF-8"?>\n' + serializer.serializeToString(clone);
+    const blob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
+
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = filename + '.svg';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(link.href);
+}
+
+// Download as PNG (reliable method)
+function downloadPNG(containerId, filename) {
+    const container = document.getElementById(containerId);
+    const svgEl = container.querySelector('svg');
+    if (!svgEl) { alert('Diagram belum ter-render.'); return; }
+
+    const scale = 3;
+    const clone = svgEl.cloneNode(true);
+
+    // Get actual size
+    const bbox = svgEl.getBBox();
+    const pad = 40;
+    const w = bbox.width + pad * 2;
+    const h = bbox.height + pad * 2;
+
+    // Set viewBox and dimensions
+    clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+    clone.setAttribute('width', w);
+    clone.setAttribute('height', h);
+    clone.setAttribute('viewBox', `${bbox.x - pad} ${bbox.y - pad} ${w} ${h}`);
+
+    // Add white background rect as first child
+    const bg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    bg.setAttribute('x', bbox.x - pad);
+    bg.setAttribute('y', bbox.y - pad);
+    bg.setAttribute('width', w);
+    bg.setAttribute('height', h);
+    bg.setAttribute('fill', '#ffffff');
+    clone.insertBefore(bg, clone.firstChild);
+
+    // Inline all computed styles for every element
+    const originalElements = svgEl.querySelectorAll('*');
+    const cloneElements = clone.querySelectorAll('*');
+    for (let i = 0; i < originalElements.length; i++) {
+        const computed = window.getComputedStyle(originalElements[i]);
+        let styleStr = '';
+        for (let j = 0; j < computed.length; j++) {
+            const prop = computed[j];
+            styleStr += `${prop}:${computed.getPropertyValue(prop)};`;
+        }
+        cloneElements[i].setAttribute('style', styleStr);
+    }
+
+    // Serialize to data URL
+    const serializer = new XMLSerializer();
+    const svgString = serializer.serializeToString(clone);
+    const encodedSvg = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgString);
+
+    // Draw to canvas
+    const canvas = document.createElement('canvas');
+    canvas.width = w * scale;
+    canvas.height = h * scale;
+    const ctx = canvas.getContext('2d');
+
+    const img = new Image();
+    img.onload = function () {
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+        const link = document.createElement('a');
+        link.href = canvas.toDataURL('image/png');
+        link.download = filename + '.png';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+    img.onerror = function() {
+        alert('PNG export gagal untuk ' + filename + '. Gunakan tombol SVG sebagai alternatif.');
+    };
+    img.src = encodedSvg;
+}
+
+// Download all as PNG
+async function downloadAllPNG() {
+    const status = document.getElementById('global-status');
+    const entries = Object.entries(diagrams);
+
+    for (let i = 0; i < entries.length; i++) {
+        const [id, diag] = entries[i];
+        status.innerHTML = `<span class="loading">⬇️ Mengunduh ${i + 1}/${entries.length}: ${diag.name}...</span>`;
+        downloadPNG(id, diag.name);
+        await new Promise(r => setTimeout(r, 1500));
+    }
+
+    status.innerHTML = '<span class="success">✅ Semua diagram berhasil diunduh!</span>';
+    setTimeout(() => { status.textContent = ''; }, 5000);
+}
+
+// Start rendering
+renderAll();
+</script>
+</body>
+</html>

@@ -1,244 +1,190 @@
 @extends('layouts.dashboard')
+@section('title', 'Tambah Pelanggan')
+
+@push('styles')
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
+<style>
+    .zone-picker-map {
+        height: 320px;
+        border-radius: 12px;
+        border: 1px solid var(--border-color);
+        overflow: hidden;
+        background: #F8FAFC;
+    }
+    .zone-help-text {
+        margin-top: 8px;
+        font-size: 13px;
+        color: var(--text-muted);
+    }
+    .zone-coordinates-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+    }
+    @media (max-width: 768px) {
+        .zone-coordinates-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+@endpush
 
 @section('content')
 <div class="page-header">
     <div>
         <h1 class="page-title">Tambah Pelanggan</h1>
-        <p class="page-subtitle" style="margin-bottom: 16px;">Isi formulir di bawah untuk menambahkan data pelanggan baru.</p>
+        <p class="page-subtitle">Lengkapi data pelanggan baru</p>
     </div>
+    <a href="{{ route('customers.index', request('zone') ? ['zone' => request('zone')] : []) }}" class="btn btn-secondary">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5"/><path d="M12 19L5 12L12 5"/></svg>
+        Kembali
+    </a>
 </div>
 
 <div class="card">
-    <div class="card-header">
-        <h3 class="card-title">Formulir Pelanggan</h3>
-    </div>
-    
-    <div class="card-body">
-        <form action="{{ route('customers.store') }}" method="POST">
-            @csrf
+    @if($errors->any())
+        <div class="alert alert-danger" style="margin-bottom: 20px;">
+            <ul style="margin: 0; padding-left: 16px;">
+                @foreach($errors->all() as $error)
+                    <li>{{ $error }}</li>
+                @endforeach
+            </ul>
+        </div>
+    @endif
 
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 24px; margin-bottom: 24px;">
-                <!-- Name -->
-                <div>
-                    <label for="name" style="display: block; margin-bottom: 8px; font-weight: 600; color: var(--text-main);">Nama Lengkap <span style="color: #ef4444;">*</span></label>
-                    <input type="text" name="name" id="name" class="form-control" value="{{ old('name') }}" placeholder="Masukkan nama pelanggan" required style="width: 100%;">
-                    @error('name')
-                        <div style="color: #ef4444; font-size: 13px; margin-top: 6px;">{{ $message }}</div>
-                    @enderror
-                </div>
-
-                <!-- Phone -->
-                <div>
-                    <label for="phone" style="display: block; margin-bottom: 8px; font-weight: 600; color: var(--text-main);">Nomor Telepon <span style="color: #ef4444;">*</span></label>
-                    <input type="text" name="phone" id="phone" class="form-control" value="{{ old('phone') }}" placeholder="Contoh: 08123456789" required style="width: 100%;">
-                    @error('phone')
-                        <div style="color: #ef4444; font-size: 13px; margin-top: 6px;">{{ $message }}</div>
-                    @enderror
-                </div>
+    <form method="POST" action="{{ route('customers.store') }}">
+        @csrf
+        <div style="display: flex; flex-direction: column; gap: 20px;">
+            <div>
+                <label for="name" style="display: block; margin-bottom: 6px; font-weight: 600; font-size: 14px; color: var(--text-main);">Nama Pelanggan <span style="color: #EF4444;">*</span></label>
+                <input type="text" id="name" name="name" class="form-control" value="{{ old('name') }}" placeholder="Masukkan nama pelanggan" required>
             </div>
-
-            <div style="margin-bottom: 24px;">
-                <label for="zone" style="display: block; margin-bottom: 8px; font-weight: 600; color: var(--text-main);">Zona Wilayah</label>
-
-                @if(request('zone'))
-                    <div class="custom-select-wrapper zone-locked" id="zoneSelectWrapper">
-                        <div class="custom-select-trigger custom-select-disabled" aria-disabled="true">
-                            <span id="zoneSelectText">{{ ucfirst(old('zone', request('zone'))) }}</span>
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="select-icon"><path d="M6 9l6 6 6-6"/></svg>
-                        </div>
-                        <input type="hidden" name="zone" id="zoneInput" value="{{ old('zone', request('zone')) }}">
+            <div>
+                <label for="phone" style="display: block; margin-bottom: 6px; font-weight: 600; font-size: 14px; color: var(--text-main);">No. Telepon <span style="color: #EF4444;">*</span></label>
+                <input type="text" id="phone" name="phone" class="form-control" value="{{ old('phone') }}" placeholder="08xxxxxxxxxx" required>
+            </div>
+            <div>
+                <label for="address" style="display: block; margin-bottom: 6px; font-weight: 600; font-size: 14px; color: var(--text-main);">Alamat</label>
+                <textarea id="address" name="address" class="form-control" rows="3" placeholder="Masukkan alamat lengkap">{{ old('address') }}</textarea>
+            </div>
+            <div>
+                <label for="zone" style="display: block; margin-bottom: 6px; font-weight: 600; font-size: 14px; color: var(--text-main);">Zona <span style="color: #EF4444;">*</span></label>
+                <div class="custom-select-wrapper" id="zoneSelectWrapper">
+                    <div class="custom-select-trigger" onclick="document.getElementById('zoneSelectWrapper').classList.toggle('open')">
+                        <span id="zoneSelectText" class="{{ old('zone', request('zone')) ? '' : 'text-placeholder' }}">{{ old('zone', request('zone')) ? ucfirst(old('zone', request('zone'))) : 'Pilih zona' }}</span>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="select-icon"><path d="M6 9l6 6 6-6"/></svg>
                     </div>
-                @else
-                    <div class="custom-select-wrapper" id="zoneSelectWrapper">
-                        <div class="custom-select-trigger" onclick="toggleSelect()">
-                            <span id="zoneSelectText" class="text-placeholder">Pilih Zona</span>
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="select-icon"><path d="M6 9l6 6 6-6"/></svg>
-                        </div>
-                        <div class="custom-options">
-                            <div class="custom-option {{ (old('zone') == '' && !request('zone')) ? 'selected' : '' }}" data-value="" onclick="selectOption(this)">Pilih Zona</div>
-                            @foreach($zones as $zone)
-                                @php
-                                    $isSelected = old('zone') == $zone->name;
-                                @endphp
-                                <div class="custom-option {{ $isSelected ? 'selected' : '' }}" data-value="{{ $zone->name }}" onclick="selectOption(this)">
-                                    {{ ucfirst($zone->name) }}
-                                </div>
-                            @endforeach
-                        </div>
-                        <input type="hidden" name="zone" placeholder="Pilih Zona" id="zoneInput" value="{{ old('zone') }}">
+                    <div class="custom-options">
+                        @foreach($zones as $zone)
+                            <div class="custom-option {{ old('zone', request('zone')) == $zone->name ? 'selected' : '' }}" data-value="{{ $zone->name }}" onclick="selectZone(this)">{{ ucfirst($zone->name) }}</div>
+                        @endforeach
                     </div>
-                @endif
-
-                @error('zone')
-                    <div style="color: #ef4444; font-size: 13px; margin-top: 6px;">{{ $message }}</div>
-                @enderror
+                    <input type="hidden" name="zone" id="zoneInput" value="{{ old('zone', request('zone')) }}">
+                </div>
             </div>
-
-            <div style="margin-bottom: 24px;">
-                <label for="address" style="display: block; margin-bottom: 8px; font-weight: 600; color: var(--text-main);">Alamat Lengkap</label>
-                <textarea name="address" id="address" class="form-control" rows="4" placeholder="Masukkan alamat lengkap pelanggan" style="width: 100%; resize: vertical;">{{ old('address') }}</textarea>
-                @error('address')
-                    <div style="color: #ef4444; font-size: 13px; margin-top: 6px;">{{ $message }}</div>
-                @enderror
+            <div>
+                <label style="display: block; margin-bottom: 6px; font-weight: 600; font-size: 14px; color: var(--text-main);">Titik Lokasi Pelanggan (Opsional)</label>
+                <div id="customerPickerMap" class="zone-picker-map"></div>
+                <p class="zone-help-text">Klik peta untuk meletakkan pin pada alamat yang sesuai, atau biarkan kosong.</p>
             </div>
-
-            <div style="margin-top: 32px; padding-top: 24px; border-top: 1px solid var(--border-color); display: flex; gap: 12px; justify-content: flex-end;">
-                <a href="{{ route('customers.index', ['zone' => request('zone')]) }}" class="btn btn-secondary">Batal</a>
-                <button type="submit" class="btn btn-primary">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="white" style="margin-right: 6px;">
-                        <path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/>
-                    </svg>
-                    Simpan Data
-                </button>
+            <div class="zone-coordinates-grid">
+                <div>
+                    <label for="latitude" style="display: block; margin-bottom: 6px; font-weight: 600; font-size: 14px; color: var(--text-main);">Latitude</label>
+                    <input type="number" step="0.0000001" id="latitude" name="latitude" class="form-control" value="{{ old('latitude') }}">
+                </div>
+                <div>
+                    <label for="longitude" style="display: block; margin-bottom: 6px; font-weight: 600; font-size: 14px; color: var(--text-main);">Longitude</label>
+                    <input type="number" step="0.0000001" id="longitude" name="longitude" class="form-control" value="{{ old('longitude') }}">
+                </div>
             </div>
-        </form>
-    </div>
+            <div style="padding-top: 8px;">
+                <button type="submit" class="btn btn-primary">Simpan Pelanggan</button>
+            </div>
+        </div>
+    </form>
 </div>
 
-<style>
-.custom-select-wrapper {
-    position: relative;
-    width: 100%;
-    user-select: none;
+<script>
+function selectZone(el) {
+    document.getElementById('zoneInput').value = el.dataset.value;
+    const t = document.getElementById('zoneSelectText');
+    t.textContent = el.textContent.trim();
+    t.classList.remove('text-placeholder');
+    document.querySelectorAll('#zoneSelectWrapper .custom-option').forEach(o => o.classList.remove('selected'));
+    el.classList.add('selected');
+    document.getElementById('zoneSelectWrapper').classList.remove('open');
 }
-.custom-select-trigger {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 10px 16px;
-    background: #fff;
-    border: 1px solid #cbd5e1;
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 14px;
-    color: #334155;
-    transition: all 0.2s ease;
-}
-.custom-select-wrapper.open .custom-select-trigger {
-    border-color: #3b82f6;
-    box-shadow: 0 0 0 3px rgba(59,130,246,0.1);
-}
-.custom-select-disabled {
-    background: #f8fafc;
-    cursor: not-allowed;
-    color: #475569;
-}
-.zone-locked .select-icon {
-    opacity: 0.6;
-}
-.custom-select-wrapper.open .select-icon {
-    transform: rotate(180deg);
-}
-.select-icon {
-    transition: transform 0.3s ease;
-}
-.text-placeholder {
-    color: #94a3b8;
-}
-.custom-options {
-    position: absolute;
-    top: 100%;
-    left: 0;
-    right: 0;
-    background: #fff;
-    border: 1px solid #e2e8f0;
-    border-radius: 6px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-    margin-top: 8px;
-    opacity: 0;
-    visibility: hidden;
-    pointer-events: none;
-    transform: translateY(-10px);
-    transition: all 0.2s ease;
-    z-index: 10;
-    max-height: 250px;
-    overflow-y: auto;
-}
-.custom-select-wrapper.open .custom-options {
-    opacity: 1;
-    visibility: visible;
-    pointer-events: all;
-    transform: translateY(0);
-}
-.custom-option {
-    padding: 10px 16px;
-    font-size: 14px;
-    color: #475569;
-    cursor: pointer;
-    transition: background 0.15s ease;
-}
-.custom-option:hover {
-    background: #f8fafc;
-    color: #1e293b;
-}
-.custom-option.selected {
-    background: #eff6ff;
-    color: #2563eb;
-    font-weight: 500;
-}
-/* Custom Scrollbar for Options */
-.custom-options::-webkit-scrollbar {
-    width: 6px;
-}
-.custom-options::-webkit-scrollbar-track {
-    background: #f1f5f9;
-    border-radius: 6px;
-}
-.custom-options::-webkit-scrollbar-thumb {
-    background: #cbd5e1;
-    border-radius: 6px;
-}
-.custom-options::-webkit-scrollbar-thumb:hover {
-    background: #94a3b8;
-}
-</style>
+document.addEventListener('click', function(e) {
+    const w = document.getElementById('zoneSelectWrapper');
+    if (w && !w.contains(e.target)) w.classList.remove('open');
+});
+</script>
+@endsection
 
 @push('scripts')
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
 <script>
-    function toggleSelect() {
-        document.getElementById('zoneSelectWrapper').classList.toggle('open');
-    }
+    (function () {
+        const latInput = document.getElementById('latitude');
+        const lngInput = document.getElementById('longitude');
+        const mapElement = document.getElementById('customerPickerMap');
 
-    function selectOption(element) {
-        const value = element.getAttribute('data-value');
-        const text = element.textContent.trim();
-        
-        document.getElementById('zoneInput').value = value;
-        const textElement = document.getElementById('zoneSelectText');
-        textElement.textContent = text;
-        
-        if (value === "") {
-            textElement.classList.add('text-placeholder');
-        } else {
-            textElement.classList.remove('text-placeholder');
+        if (!latInput || !lngInput || !mapElement || typeof L === 'undefined') {
+            return;
         }
-        
-        const options = document.querySelectorAll('.custom-option');
-        options.forEach(opt => opt.classList.remove('selected'));
-        element.classList.add('selected');
-        
-        document.getElementById('zoneSelectWrapper').classList.remove('open');
-    }
 
-    document.addEventListener('click', function(e) {
-        const selectWrapper = document.getElementById('zoneSelectWrapper');
-        if (selectWrapper && !selectWrapper.contains(e.target)) {
-            selectWrapper.classList.remove('open');
+        const initialLat = Number(latInput.value) || -7.2504;
+        const initialLng = Number(lngInput.value) || 112.7688;
+
+        const map = L.map(mapElement).setView([initialLat, initialLng], 12);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '&copy; OpenStreetMap contributors',
+        }).addTo(map);
+
+        let marker = null;
+        if (latInput.value && lngInput.value) {
+            marker = L.marker([initialLat, initialLng], { draggable: true }).addTo(map);
+            setupMarker(marker);
         }
-    });
 
-    window.addEventListener('DOMContentLoaded', () => {
-        const selectedOption = document.querySelector('.custom-option.selected');
-        if (selectedOption) {
-            const textElement = document.getElementById('zoneSelectText');
-            textElement.textContent = selectedOption.textContent.trim();
-            if (selectedOption.getAttribute('data-value') !== "") {
-                textElement.classList.remove('text-placeholder');
+        function syncInputs(latlng) {
+            latInput.value = Number(latlng.lat).toFixed(7);
+            lngInput.value = Number(latlng.lng).toFixed(7);
+        }
+
+        function setupMarker(m) {
+            m.on('dragend', function () {
+                syncInputs(m.getLatLng());
+            });
+        }
+
+        map.on('click', function (event) {
+            if (!marker) {
+                marker = L.marker(event.latlng, { draggable: true }).addTo(map);
+                setupMarker(marker);
             } else {
-                textElement.classList.add('text-placeholder');
+                marker.setLatLng(event.latlng);
             }
-        }
-    });
+            syncInputs(event.latlng);
+        });
+
+        const updateMapFromInputs = function () {
+            const lat = Number(latInput.value);
+            const lng = Number(lngInput.value);
+            if (Number.isFinite(lat) && Number.isFinite(lng)) {
+                if (!marker) {
+                    marker = L.marker([lat, lng], { draggable: true }).addTo(map);
+                    setupMarker(marker);
+                } else {
+                    marker.setLatLng([lat, lng]);
+                }
+                map.panTo([lat, lng]);
+            }
+        };
+
+        latInput.addEventListener('change', updateMapFromInputs);
+        lngInput.addEventListener('change', updateMapFromInputs);
+    })();
 </script>
 @endpush
-@endsection

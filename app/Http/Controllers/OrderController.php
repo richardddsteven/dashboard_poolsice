@@ -7,6 +7,14 @@ use Illuminate\Http\Request;
 
 class OrderController extends Controller
 {
+    private function withNoStoreHeaders($response)
+    {
+        return $response
+            ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
+            ->header('Pragma', 'no-cache')
+            ->header('Expires', '0');
+    }
+
     private function buildFilteredOrdersQuery(Request $request)
     {
         $query = Order::with(['customer', 'iceType']);
@@ -53,14 +61,14 @@ class OrderController extends Controller
         $orders = $query->latest()->paginate(15)->withQueryString();
         $latestOrderId = (clone $query)->max('orders.id') ?? 0;
 
-        return view('orders.index', compact(
+        return $this->withNoStoreHeaders(response()->view('orders.index', compact(
             'orders',
             'filterType',
             'filterDate',
             'filterStart',
             'filterEnd',
             'latestOrderId'
-        ));
+        )));
     }
 
     public function tableData(Request $request)
@@ -70,11 +78,11 @@ class OrderController extends Controller
             ->paginate(15)
             ->withQueryString();
 
-        return response()->json([
+        return $this->withNoStoreHeaders(response()->json([
             'html' => view('orders.partials.table', compact('orders'))->render(),
             'total' => $orders->total(),
             'latestOrderId' => $orders->max('id') ?? 0,
-        ]);
+        ]));
     }
 
     public function realtimeStatus(Request $request)
@@ -94,19 +102,19 @@ class OrderController extends Controller
                 'id' => $latestOrder->id,
                 'customer' => $latestOrder->customer?->name ?? 'Pelanggan baru',
                 'phone' => $latestOrder->phone,
-                'quantity' => $latestOrder->quantity ?? 1,
+                'quantity' => $latestOrder->effective_quantity ?? 1,
                 'iceType' => $productName,
                 'product' => $productName,
                 'time' => $latestOrder->created_at->diffForHumans(),
             ];
         }
 
-        return response()->json([
+        return $this->withNoStoreHeaders(response()->json([
             'latestOrderId' => $latestOrderId,
             'latestUpdateToken' => $latestUpdateToken,
             'pendingCount' => Order::where('status', 'pending')->count(),
             'newOrder' => $newOrder,
-        ]);
+        ]));
     }
 
     public function update(Request $request, Order $order)

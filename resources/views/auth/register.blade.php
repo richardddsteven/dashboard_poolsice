@@ -3,163 +3,152 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Register - Admin Dashboard</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <title>Register - Pools Ice Admin</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-            background: #F8F9FA;
+            background: #F8FAFC;
             min-height: 100vh;
             display: flex;
             align-items: center;
             justify-content: center;
+            -webkit-font-smoothing: antialiased;
         }
-        .container-register {
+        .register-container {
             display: flex;
             background: white;
-            border-radius: 16px;
-            box-shadow: 0 1px 6px rgba(0,0,0,0.08);
-            max-width: 500px;
+            border-radius: 20px;
+            box-shadow: 0 4px 24px rgba(0,0,0,0.06);
+            border: 1px solid #E2E8F0;
+            max-width: 820px;
             width: 100%;
             overflow: hidden;
+            animation: fadeUp 0.5s ease;
         }
-        .register-left {
+        @keyframes fadeUp {
+            from { opacity: 0; transform: translateY(12px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .register-form {
             flex: 1;
-            padding: 48px 40px;
+            padding: 48px 44px;
             display: flex;
             flex-direction: column;
             justify-content: center;
         }
+
         .register-title {
-            font-size: 28px;
+            font-size: 27px;
             font-weight: 700;
-            color: #1a202c;
-            margin-bottom: 32px;
+            color: #0F172A;
+            margin-bottom: 6px;
+            letter-spacing: -0.3px;
         }
         .register-subtitle {
-            color: #718096;
             font-size: 15px;
-            margin-bottom: 28px;
+            color: #64748B;
+            margin-bottom: 32px;
         }
-        .google-btn {
-            width: 100%;
-            background: #fff;
-            border: 1px solid #e2e8f0;
-            border-radius: 8px;
-            padding: 12px;
-            font-size: 15px;
-            font-weight: 500;
-            color: #222;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
-            cursor: pointer;
-            margin-bottom: 18px;
-            transition: box-shadow 0.2s;
-        }
-        .google-btn:hover {
-            box-shadow: 0 2px 8px rgba(102,126,234,0.08);
-        }
-        .divider {
-            display: flex;
-            align-items: center;
-            text-align: center;
-            margin: 18px 0;
-            color: #718096;
-            font-size: 14px;
-        }
-        .divider::before, .divider::after {
-            content: '';
-            flex: 1;
-            height: 1px;
-            background: #e2e8f0;
-        }
-        .divider span {
-            padding: 0 12px;
-        }
-        .form-group { margin-bottom: 18px; }
-        label {
+        .form-group { margin-bottom: 20px; }
+        .form-group label {
             display: block;
             font-size: 14px;
             font-weight: 600;
-            color: #374151;
+            color: #334155;
             margin-bottom: 8px;
         }
-        input[type="email"], input[type="password"], input[type="text"] {
+        .form-group input {
             width: 100%;
-            padding: 12px 16px;
-            border: 1.5px solid #e2e8f0;
-            border-radius: 8px;
-            font-size: 14px;
-            transition: all 0.3s;
+            padding: 11px 16px;
+            border: 1.5px solid #E2E8F0;
+            border-radius: 10px;
+            font-size: 15px;
+            transition: all 0.2s;
             font-family: inherit;
+            color: #0F172A;
+            background: #FAFBFC;
         }
-        input[type="email"]:focus, input[type="password"]:focus, input[type="text"]:focus {
+        .form-group input:focus {
             outline: none;
-            border-color: #667eea;
-            box-shadow: 0 0 0 2px rgba(102,126,234,0.08);
+            border-color: #3B82F6;
+            box-shadow: 0 0 0 3px rgba(59,130,246,0.1);
+            background: white;
         }
         .btn-register {
             width: 100%;
-            padding: 13px;
-            background: #222;
+            padding: 12px;
+            background: #0F172A;
             color: #fff;
             border: none;
-            border-radius: 8px;
-            font-size: 16px;
+            border-radius: 10px;
+            font-size: 15px;
             font-weight: 600;
             cursor: pointer;
             margin-top: 8px;
-            transition: box-shadow 0.2s;
+            transition: all 0.2s;
+            font-family: inherit;
         }
         .btn-register:hover {
-            box-shadow: 0 2px 8px rgba(102,126,234,0.08);
+            background: #1E293B;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(15,23,42,0.15);
         }
         .login-link {
             text-align: center;
-            margin-top: 18px;
+            margin-top: 24px;
             font-size: 14px;
-            color: #222;
+            color: #64748B;
         }
         .login-link a {
-            color: #000000ff;
+            color: #0F172A;
             text-decoration: none;
             font-weight: 600;
         }
         .login-link a:hover { text-decoration: underline; }
         .alert {
             padding: 12px 16px;
-            border-radius: 8px;
+            border-radius: 10px;
             margin-bottom: 20px;
             font-size: 14px;
         }
         .alert-danger {
-            background: #fee;
-            color: #c33;
-            border: 1px solid #fcc;
+            background: #FEF2F2;
+            color: #991B1B;
+            border: 1px solid #FECACA;
         }
-        .terms {
-            font-size: 13px;
-            color: #718096;
-            margin-top: 15px;
-            line-height: 1.5;
+
+        .alert-danger ul {
+            margin: 0;
+            padding-left: 18px;
         }
-        .terms a { color: #667eea; text-decoration: none; }
-        .terms a:hover { text-decoration: underline; }
+
+        .register-visual {
+            flex: 1;
+            background-color: #FFFFFF;
+            background-image: url('/storage/poolsice.png');
+            background-position: center;
+            background-size: contain;
+            background-repeat: no-repeat;
+            min-height: 420px;
+        }
+
+        @media (max-width: 768px) {
+            .register-container { flex-direction: column; margin: 16px; }
+            .register-visual { min-height: 180px; }
+            .register-form { padding: 32px 24px; }
+        }
     </style>
 </head>
 <body>
-    <div class="container-register">
-        <div class="register-left">
-            <div class="logo-section" style="margin-bottom: 0;">
-                <span style="font-size:22px;font-weight:700;color:#222;margin-bottom:18px;display:block;">Pools Ice</span>
-            </div>
-            <div class="register-title">Create Account</div>
+    <div class="register-container">
+        <div class="register-form">
+            <div class="register-title">Buat Akun</div>
+            <div class="register-subtitle">Daftarkan akun admin baru</div>
             @if($errors->any())
                 <div class="alert alert-danger">
-                    <ul style="list-style: none;">
+                    <ul>
                         @foreach($errors->all() as $error)
                             <li>{{ $error }}</li>
                         @endforeach
@@ -169,27 +158,28 @@
             <form method="POST" action="{{ route('register') }}">
                 @csrf
                 <div class="form-group">
-                    <label for="name">Full Name</label>
-                    <input type="text" id="name" name="name" placeholder="Full Name" value="{{ old('name') }}" required autofocus>
+                    <label for="name">Nama Lengkap</label>
+                    <input type="text" id="name" name="name" placeholder="Masukkan nama lengkap" value="{{ old('name') }}" required autofocus>
                 </div>
                 <div class="form-group">
-                    <label for="email">Email address</label>
-                    <input type="email" id="email" name="email" placeholder="Email address" value="{{ old('email') }}" required>
+                    <label for="email">Email</label>
+                    <input type="email" id="email" name="email" placeholder="admin@poolsice.com" value="{{ old('email') }}" required>
                 </div>
                 <div class="form-group">
                     <label for="password">Password</label>
-                    <input type="password" id="password" name="password" placeholder="Minimum 8 characters" required>
+                    <input type="password" id="password" name="password" placeholder="Minimal 8 karakter" required>
                 </div>
                 <div class="form-group">
-                    <label for="password_confirmation">Confirm Password</label>
-                    <input type="password" id="password_confirmation" name="password_confirmation" placeholder="Re-enter your password" required>
+                    <label for="password_confirmation">Konfirmasi Password</label>
+                    <input type="password" id="password_confirmation" name="password_confirmation" placeholder="Ulangi password" required>
                 </div>
-                <button type="submit" class="btn-register">Create Account</button>
+                <button type="submit" class="btn-register">Daftar</button>
             </form>
             <div class="login-link">
-                Already have an account? <a href="{{ route('login') }}">Sign in</a>
+                Sudah punya akun? <a href="{{ route('login') }}">Masuk</a>
             </div>
         </div>
+        <div class="register-visual"></div>
     </div>
 </body>
 </html>

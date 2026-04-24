@@ -13,6 +13,8 @@ class Customer extends Model
         'phone',
         'conversation_state',
         'pending_message',
+        'latitude',
+        'longitude',
     ];
 
     public function orders()

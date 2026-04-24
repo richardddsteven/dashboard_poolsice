@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 
 String get apiBaseUrl {
@@ -335,12 +336,10 @@ class DriverHomeScreen extends StatefulWidget {
 
 class _DriverHomeScreenState extends State<DriverHomeScreen> {
   final List<Map<String, dynamic>> _orders = [];
-  final List<Map<String, dynamic>> _stockHistory = [];
   final Set<int> _notifiedOrderIds = <int>{};
   Timer? _timer;
   bool _isOnline = true;
   bool _isLoading = false;
-  bool _isLoadingStockHistory = false;
   bool _isLoadingTodayStock = false;
   bool _isSubmittingStock = false;
   bool _isLoggingOut = false;
@@ -358,7 +357,6 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
     super.initState();
     _startPolling();
     _fetchTodayStock();
-    _fetchStockHistory();
   }
 
   @override
@@ -455,18 +453,6 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
     return '$year-$month-$day';
   }
 
-  String _formatHistoryDate(String rawDate) {
-    try {
-      final parsed = DateTime.parse(rawDate).toLocal();
-      return _formatDateYmd(parsed);
-    } catch (_) {
-      if (rawDate.length >= 10) {
-        return rawDate.substring(0, 10);
-      }
-      return rawDate;
-    }
-  }
-
   int? _extractQtyByWeight(String text, int weight) {
     final pattern = RegExp(
       '(?:\\b$weight\\s*kg\\b\\D{0,18}(\\d+)|(\\d+)\\D{0,18}\\b$weight\\s*kg\\b)',
@@ -507,63 +493,6 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
         .replaceAll(RegExp('\\bpcs?\\b', caseSensitive: false), '')
         .replaceAll(RegExp('\\s+'), ' ')
         .trim();
-  }
-
-  Future<void> _fetchStockHistory() async {
-    if (_isLoadingStockHistory) {
-      return;
-    }
-
-    setState(() {
-      _isLoadingStockHistory = true;
-    });
-
-    try {
-      final uri = Uri.parse('$apiBaseUrl/driver/stocks/history');
-      final response = await http.get(
-        uri,
-        headers: _authHeaders(),
-      );
-
-      final payload = jsonDecode(response.body) as Map<String, dynamic>;
-      if (response.statusCode == 401) {
-        _handleUnauthorized();
-        return;
-      }
-
-      if (response.statusCode != 200) {
-        final message = (payload['message'] as String?) ?? 'Gagal memuat riwayat stok.';
-        throw Exception(message);
-      }
-
-      final data = (payload['data'] as List<dynamic>? ?? [])
-          .whereType<Map<String, dynamic>>()
-          .toList();
-
-      if (!mounted) {
-        return;
-      }
-
-      setState(() {
-        _stockHistory
-          ..clear()
-          ..addAll(data);
-      });
-    } catch (e) {
-      if (!mounted) {
-        return;
-      }
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Gagal ambil riwayat stok: $e')),
-      );
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoadingStockHistory = false;
-        });
-      }
-    }
   }
 
   Future<void> _fetchTodayStock() async {
@@ -627,6 +556,15 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
       return;
     }
 
+    if (_hasTodayStockInput) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Stok hari ini sudah diinput. Input ulang tidak diperbolehkan.'),
+        ),
+      );
+      return;
+    }
+
     final stock5kg = int.tryParse(_stock5KgController.text.trim());
     final stock20kg = int.tryParse(_stock20KgController.text.trim());
 
@@ -674,7 +612,9 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
       final message =
           (payload['message'] as String?) ?? 'Stok bawaan berhasil disimpan.';
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
-      _fetchStockHistory();
+      setState(() {
+        _hasTodayStockInput = true;
+      });
       _fetchTodayStock();
     } catch (e) {
       if (!mounted) {
@@ -943,11 +883,157 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
     }
   }
 
+  Future<Position> _resolveDriverPosition() async {
+    final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      throw Exception('GPS belum aktif. Silakan aktifkan layanan lokasi.');
+    }
+
+    var permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+    }
+
+    if (permission == LocationPermission.denied) {
+      throw Exception('Izin lokasi ditolak. Mohon izinkan lokasi untuk lanjut.');
+    }
+
+    if (permission == LocationPermission.deniedForever) {
+      throw Exception(
+        'Izin lokasi ditolak permanen. Aktifkan kembali dari pengaturan aplikasi.',
+      );
+    }
+
+    return Geolocator.getCurrentPosition(
+      desiredAccuracy: LocationAccuracy.high,
+      timeLimit: const Duration(seconds: 15),
+    );
+  }
+
+  Future<void> _completeDelivery(int orderId) async {
+    if (_isUpdatingOrderIds.contains(orderId)) {
+      return;
+    }
+
+    final shouldProceed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Selesaikan Antar?'),
+          content: Text(
+            'Sistem akan cek GPS Anda. Order #$orderId hanya bisa selesai jika jarak < 500 meter.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Batal'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: const Text('Lanjut'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (shouldProceed != true) {
+      return;
+    }
+
+    setState(() {
+      _isUpdatingOrderIds.add(orderId);
+    });
+
+    try {
+      final position = await _resolveDriverPosition();
+      final uri = Uri.parse('$apiBaseUrl/driver/orders/$orderId/complete');
+      final response = await http.patch(
+        uri,
+        headers: _authHeaders(json: true),
+        body: jsonEncode({
+          'latitude': position.latitude,
+          'longitude': position.longitude,
+        }),
+      );
+
+      final payload = jsonDecode(response.body) as Map<String, dynamic>;
+
+      if (response.statusCode == 401) {
+        _handleUnauthorized();
+        return;
+      }
+
+      if (response.statusCode != 200) {
+        final message = (payload['message'] as String?) ?? 'Gagal menyelesaikan antar.';
+        final distance = (payload['distance_m'] as num?)?.toInt();
+        final maxDistance = (payload['max_distance_m'] as num?)?.toInt();
+        final fullMessage = (distance != null && maxDistance != null)
+            ? '$message (Jarak Anda ${distance}m, maksimal ${maxDistance}m).'
+            : message;
+        throw Exception(fullMessage);
+      }
+
+      final responseData = payload['data'] as Map<String, dynamic>?;
+      final updatedStatus =
+          (responseData?['status'] as String? ?? 'completed').trim().toLowerCase();
+      final updatedDriverId = (responseData?['driver_id'] as num?)?.toInt();
+      final distance = (responseData?['distance_m'] as num?)?.toInt();
+      final stockToday = responseData?['stock_today'] as Map<String, dynamic>?;
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        final index = _orders.indexWhere(
+          (order) => (order['id'] as int? ?? 0) == orderId,
+        );
+        if (index >= 0) {
+          _orders[index] = {
+            ..._orders[index],
+            'status': updatedStatus,
+            'driver_id': updatedDriverId,
+          };
+        }
+
+        if (stockToday != null) {
+          _todayStock5Kg = (stockToday['stock_5kg'] as num?)?.toInt() ?? _todayStock5Kg;
+          _todayStock20Kg =
+              (stockToday['stock_20kg'] as num?)?.toInt() ?? _todayStock20Kg;
+          _hasTodayStockInput = true;
+        }
+      });
+
+      final successMessage = (payload['message'] as String?) ?? 'Pesanan selesai diantar.';
+      final finalMessage = distance != null
+          ? '$successMessage (Jarak tervalidasi: ${distance}m)'
+          : successMessage;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(finalMessage)),
+      );
+    } catch (e) {
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Gagal selesai antar: $e')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isUpdatingOrderIds.remove(orderId);
+        });
+      }
+    }
+  }
+
   Future<void> _refreshAll() async {
     await Future.wait([
       _fetchOrders(),
       _fetchTodayStock(),
-      _fetchStockHistory(),
     ]);
   }
 
@@ -959,6 +1045,8 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
     switch (status) {
       case 'approved':
         return const Color(0xFFD1FAE5);
+      case 'completed':
+        return const Color(0xFFDBEAFE);
       case 'rejected':
         return const Color(0xFFFEE2E2);
       default:
@@ -974,6 +1062,8 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
     switch (status) {
       case 'approved':
         return const Color(0xFF047857);
+      case 'completed':
+        return const Color(0xFF1D4ED8);
       case 'rejected':
         return const Color(0xFFB91C1C);
       default:
@@ -989,6 +1079,8 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
     switch (status) {
       case 'approved':
         return 'Diterima';
+      case 'completed':
+        return 'Selesai Antar';
       case 'rejected':
         return 'Ditolak';
       default:
@@ -1031,10 +1123,15 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
   Widget _buildOrderCard(Map<String, dynamic> order) {
     final orderId = order['id'] as int? ?? 0;
     final status = (order['status'] as String? ?? '-').trim().toLowerCase();
-    final isPending = status != 'approved' && status != 'rejected';
+    final isPending = status == 'pending';
+    final isCompleted = status == 'completed';
     final orderDriverId = (order['driver_id'] as num?)?.toInt();
     final isClaimedByOtherDriver =
         isPending && orderDriverId != null && orderDriverId != widget.driverId;
+    final isApprovedByCurrentDriver =
+      status == 'approved' && orderDriverId == widget.driverId;
+    final isApprovedByOtherDriver =
+      status == 'approved' && orderDriverId != null && orderDriverId != widget.driverId;
     final isUpdating = _isUpdatingOrderIds.contains(orderId);
 
     return Card(
@@ -1147,6 +1244,22 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                   ),
                 ],
               )
+            else if (isApprovedByCurrentDriver)
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: isUpdating || orderId == 0
+                      ? null
+                      : () => _completeDelivery(orderId),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFF2563EB),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                  icon: const Icon(Icons.check_circle_outline),
+                  label: Text(isUpdating ? 'Memproses...' : 'Selesai Antar'),
+                ),
+              )
             else
               Row(
                 children: [
@@ -1155,6 +1268,10 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                   Text(
                     isClaimedByOtherDriver
                         ? 'Order sedang diproses oleh supir lain'
+                        : isApprovedByOtherDriver
+                        ? 'Order sudah diterima supir lain'
+                        : isCompleted
+                        ? 'Order sudah selesai diantar'
                         : 'Order sudah diproses',
                     style: const TextStyle(color: Color(0xFF64748B)),
                   ),
@@ -1163,56 +1280,6 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
           ],
         ),
       ),
-    );
-  }
-
-  Widget _buildStockHistorySection() {
-    if (_isLoadingStockHistory) {
-      return const Padding(
-        padding: EdgeInsets.symmetric(vertical: 8),
-        child: LinearProgressIndicator(minHeight: 2),
-      );
-    }
-
-    if (_stockHistory.isEmpty) {
-      return const Padding(
-        padding: EdgeInsets.symmetric(vertical: 8),
-        child: Text('Belum ada riwayat stok yang diinput.'),
-      );
-    }
-
-    return Column(
-      children: _stockHistory.take(5).map((row) {
-        final date = _formatHistoryDate((row['date'] as String? ?? '-').trim());
-        final stock5 = row['stock_5kg']?.toString() ?? '0';
-        final stock20 = row['stock_20kg']?.toString() ?? '0';
-
-        return Container(
-          margin: const EdgeInsets.only(bottom: 8),
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-          decoration: BoxDecoration(
-            color: const Color(0xFFF8FAFC),
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: const Color(0xFFE2E8F0)),
-          ),
-          child: Row(
-            children: [
-              const Icon(Icons.history, size: 18, color: Color(0xFF64748B)),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  date,
-                  style: const TextStyle(fontWeight: FontWeight.w600),
-                ),
-              ),
-              Text(
-                '5kg: $stock5 | 20kg: $stock20',
-                style: const TextStyle(color: Color(0xFF475569), fontSize: 12),
-              ),
-            ],
-          ),
-        );
-      }).toList(),
     );
   }
 
@@ -1334,6 +1401,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                         Expanded(
                           child: TextField(
                             controller: _stock5KgController,
+                            enabled: !_hasTodayStockInput,
                             keyboardType: TextInputType.number,
                             decoration: const InputDecoration(
                               labelText: 'Input 5kg',
@@ -1345,6 +1413,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                         Expanded(
                           child: TextField(
                             controller: _stock20KgController,
+                            enabled: !_hasTodayStockInput,
                             keyboardType: TextInputType.number,
                             decoration: const InputDecoration(
                               labelText: 'Input 20kg',
@@ -1358,7 +1427,9 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                     SizedBox(
                       width: double.infinity,
                       child: FilledButton.icon(
-                        onPressed: _isSubmittingStock ? null : _submitDriverStock,
+                        onPressed: (_isSubmittingStock || _hasTodayStockInput)
+                            ? null
+                            : _submitDriverStock,
                         icon: _isSubmittingStock
                             ? const SizedBox(
                                 width: 16,
@@ -1366,19 +1437,18 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                                 child: CircularProgressIndicator(strokeWidth: 2),
                               )
                             : const Icon(Icons.save_outlined),
-                        label: Text(_isSubmittingStock ? 'Menyimpan...' : 'Simpan Stok'),
+                        label: Text(
+                          _isSubmittingStock
+                              ? 'Menyimpan...'
+                              : (_hasTodayStockInput
+                                  ? 'Stok Hari Ini Sudah Diinput'
+                                  : 'Simpan Stok'),
+                        ),
                         style: FilledButton.styleFrom(
                           padding: const EdgeInsets.symmetric(vertical: 12),
                         ),
                       ),
                     ),
-                    const SizedBox(height: 14),
-                    const Text(
-                      'Riwayat Input Terakhir',
-                      style: TextStyle(fontWeight: FontWeight.w700),
-                    ),
-                    const SizedBox(height: 8),
-                    _buildStockHistorySection(),
                   ],
                 ),
               ),

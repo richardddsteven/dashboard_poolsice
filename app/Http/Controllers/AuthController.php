@@ -35,7 +35,7 @@ class AuthController extends Controller
             return redirect()->intended('dashboard');
         }
 
-        return back()->with('error', 'Email Or Password Doesn\'t Match');
+        return back()->with('error', 'Email atau Password Salah');
     }
 
     public function showRegister()

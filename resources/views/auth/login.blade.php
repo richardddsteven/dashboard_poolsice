@@ -3,146 +3,161 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login - Admin Dashboard</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <title>Login - Pools Ice Admin</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-            background: #F8F9FA;
+            background: #F8FAFC;
             min-height: 100vh;
             display: flex;
             align-items: center;
             justify-content: center;
+            -webkit-font-smoothing: antialiased;
         }
-        .container-login {
+        .login-container {
             display: flex;
             background: white;
-            border-radius: 16px;
-            box-shadow: 0 1px 6px rgba(0,0,0,0.08);
-            max-width: 800px;
+            border-radius: 20px;
+            box-shadow: 0 4px 24px rgba(0,0,0,0.06);
+            border: 1px solid #E2E8F0;
+            max-width: 820px;
             width: 100%;
             overflow: hidden;
+            animation: fadeUp 0.5s ease;
         }
-        .login-left {
+        @keyframes fadeUp {
+            from { opacity: 0; transform: translateY(12px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .login-form {
             flex: 1;
-            padding: 48px 40px;
+            padding: 48px 44px;
             display: flex;
             flex-direction: column;
             justify-content: center;
         }
         .login-title {
-            font-size: 28px;
+            font-size: 27px;
             font-weight: 700;
-            color: #1a202c;
+            color: #0F172A;
+            margin-bottom: 6px;
+            letter-spacing: -0.3px;
+        }
+        .login-subtitle {
+            font-size: 15px;
+            color: #64748B;
             margin-bottom: 32px;
         }
-        .form-group { margin-bottom: 18px; }
-        label {
+        .form-group { margin-bottom: 20px; }
+        .form-group label {
             display: block;
             font-size: 14px;
             font-weight: 600;
-            color: #374151;
+            color: #334155;
             margin-bottom: 8px;
         }
-        input[type="email"], input[type="password"] {
+        .form-group input {
             width: 100%;
-            padding: 12px 16px;
-            border: 1.5px solid #e2e8f0;
-            border-radius: 8px;
-            font-size: 14px;
-            transition: all 0.3s;
+            padding: 11px 16px;
+            border: 1.5px solid #E2E8F0;
+            border-radius: 10px;
+            font-size: 15px;
+            transition: all 0.2s;
             font-family: inherit;
+            color: #0F172A;
+            background: #FAFBFC;
         }
-        input[type="email"]:focus, input[type="password"]:focus {
+        .form-group input:focus {
             outline: none;
-            border-color: #667eea;
-            box-shadow: 0 0 0 2px rgba(102,126,234,0.08);
+            border-color: #3B82F6;
+            box-shadow: 0 0 0 3px rgba(59,130,246,0.1);
+            background: white;
         }
         .btn-login {
             width: 100%;
-            padding: 13px;
-            background: #222;
+            padding: 12px;
+            background: #0F172A;
             color: #fff;
             border: none;
-            border-radius: 8px;
-            font-size: 16px;
+            border-radius: 10px;
+            font-size: 15px;
             font-weight: 600;
             cursor: pointer;
             margin-top: 8px;
-            transition: box-shadow 0.2s;
+            transition: all 0.2s;
+            font-family: inherit;
         }
         .btn-login:hover {
-            box-shadow: 0 2px 8px rgba(102,126,234,0.08);
+            background: #1E293B;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(15,23,42,0.15);
         }
         .register-link {
             text-align: center;
-            margin-top: 18px;
+            margin-top: 24px;
             font-size: 14px;
-            color: #222;
+            color: #64748B;
         }
         .register-link a {
-            color: #000000ff;
+            color: #0F172A;
             text-decoration: none;
             font-weight: 600;
         }
         .register-link a:hover { text-decoration: underline; }
         .alert {
             padding: 12px 16px;
-            border-radius: 8px;
+            border-radius: 10px;
             margin-bottom: 20px;
             font-size: 14px;
         }
         .alert-danger {
-            background: #fee;
-            color: #c33;
-            border: 1px solid #fcc;
+            background: #FEF2F2;
+            color: #991B1B;
+            border: 1px solid #FECACA;
         }
-        .login-right {
+        .login-visual {
             flex: 1;
+            background-color: #FFFFFF;
             background-image: url('/storage/poolsice.png');
             background-position: center;
-            background-size: cover;
+            background-size: contain;
             background-repeat: no-repeat;
-            display: flex;
-            align-items: flex-end;
-            justify-content: flex-start;
-            min-height: 400px;
-            position: relative;
+            min-height: 420px;
         }
-        @media (max-width: 900px) {
-            .container-login { flex-direction: column; }
-            .login-right { min-height: 220px; }
+        @media (max-width: 768px) {
+            .login-container { flex-direction: column; margin: 16px; }
+            .login-visual { min-height: 180px; }
+            .login-form { padding: 32px 24px; }
         }
     </style>
 </head>
 <body>
-    <div class="container-login">
-        <div class="login-left">
-            <div class="logo-section" style="margin-bottom: 0;">
-                <span style="font-size:22px;font-weight:700;color:#222;margin-bottom:18px;display:block;">Pools Ice</span>
-            </div>
+    <div class="login-container">
+        <div class="login-form">
             <div class="login-title">Selamat Datang</div>
+            <div class="login-subtitle">Masuk ke dashboard admin Anda</div>
             @if(session('error'))
                 <div class="alert alert-danger">{{ session('error') }}</div>
             @endif
             <form method="POST" action="{{ route('login') }}">
                 @csrf
                 <div class="form-group">
-                    <label for="email">Email address</label>
-                    <input type="email" id="email" name="email" placeholder="Email address" required autofocus>
+                    <label for="email">Email</label>
+                    <input type="email" id="email" name="email" placeholder="admin@poolsice.com" required autofocus>
                 </div>
                 <div class="form-group">
                     <label for="password">Password</label>
-                    <input type="password" id="password" name="password" placeholder="Password" required>
+                    <input type="password" id="password" name="password" placeholder="Masukkan password" required>
                 </div>
-                <button type="submit" class="btn-login">Sign in</button>
+                <button type="submit" class="btn-login">Masuk</button>
             </form>
             <div class="register-link">
-                Don't have an account? <a href="{{ route('register') }}">Sign up</a>
+                Belum punya akun? <a href="{{ route('register') }}">Daftar</a>
             </div>
         </div>
-        <div class="login-right"></div>
+        <div class="login-visual"></div>
     </div>
 </body>
 </html>

@@ -66,10 +66,11 @@
 
         <!-- Filter Tabs (dipindah ke dalam header, di atas gariss) -->
         <div class="filter-tabs" style="display: flex; gap: 8px; justify-content: flex-start;">
-            <a href="{{ route('orders.index', array_merge(request()->except('status', 'page'), [])) }}" class="btn {{ request('status') == null ? 'btn-primary' : 'btn-secondary' }}" style="padding: 6px 12px; font-size: 13px;">Semua</a>
-            <a href="{{ route('orders.index', array_merge(request()->except('status', 'page'), ['status' => 'pending'])) }}" class="btn {{ request('status') == 'pending' ? 'btn-primary' : 'btn-secondary' }}" style="padding: 6px 12px; font-size: 13px;">Pending</a>
-            <a href="{{ route('orders.index', array_merge(request()->except('status', 'page'), ['status' => 'approved'])) }}" class="btn {{ request('status') == 'approved' ? 'btn-primary' : 'btn-secondary' }}" style="padding: 6px 12px; font-size: 13px;">Diterima</a>
-            <a href="{{ route('orders.index', array_merge(request()->except('status', 'page'), ['status' => 'rejected'])) }}" class="btn {{ request('status') == 'rejected' ? 'btn-primary' : 'btn-secondary' }}" style="padding: 6px 12px; font-size: 13px;">Ditolak</a>
+            <a href="{{ route('orders.index', array_merge(request()->except('status', 'page'), [])) }}" class="btn {{ request('status') == null ? 'btn-primary' : 'btn-secondary' }}" style="padding: 6px 12px; font-size: 14px;">Semua</a>
+            <a href="{{ route('orders.index', array_merge(request()->except('status', 'page'), ['status' => 'pending'])) }}" class="btn {{ request('status') == 'pending' ? 'btn-primary' : 'btn-secondary' }}" style="padding: 6px 12px; font-size: 14px;">Pending</a>
+            <a href="{{ route('orders.index', array_merge(request()->except('status', 'page'), ['status' => 'approved'])) }}" class="btn {{ request('status') == 'approved' ? 'btn-primary' : 'btn-secondary' }}" style="padding: 6px 12px; font-size: 14px;">Diterima</a>
+            <a href="{{ route('orders.index', array_merge(request()->except('status', 'page'), ['status' => 'completed'])) }}" class="btn {{ request('status') == 'completed' ? 'btn-primary' : 'btn-secondary' }}" style="padding: 6px 12px; font-size: 14px;">Selesai Antar</a>
+            <a href="{{ route('orders.index', array_merge(request()->except('status', 'page'), ['status' => 'rejected'])) }}" class="btn {{ request('status') == 'rejected' ? 'btn-primary' : 'btn-secondary' }}" style="padding: 6px 12px; font-size: 14px;">Ditolak</a>
         </div>
     </div>
 
@@ -77,8 +78,8 @@
 </div>
 
 <div id="realtimeOrderToast" style="position: fixed; top: 24px; right: 24px; background: #ffffff; border: 1px solid #dbeafe; border-left: 4px solid #3b82f6; border-radius: 10px; padding: 12px 14px; box-shadow: 0 8px 20px rgba(15, 23, 42, 0.12); z-index: 1200; min-width: 280px; display: none;">
-    <div style="font-size: 13px; font-weight: 700; color: #1e3a8a; margin-bottom: 4px;">Pesanan baru masuk</div>
-    <div id="realtimeOrderToastText" style="font-size: 12px; color: #334155;"></div>
+    <div style="font-size: 14px; font-weight: 700; color: #1e3a8a; margin-bottom: 4px;">Pesanan baru masuk</div>
+    <div id="realtimeOrderToastText" style="font-size: 13px; color: #334155;"></div>
 </div>
 
 <!-- Modal Konfirmasi -->
@@ -145,14 +146,14 @@
 .modal-content h4 {
     margin-top: 0;
     margin-bottom: 8px;
-    font-size: 20px;
+    font-size: 21px;
     color: #1e293b;
     font-weight: 600;
 }
 .modal-content p {
     margin-bottom: 24px;
     color: #64748b;
-    font-size: 15px;
+    font-size: 16px;
 }
 .modal-actions {
     display: flex;
@@ -179,7 +180,7 @@
     border: 1px solid #cbd5e1;
     border-radius: 6px;
     cursor: pointer;
-    font-size: 14px;
+    font-size: 15px;
     color: #334155;
     transition: all 0.2s ease;
 }
@@ -223,7 +224,7 @@
 }
 .custom-option {
     padding: 10px 16px;
-    font-size: 14px;
+    font-size: 15px;
     color: #475569;
     cursor: pointer;
     transition: background 0.15s ease;
@@ -346,9 +347,11 @@
         isRealtimeRefreshing = true;
         try {
             const params = new URLSearchParams(window.location.search);
+            params.set('_rt', String(Date.now()));
             const tableUrl = `{{ route('orders.realtime.table') }}?${params.toString()}`;
             const response = await fetch(tableUrl, {
-                headers: window.getRealtimeAuthHeaders()
+                headers: window.getRealtimeAuthHeaders(),
+                cache: 'no-store',
             });
 
             if (!response.ok) {
@@ -387,8 +390,8 @@
         }
 
         showRealtimeOrderToast(result.newOrder);
-        if (typeof result.latestOrderId !== 'undefined' && result.latestOrderId > latestOrderId) {
-            latestOrderId = result.latestOrderId;
+        if (typeof result.latestOrderId !== 'undefined') {
+            latestOrderId = Number(result.latestOrderId || 0);
         }
 
         await refreshOrdersTable();
@@ -396,6 +399,13 @@
 
     window.addEventListener('realtime:orders-changed', async () => {
         await refreshOrdersTable();
+    });
+
+    // When browser restores this page from back-forward cache, sync table with latest server data.
+    window.addEventListener('pageshow', async (event) => {
+        if (event.persisted) {
+            await refreshOrdersTable();
+        }
     });
 </script>
 @endpush

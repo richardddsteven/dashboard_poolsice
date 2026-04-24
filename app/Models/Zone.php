@@ -6,7 +6,12 @@ use Illuminate\Database\Eloquent\Model;
 
 class Zone extends Model
 {
-    protected $fillable = ['name'];
+    protected $fillable = ['name', 'latitude', 'longitude'];
+
+    protected $casts = [
+        'latitude' => 'float',
+        'longitude' => 'float',
+    ];
 
     public function customers()
     {

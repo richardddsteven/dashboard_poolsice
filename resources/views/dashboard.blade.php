@@ -1,216 +1,225 @@
 @extends('layouts.dashboard')
 
+@section('title', 'Dashboard')
+
 @section('content')
-<div class="page-header" style="display: flex; justify-content: space-between; align-items: center;">
-    <div>
-        <h1 class="page-title" style="margin-bottom: 4px;">Dashboard</h1>
-        <p class="page-subtitle" style="margin-bottom: 24px;">Ringkasan aktivitas hari ini.</p>
-    </div>
-    <div style="text-align: right;">
-        <span style="font-size: 14px; font-weight: 500; color: var(--text-main); display: block;">{{ now()->isoFormat('dddd, D MMMM Y') }}</span>
-        <span style="font-size: 12px; color: var(--text-muted);">Update terakhir: {{ now()->format('H:i') }}</span>
-    </div>
-</div>
 
-<!-- Stats Cards -->
-<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 24px; margin-bottom: 32px;">
-    <!-- Total Customers -->
-    <div class="card" style="padding: 24px; position: relative; overflow: hidden; border: 1px solid var(--border-color); transition: transform 0.2s;">
-        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px;">
-            <div style="width: 48px; height: 48px; border-radius: 12px; background: rgba(59, 130, 246, 0.1); display: flex; align-items: center; justify-content: center; color: var(--primary-blue);">
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
+<!-- Reference Design Header (Interactive) -->
+<form id="dashboardFilterForm" method="GET" action="{{ route('dashboard') }}" class="dash-custom-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; flex-wrap: wrap; gap: 16px;">
+    <h1 style="font-size: 27px; font-weight: 700; color: #1E293B; letter-spacing: -0.5px; margin: 0;">Dashboard</h1>
+    <div style="display: flex; gap: 8px; align-items: center; color: var(--text-muted); font-weight: 500; font-size: 15px;">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+        <span>{{ \Carbon\Carbon::now()->locale('id')->translatedFormat('l, d F Y') }}</span>
+    </div>
+</form>
+
+<!-- Stat Cards Row (3 cards like reference) -->
+<div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 24px;">
+    <!-- Total Pelanggan -->
+    <div class="dash-stat-card">
+        <div class="dash-stat-header">
+            <div class="dash-stat-icon" style="color: #3B82F6;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
             </div>
-            @if(isset($growthCustomers) && $growthCustomers > 0)
-            <span style="font-size: 12px; font-weight: 600; color: #10B981; background: #ECFDF5; padding: 4px 8px; border-radius: 20px;">+{{ $growthCustomers }}%</span>
+            <span class="dash-stat-label">Total Pelanggan</span>
+            <div style="margin-left: auto; cursor: pointer; color: #CBD5E1;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
+            </div>
+        </div>
+        <div class="dash-stat-body">
+            <span class="dash-stat-value">{{ number_format($totalCustomers) }}</span>
+            @if($growthCustomers != 0)
+            <span class="dash-stat-badge {{ $growthCustomers >= 0 ? 'badge-up' : 'badge-down' }}">
+                {{ abs($growthCustomers) }}%
+                <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor"><polygon points="{{ $growthCustomers >= 0 ? '5,1 9,7 1,7' : '5,9 9,3 1,3' }}"/></svg>
+            </span>
             @endif
         </div>
-        <div>
-            <h3 style="margin: 0; font-size: 32px; font-weight: 700; color: var(--text-main); letter-spacing: -1px;">{{ $totalCustomers ?? 0 }}</h3>
-            <p style="margin: 4px 0 0; font-size: 14px; font-weight: 500; color: var(--text-muted);">Total Pelanggan</p>
+    </div>
+
+    <!-- Pendapatan Hari Ini -->
+    <div class="dash-stat-card">
+        <div class="dash-stat-header">
+            <div class="dash-stat-icon" style="color: #3B82F6;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.46 4.7 4.13 2.5.6 3 1.48 3 2.41 0 .69-.49 1.79-2.7 1.79-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c1.95-.37 3.5-1.5 3.5-3.55 0-2.84-2.43-3.81-4.7-4.4z"/></svg>
+            </div>
+            <span class="dash-stat-label">Pendapatan Hari Ini</span>
+            <div style="margin-left: auto; cursor: pointer; color: #CBD5E1;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
+            </div>
+        </div>
+        <div class="dash-stat-body">
+            <span class="dash-stat-value">Rp {{ number_format($todayRevenue, 0, ',', '.') }}</span>
+            <span class="dash-stat-badge badge-neutral">{{ $todayOrders }} pesanan</span>
         </div>
     </div>
 
-    <!-- Total Orders -->
-    <div class="card" style="padding: 24px; position: relative; overflow: hidden; border: 1px solid var(--border-color); transition: transform 0.2s;">
-        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px;">
-            <div style="width: 48px; height: 48px; border-radius: 12px; background: rgba(16, 185, 129, 0.1); display: flex; align-items: center; justify-content: center; color: #059669;">
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12.9-1.63h7.45c.75 0 1.41-.41 1.75-1.03l3.58-6.49c.08-.14.12-.31.12-.48 0-.55-.45-1-1-1H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z"/></svg>
+    <!-- Pesanan Pending -->
+    <div class="dash-stat-card">
+        <div class="dash-stat-header">
+            <div class="dash-stat-icon" style="color: #3B82F6;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/></svg>
+            </div>
+            <span class="dash-stat-label">Pesanan Pending</span>
+            <div style="margin-left: auto; cursor: pointer; color: #CBD5E1;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
             </div>
         </div>
-        <div>
-            <h3 style="margin: 0; font-size: 32px; font-weight: 700; color: var(--text-main); letter-spacing: -1px;">{{ $totalOrders ?? 0 }}</h3>
-            <p style="margin: 4px 0 0; font-size: 14px; font-weight: 500; color: var(--text-muted);">Total Pesanan</p>
-        </div>
-    </div>
-
-    <!-- Approved Orders -->
-    <div class="card" style="padding: 24px; position: relative; overflow: hidden; border: 1px solid var(--border-color); transition: transform 0.2s;">
-        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px;">
-            <div style="width: 48px; height: 48px; border-radius: 12px; background: rgba(245, 158, 11, 0.1); display: flex; align-items: center; justify-content: center; color: #D97706;">
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
-            </div>
-        </div>
-        <div>
-            <h3 style="margin: 0; font-size: 32px; font-weight: 700; color: var(--text-main); letter-spacing: -1px;">{{ $approvedOrders ?? 0 }}</h3>
-            <p style="margin: 4px 0 0; font-size: 14px; font-weight: 500; color: var(--text-muted);">Pesanan Selesai</p>
-        </div>
-    </div>
-
-    <!-- Pending Orders -->
-    <div class="card" style="padding: 24px; position: relative; overflow: hidden; border: 1px solid var(--border-color); transition: transform 0.2s;">
-        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px;">
-            <div style="width: 48px; height: 48px; border-radius: 12px; background: rgba(139, 92, 246, 0.1); display: flex; align-items: center; justify-content: center; color: #7C3AED;">
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/></svg>
-            </div>
+        <div class="dash-stat-body">
+            <span class="dash-stat-value" id="dashboard-pending-count">{{ number_format($pendingOrders) }}</span>
             @if($pendingOrders > 0)
-            <div style="width: 8px; height: 8px; background: #EF4444; border-radius: 50%;"></div>
-            @endif
-        </div>
-        <div>
-            <h3 id="dashboardPendingOrdersCount" style="margin: 0; font-size: 32px; font-weight: 700; color: var(--text-main); letter-spacing: -1px;">{{ $pendingOrders ?? 0 }}</h3>
-            <p style="margin: 4px 0 0; font-size: 14px; font-weight: 500; color: var(--text-muted);">Perlu Approval</p>
-        </div>
-    </div>
-</div>
-
-<!-- Charts Split -->
-<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 24px; margin-bottom: 32px;">
-    <!-- Ice Type Chart -->
-    <div class="card">
-        <div class="card-header" style="flex-wrap: wrap; gap: 10px;">
-            <h3 class="card-title">Jenis Es Terlaris</h3>
-            <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
-                <button onclick="setIceFilter('all')"    id="ice-btn-all"    class="ice-filter-btn active">Semua</button>
-                <button onclick="setIceFilter('7d')"     id="ice-btn-7d"     class="ice-filter-btn">7 Hari</button>
-                <button onclick="setIceFilter('30d')"    id="ice-btn-30d"    class="ice-filter-btn">30 Hari</button>
-                <button onclick="setIceFilter('custom')" id="ice-btn-custom" class="ice-filter-btn">Kustom</button>
-            </div>
-        </div>
-        <div id="ice-custom-range" class="ice-custom-range">
-            <div class="ice-date-group">
-                <label for="ice-start">Dari Tanggal</label>
-                <input type="date" id="ice-start" class="ice-date-input">
-            </div>
-            <div class="ice-separator">s/d</div>
-            <div class="ice-date-group">
-                <label for="ice-end">Sampai Tanggal</label>
-                <input type="date" id="ice-end" class="ice-date-input">
-            </div>
-            <button type="button" onclick="applyCustomIceFilter()" class="ice-apply-btn">Terapkan</button>
-        </div>
-        <div id="ice-chart-wrap" style="height: 300px; position: relative;">
-            <canvas id="iceTypeChart" style="display:none;"></canvas>
-            <div id="ice-empty" style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: var(--text-muted);">
-                <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="#E2E8F0" style="margin-bottom: 16px;"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/></svg>
-                <p>Belum ada data pesanan</p>
-            </div>
-        </div>
-    </div>
-
-    <!-- Status Distribution -->
-    <div class="card">
-        <div class="card-header">
-            <h3 class="card-title">Distribusi Status Pesanan</h3>
-        </div>
-        <div style="height: 300px; position: relative;">
-            @if(($totalOrders ?? 0) > 0)
-                <canvas id="orderStatusChart"></canvas>
+            <span class="dash-stat-badge badge-warning">perlu ditinjau</span>
             @else
-                <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: var(--text-muted);">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="#E2E8F0" style="margin-bottom: 16px;"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/></svg>
-                    <p>Belum ada data pesanan</p>
-                </div>
+            <span class="dash-stat-badge badge-up">semua selesai</span>
             @endif
         </div>
     </div>
 </div>
 
-<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 24px;">
-    <!-- Recent Orders -->
-    <div class="card">
-        <div class="card-header">
-            <h3 class="card-title">Pesanan Terbaru</h3>
-            <a href="{{ route('orders.index') }}" class="btn btn-secondary" style="padding: 6px 12px; font-size: 13px;">Lihat Semua</a>
+<!-- Row 2: Sales Overview (bar chart) + Total Pesanan (bar chart) -->
+<div style="display: grid; grid-template-columns: 3fr 2fr; gap: 20px; margin-bottom: 24px;">
+    <!-- Sales Overview - Stacked/Grouped Bar Chart -->
+    <div class="dash-card">
+        <div class="dash-card-header">
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <div style="color: #3B82F6;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M5 9.2h3V19H5zM10.6 5h2.8v14h-2.8zm5.6 8H19v6h-2.8z"/></svg>
+                </div>
+                <span class="dash-card-title">Ringkasan Penjualan</span>
+            </div>
         </div>
-        <div class="table-responsive">
-            <table class="table">
-                <thead>
-                    <tr>
-                        <th>Pelanggan</th>
-                        <th>Status</th>
-                        <th>Total</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @forelse($recentOrders ?? [] as $order)
-                    <tr>
-                        <td>
-                            <div style="font-weight: 600; color: var(--text-main);">{{ $order->customer->name ?? 'Unknown' }}</div>
-                            <div style="font-size: 12px; color: var(--text-muted);">{{ $order->created_at->diffForHumans() }}</div>
-                        </td>
-                        <td>
-                            <span class="badge" style="
-                                @if(strtolower($order->status) == 'approved') background: #d1fae5; color: #065f46;
-                                @elseif(strtolower($order->status) == 'pending') background: #ede9fe; color: #5b21b6;
-                                @else background: #fee2e2; color: #991b1b; @endif 
-                                padding: 4px 8px; border-radius: 6px; font-size: 12px; font-weight: 600;">
-                                @if(strtolower($order->status) == 'approved')
-                                    Diterima
-                                @elseif(strtolower($order->status) == 'pending')
-                                    Pending
-                                @else
-                                    Ditolak
-                                @endif
-                            </span>
-                        </td>
-                        <td style="font-weight: 600;">{{ $order->quantity ?? 1 }} pcs</td>
-                    </tr>
-                    @empty
-                    <tr>
-                        <td colspan="3" style="text-align: center; padding: 24px; color: var(--text-muted);">Belum ada pesanan terbaru</td>
-                    </tr>
-                    @endforelse
-                </tbody>
-            </table>
+        <div style="margin-bottom: 16px;">
+            <div style="display: flex; align-items: baseline; gap: 12px; margin-bottom: 4px;">
+                <span style="font-size: 35px; font-weight: 800; color: #1E293B; letter-spacing: -1px;">Rp {{ number_format(collect($revenueChartData)->sum('revenue'), 0, ',', '.') }}</span>
+            </div>
+            @php
+                $totalRev7 = collect($revenueChartData)->sum('revenue');
+                $totalOrd7 = collect($revenueChartData)->sum('orders');
+            @endphp
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <span class="dash-stat-badge badge-up" style="font-size: 14px;">{{ $totalOrd7 }} pesanan</span>
+                <span style="font-size: 15px; color: #94A3B8;">dalam 7 hari terakhir</span>
+            </div>
+        </div>
+        <div style="height: 220px; position: relative;">
+            <canvas id="salesOverviewChart"></canvas>
         </div>
     </div>
 
-    <!-- Top Customers -->
-    <div class="card">
-        <div class="card-header">
-            <h3 class="card-title">Pelanggan Teraktif</h3>
-            <a href="{{ route('customers.index') }}" class="btn btn-secondary" style="padding: 6px 12px; font-size: 13px;">Lihat Semua</a>
+    <!-- Total Pesanan Bar Chart (Weekly) -->
+    <div class="dash-card">
+        <div class="dash-card-header">
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <div style="color: #3B82F6;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3h-4.18C14.4 1.84 13.3 1 12 1c-1.3 0-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm2 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>
+                </div>
+                <span class="dash-card-title">Total Pesanan</span>
+            </div>
+        </div>
+        <div style="margin-bottom: 16px;">
+            <div style="font-size: 35px; font-weight: 800; color: #1E293B; letter-spacing: -1px; margin-bottom: 4px;">{{ number_format($totalOrders) }}</div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <span class="dash-stat-badge badge-up" style="font-size: 14px;">{{ $completedOrders }} selesai antar</span>
+                <span style="font-size: 15px; color: #94A3B8;">dari total</span>
+            </div>
+        </div>
+        <div style="height: 220px; position: relative;">
+            <canvas id="ordersWeeklyChart"></canvas>
+        </div>
+    </div>
+</div>
+
+<!-- Row 3: Sales Distribution (Doughnut) + List (Table) -->
+<div style="display: grid; grid-template-columns: 2fr 3fr; gap: 20px; margin-bottom: 24px;">
+    <!-- Sales Distribution -->
+    <div class="dash-card">
+        <div class="dash-card-header">
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <div style="color: #3B82F6;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M11 2v20c-5.07-.5-9-4.79-9-10s3.93-9.5 9-10zm2.03 0v8.99H22c-.47-4.74-4.24-8.52-8.97-8.99zm0 11.01V22c4.74-.47 8.5-4.25 8.97-8.99h-8.97z"/></svg>
+                </div>
+                <span class="dash-card-title">Distribusi Penjualan</span>
+            </div>
+        </div>
+
+        @if($iceTypeStats->count() > 0)
+        <!-- Legend values -->
+        <div style="display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 20px;">
+            @foreach($iceTypeStats as $stat)
+            <div style="display: flex; align-items: center; gap: 6px;">
+                <div style="width: 3px; height: 28px; border-radius: 3px; background: {{ $stat['color'] }};"></div>
+                <div>
+                    <div style="font-size: 14px; color: #94A3B8; font-weight: 500;">{{ $stat['name'] }}</div>
+                    <div style="font-size: 19px; font-weight: 700; color: #1E293B;">{{ $stat['total'] }}</div>
+                </div>
+            </div>
+            @endforeach
+        </div>
+        <div style="height: 180px; display: flex; align-items: center; justify-content: center;">
+            <canvas id="iceTypeChart"></canvas>
+        </div>
+        @else
+        <div style="text-align: center; padding: 40px; color: #94A3B8;">
+            <p style="font-size: 14px;">Belum ada data penjualan</p>
+        </div>
+        @endif
+    </div>
+
+    <!-- Pesanan Terbaru (Table like "List of Integration") -->
+    <div class="dash-card">
+        <div class="dash-card-header">
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <div style="color: #3B82F6;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/></svg>
+                </div>
+                <span class="dash-card-title">Pesanan Terbaru</span>
+            </div>
+            <a href="{{ route('orders.index') }}" style="font-size: 13px; color: #3B82F6; text-decoration: none; font-weight: 600;">Lihat Semua</a>
         </div>
         <div class="table-responsive">
-            <table class="table">
+            <table class="dash-table">
                 <thead>
                     <tr>
-                        <th>Pelanggan</th>
-                        <th style="text-align: right;">Total Order</th>
+                        <th>PELANGGAN</th>
+                        <th>PRODUK</th>
+                        <th>QTY</th>
+                        <th>STATUS</th>
+                        <th>WAKTU</th>
                     </tr>
                 </thead>
                 <tbody>
-                    @forelse($topCustomers ?? [] as $customer)
+                    @forelse($recentOrders as $order)
                     <tr>
                         <td>
-                            <div style="display: flex; align-items: center; gap: 12px;">
-                                <div style="width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 12px;">
-                                    {{ strtoupper(substr($customer->name, 0, 1)) }}
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <div class="dash-avatar" style="background: {{ ['#EDE9FE','#DBEAFE','#D1FAE5','#FEF3C7','#FCE7F3'][($loop->index % 5)] }}; color: {{ ['#7C3AED','#3B82F6','#10B981','#F59E0B','#EC4899'][($loop->index % 5)] }};">
+                                    {{ $order->customer ? strtoupper(substr($order->customer->name, 0, 1)) : 'U' }}
                                 </div>
                                 <div>
-                                    <div style="font-weight: 600; color: var(--text-main);">{{ $customer->name }}</div>
-                                    <div style="font-size: 12px; color: var(--text-muted);">{{ $customer->phone }}</div>
+                                    <div style="font-weight: 600; color: #1E293B; font-size: 16px;">{{ $order->customer->name ?? 'Unknown' }}</div>
                                 </div>
                             </div>
                         </td>
-                        <td style="text-align: right;">
-                            <span style="font-weight: 700; color: var(--text-main);">{{ $customer->orders_count }}</span>
-                            <span style="font-size: 12px; color: var(--text-muted);">x</span>
+                        <td style="color: #64748B; font-size: 15px;">{{ $order->iceType->name ?? 'Es Batu' }}</td>
+                        <td style="font-weight: 600; font-size: 15px; color: #1E293B;">{{ $order->quantity ?? 1 }}</td>
+                        <td>
+                            @if($order->status === 'completed')
+                            <span class="dash-status-pill dash-status-primary">Selesai Antar</span>
+                            @elseif($order->status === 'approved')
+                            <span class="dash-status-pill dash-status-success">Diterima</span>
+                            @elseif($order->status === 'rejected')
+                            <span class="dash-status-pill dash-status-danger">Ditolak</span>
+                            @elseif($order->status === 'pending')
+                            <span class="dash-status-pill dash-status-warning">Pending</span>
+                            @else
+                            <span class="dash-status-pill dash-status-neutral">{{ ucfirst($order->status) }}</span>
+                            @endif
                         </td>
+                        <td style="font-size: 14px; color: #94A3B8;">{{ $order->created_at->diffForHumans() }}</td>
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="2" style="text-align: center; padding: 24px; color: var(--text-muted);">Belum ada data pelanggan</td>
+                        <td colspan="5" style="text-align: center; padding: 30px; color: #94A3B8; font-size: 16px;">Belum ada pesanan</td>
                     </tr>
                     @endforelse
                 </tbody>
@@ -219,277 +228,364 @@
     </div>
 </div>
 
-<div id="dashboardRealtimeToast" style="position: fixed; top: 24px; right: 24px; background: #ffffff; border: 1px solid #dbeafe; border-left: 4px solid #2563eb; border-radius: 10px; padding: 12px 14px; box-shadow: 0 8px 20px rgba(15, 23, 42, 0.12); z-index: 1200; min-width: 280px; display: none;">
-    <div style="font-size: 13px; font-weight: 700; color: #1e3a8a; margin-bottom: 4px;">Order baru diterima</div>
-    <div id="dashboardRealtimeToastText" style="font-size: 12px; color: #334155;"></div>
+<!-- Row 4: Aktivitas Terbaru + Pelanggan Teraktif -->
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+    <!-- Aktivitas Terbaru (Timeline) -->
+    <div class="dash-card">
+        <div class="dash-card-header">
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <div style="color: #3B82F6;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M13 3c-4.97 0-9 4.03-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42C8.27 19.99 10.51 21 13 21c4.97 0 9-4.03 9-9s-4.03-9-9-9zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z"/></svg>
+                </div>
+                <span class="dash-card-title">Aktivitas Terbaru</span>
+            </div>
+        </div>
+        <div class="dash-activity-list">
+            @forelse($recentActivities->take(6) as $activity)
+            <div class="dash-activity-item">
+                <div class="dash-activity-dot {{ $activity->status === 'completed' ? 'dot-primary' : ($activity->status === 'approved' ? 'dot-success' : ($activity->status === 'rejected' ? 'dot-danger' : 'dot-warning')) }}"></div>
+                <div style="flex: 1; min-width: 0;">
+                    <div style="font-size: 16px; color: #1E293B; font-weight: 500;">
+                        {{ $activity->customer->name ?? 'Pelanggan' }}
+                        <span style="font-weight: 400; color: #94A3B8;"> — {{ $activity->iceType->name ?? 'Es Batu' }} × {{ $activity->quantity ?? 1 }}</span>
+                    </div>
+                    <div style="font-size: 14px; color: #CBD5E1; margin-top: 2px;">
+                        {{ $activity->created_at->diffForHumans() }}
+                    </div>
+                </div>
+                @if($activity->status === 'completed')
+                <span class="dash-status-pill dash-status-primary" style="font-size: 13px; padding: 2px 8px;">Selesai Antar</span>
+                @elseif($activity->status === 'approved')
+                <span class="dash-status-pill dash-status-success" style="font-size: 13px; padding: 2px 8px;">Diterima</span>
+                @elseif($activity->status === 'rejected')
+                <span class="dash-status-pill dash-status-danger" style="font-size: 13px; padding: 2px 8px;">Ditolak</span>
+                @elseif($activity->status === 'pending')
+                <span class="dash-status-pill dash-status-warning" style="font-size: 13px; padding: 2px 8px;">Pending</span>
+                @else
+                <span class="dash-status-pill dash-status-neutral" style="font-size: 13px; padding: 2px 8px;">{{ ucfirst($activity->status) }}</span>
+                @endif
+            </div>
+            @empty
+            <div style="text-align: center; padding: 30px; color: #94A3B8; font-size: 14px;">Belum ada aktivitas</div>
+            @endforelse
+        </div>
+    </div>
+
+    <!-- Pelanggan Teraktif -->
+    <div class="dash-card">
+        <div class="dash-card-header">
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <div style="color: #3B82F6;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
+                </div>
+                <span class="dash-card-title">Pelanggan Teraktif</span>
+            </div>
+            <a href="{{ route('customers.index') }}" style="font-size: 13px; color: #3B82F6; text-decoration: none; font-weight: 600;">Lihat Semua</a>
+        </div>
+        @if($topCustomers->count() > 0)
+        <div>
+            @foreach($topCustomers as $customer)
+            <div class="dash-customer-row">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <div class="dash-avatar" style="background: {{ ['#EDE9FE','#DBEAFE','#D1FAE5','#FEF3C7','#FCE7F3'][($loop->index % 5)] }}; color: {{ ['#7C3AED','#3B82F6','#10B981','#F59E0B','#EC4899'][($loop->index % 5)] }};">
+                        {{ strtoupper(substr($customer->name, 0, 1)) }}
+                    </div>
+                    <div>
+                        <div style="font-weight: 600; color: #1E293B; font-size: 16px;">{{ $customer->name }}</div>
+                        <div style="font-size: 14px; color: #CBD5E1;">{{ ucfirst($customer->zone ?? 'Unknown') }}</div>
+                    </div>
+                </div>
+                <div style="text-align: right;">
+                    <div style="font-weight: 700; color: #1E293B; font-size: 19px;">{{ $customer->orders_count }}</div>
+                    <div style="font-size: 13px; color: #94A3B8; letter-spacing: 0.5px;">PESANAN</div>
+                </div>
+            </div>
+            @endforeach
+        </div>
+        @else
+        <div style="text-align: center; padding: 30px; color: #94A3B8; font-size: 14px;">Belum ada data pelanggan</div>
+        @endif
+    </div>
 </div>
-@endsection
 
-@push('scripts')
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
-.ice-filter-btn {
-    padding: 4px 12px;
-    font-size: 12px;
-    font-weight: 600;
-    border-radius: 20px;
-    border: 1px solid #cbd5e1;
-    background: transparent;
-    color: #64748b;
-    cursor: pointer;
-    transition: all .15s;
-    font-family: inherit;
-}
-.ice-filter-btn:hover { background: #f1f5f9; }
-.ice-filter-btn.active { background: #3b82f6; color: #fff; border-color: #3b82f6; }
-
-.ice-custom-range {
-    display: none;
-    margin: 0 20px 10px;
-    padding: 0;
-    border: none;
-    border-radius: 0;
-    background: transparent;
-    gap: 8px;
-    align-items: flex-end;
-    flex-wrap: nowrap;
-}
-
-.ice-date-group {
-    display: flex;
-    flex-direction: column;
-    min-width: 170px;
-    gap: 4px;
-}
-
-.ice-date-group label {
-    font-size: 12px;
-    font-weight: 500;
-    color: #64748b;
-}
-
-.ice-date-input {
-    height: 32px;
-    padding: 0 8px;
-    border: 1px solid #d7deea;
-    border-radius: 7px;
-    font-size: 12px;
-    color: #1e293b;
-    background: #ffffff;
-    font-family: inherit;
-    outline: none;
-}
-
-.ice-date-input:focus {
-    border-color: #3b82f6;
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
-}
-
-.ice-separator {
-    font-size: 11px;
-    color: #94a3b8;
-    margin-bottom: 8px;
-    font-weight: 500;
-}
-
-.ice-apply-btn {
-    height: 32px;
-    padding: 0 12px;
-    border: none;
-    border-radius: 7px;
-    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-    color: #ffffff;
-    font-size: 12px;
-    font-weight: 600;
-    cursor: pointer;
-    font-family: inherit;
-    white-space: nowrap;
-    transition: transform 0.15s ease, box-shadow 0.15s ease;
-}
-
-.ice-apply-btn:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 6px 12px rgba(37, 99, 235, 0.25);
-}
-
-@media (max-width: 768px) {
-    .ice-custom-range {
-        margin: 0 12px 10px;
-        flex-wrap: wrap;
+    /* Dashboard specific styles matching reference design */
+    .dash-btn-outline {
+        background: #fff;
+        border: 1px solid #E2E8F0;
+        border-radius: 8px;
+        padding: 8px 12px;
+        font-size: 14px;
+        font-weight: 500;
+        color: #475569;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        cursor: pointer;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.02);
+        font-family: inherit;
+        transition: all 0.2s;
+    }
+    .dash-btn-outline:hover {
+        background: #F8FAFC;
+        border-color: #CBD5E1;
     }
 
-    .ice-date-group,
-    .ice-apply-btn {
-        width: 100%;
+    .dash-stat-card {
+        background: #fff;
+        border-radius: 16px;
+        padding: 22px 24px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.02);
+        border: 1px solid #F1F5F9;
+        transition: all 0.2s;
+    }
+    .dash-stat-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.06); }
+    .dash-stat-header { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; }
+    .dash-stat-icon { display: flex; align-items: center; }
+    .dash-stat-label { font-size: 14px; font-weight: 500; color: #64748B; }
+    .dash-stat-body { display: flex; align-items: center; gap: 12px; }
+    .dash-stat-value { font-size: 31px; font-weight: 800; color: #1E293B; letter-spacing: -1px; line-height: 1; }
+    .dash-stat-badge {
+        display: inline-flex; align-items: center; gap: 3px;
+        padding: 3px 10px; border-radius: 20px; font-size: 13px; font-weight: 600;
+    }
+    .badge-up { background: #D1FAE5; color: #059669; }
+    .badge-down { background: #FEE2E2; color: #DC2626; }
+    .badge-warning { background: #FEF3C7; color: #D97706; }
+    .badge-neutral { background: #F1F5F9; color: #64748B; }
+
+    .dash-card {
+        background: #fff;
+        border-radius: 16px;
+        padding: 24px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.02);
+        border: 1px solid #F1F5F9;
+    }
+    .dash-card-header {
+        display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;
+    }
+    .dash-card-title { font-size: 16px; font-weight: 600; color: #1E293B; }
+
+    .dash-table { width: 100%; border-collapse: collapse; }
+    .dash-table th {
+        font-size: 11px; font-weight: 600; color: #94A3B8; text-transform: uppercase; letter-spacing: 0.8px;
+        padding: 0 16px 12px 0; text-align: left; border-bottom: 1px solid #F1F5F9;
+    }
+    .dash-table td {
+        padding: 12px 16px 12px 0; border-bottom: 1px solid #F8FAFC; vertical-align: middle;
+    }
+    .dash-table tr:last-child td { border-bottom: none; }
+    .dash-table tr:hover td { background: #FAFBFE; }
+
+    .dash-avatar {
+        width: 32px; height: 32px; border-radius: 10px;
+        display: flex; align-items: center; justify-content: center;
+        font-weight: 700; font-size: 13px; flex-shrink: 0;
     }
 
-    .ice-separator {
-        margin-bottom: 0;
+    .dash-status-pill {
+        display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 20px;
+        font-size: 12px; font-weight: 600;
     }
-}
+    .dash-status-success { background: #D1FAE5; color: #059669; }
+    .dash-status-danger { background: #FEE2E2; color: #DC2626; }
+    .dash-status-warning { background: #FEF3C7; color: #D97706; }
+    .dash-status-primary { background: #DBEAFE; color: #1D4ED8; }
+    .dash-status-neutral { background: #F1F5F9; color: #64748B; }
+
+    .dash-activity-list { display: flex; flex-direction: column; }
+    .dash-activity-item {
+        display: flex; align-items: center; gap: 12px; padding: 10px 0;
+        border-bottom: 1px solid #F8FAFC;
+    }
+    .dash-activity-item:last-child { border-bottom: none; }
+    .dash-activity-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .dot-success { background: #10B981; }
+    .dot-danger { background: #EF4444; }
+    .dot-warning { background: #F59E0B; }
+    .dot-primary { background: #3B82F6; }
+
+    .dash-customer-row {
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 10px 0; border-bottom: 1px solid #F8FAFC;
+    }
+    .dash-customer-row:last-child { border-bottom: none; }
+
+    /* Responsive */
+    @media (max-width: 1024px) {
+        [style*="grid-template-columns: repeat(3"] { grid-template-columns: 1fr !important; }
+        [style*="grid-template-columns: 3fr 2fr"] { grid-template-columns: 1fr !important; }
+        [style*="grid-template-columns: 2fr 3fr"] { grid-template-columns: 1fr !important; }
+        [style*="grid-template-columns: 1fr 1fr"] { grid-template-columns: 1fr !important; }
+    }
 </style>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // ---- Ice Type Chart (with period filter, AJAX) ----
-    const ICE_COLORS = ['#3B82F6','#10B981','#F59E0B','#EF4444','#8B5CF6','#EC4899','#6366F1','#14B8A6'];
-    let iceChart = null;
+    Chart.defaults.font.family = "'Inter', -apple-system, BlinkMacSystemFont, sans-serif";
+    Chart.defaults.font.size = 11;
+    Chart.defaults.color = '#94A3B8';
+    Chart.defaults.plugins.legend.display = false;
 
-    function buildIceChart(data) {
-        const empty  = document.getElementById('ice-empty');
-        const canvas = document.getElementById('iceTypeChart');
-        if (!data || data.length === 0) {
-            if (iceChart) { iceChart.destroy(); iceChart = null; }
-            canvas.style.display = 'none';
-            empty.style.display  = 'flex';
-            return;
-        }
-        empty.style.display  = 'none';
-        canvas.style.display = 'block';
-        if (iceChart) { iceChart.destroy(); }
-        iceChart = new Chart(canvas.getContext('2d'), {
-            type: 'doughnut',
-            data: {
-                labels: data.map(i => i.name),
-                datasets: [{
-                    data: data.map(i => i.total),
-                    backgroundColor: ICE_COLORS,
-                    borderWidth: 0,
-                    hoverOffset: 4
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                cutout: '75%',
-                plugins: {
-                    legend: {
-                        position: 'right',
-                        labels: { usePointStyle: true, boxWidth: 8, padding: 20,
-                            font: { family: "'Plus Jakarta Sans', sans-serif", size: 12 } }
-                    }
-                }
-            }
-        });
-    }
+    // Purple gradient colors
+    const purple1 = '#7C3AED';
+    const purple2 = '#A78BFA';
+    const purple3 = '#C4B5FD';
+    const purple4 = '#DDD6FE';
+    const teal1 = '#14B8A6';
 
-    function fetchIceStats(params) {
-        const url = new URL('/dashboard/ice-type-stats', window.location.origin);
-        Object.keys(params).forEach(k => url.searchParams.set(k, params[k]));
-        fetch(url, { headers: window.getRealtimeAuthHeaders() })
-            .then(r => r.json())
-            .then(data => buildIceChart(data))
-            .catch(e => console.error('Ice type fetch error:', e));
-    }
-
-    window.setIceFilter = function(period) {
-        document.querySelectorAll('.ice-filter-btn').forEach(b => b.classList.remove('active'));
-        document.getElementById('ice-btn-' + period).classList.add('active');
-        const customRange = document.getElementById('ice-custom-range');
-        if (period === 'custom') {
-            customRange.style.display = 'flex';
-            return; // wait for Terapkan
-        }
-        customRange.style.display = 'none';
-        fetchIceStats({ period });
-    };
-
-    window.applyCustomIceFilter = function() {
-        const start = document.getElementById('ice-start').value;
-        const end   = document.getElementById('ice-end').value;
-        if (!start || !end) { alert('Pilih tanggal mulai dan akhir.'); return; }
-        fetchIceStats({ period: 'custom', start, end });
-    };
-
-    // Initial render using server-side data
-    const initialIceData = {!! json_encode(isset($iceTypeStats) ? $iceTypeStats->values() : collect()) !!};
-    buildIceChart(initialIceData);
-
-    // ---- Order Status Chart ----
-    const statusCtx = document.getElementById('orderStatusChart');
-    if(statusCtx) {
-        const approved = {{ $approvedOrders ?? 0 }};
-        const pending = {{ $pendingOrders ?? 0 }};
-        const rejected = {{ ($totalOrders ?? 0) - ($approvedOrders ?? 0) - ($pendingOrders ?? 0) }};
-        
-        new Chart(statusCtx.getContext('2d'), {
-            type: 'bar',
-            data: {
-                labels: ['Diterima', 'Pending', 'Ditolak'],
-                datasets: [{
-                    label: 'Jumlah Pesanan',
-                    data: [approved, pending, rejected],
-                    backgroundColor: [
-                        'rgba(16, 185, 129, 0.8)', // Emerald 500
-                        'rgba(139, 92, 246, 0.8)', // Violet 500
-                        'rgba(239, 68, 68, 0.8)'   // Red 500
-                    ],
-                    borderColor: [
-                        '#10B981',
-                        '#8B5CF6',
-                        '#EF4444'
-                    ],
-                    borderWidth: 1,
-                    borderRadius: 6
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        display: false
+    // === Sales Overview: Stacked Bar Chart ===
+    const revenueData = @json($revenueChartData);
+    new Chart(document.getElementById('salesOverviewChart'), {
+        type: 'bar',
+        data: {
+            labels: revenueData.map(d => d.date),
+            datasets: [{
+                label: 'Pendapatan',
+                data: revenueData.map(d => d.revenue),
+                backgroundColor: (ctx) => {
+                    const max = Math.max(...revenueData.map(d => d.revenue));
+                    const val = ctx.parsed?.y || 0;
+                    const ratio = max > 0 ? val / max : 0;
+                    if (ratio > 0.7) return purple1;
+                    if (ratio > 0.4) return purple2;
+                    if (ratio > 0.2) return purple3;
+                    return purple4;
+                },
+                borderRadius: 6,
+                borderSkipped: false,
+                barThickness: 28,
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { intersect: false, mode: 'index' },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    grid: { color: '#F1F5F9', drawBorder: false },
+                    border: { display: false },
+                    ticks: {
+                        callback: function(value) {
+                            if (value >= 1000000) return 'Rp ' + (value / 1000000).toFixed(1) + 'jt';
+                            if (value >= 1000) return 'Rp ' + (value / 1000).toFixed(0) + 'rb';
+                            return 'Rp ' + value;
+                        },
+                        maxTicksLimit: 5,
+                        font: { size: 11 },
                     }
                 },
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        ticks: {
-                            stepSize: 1,
-                            font: { family: "'Plus Jakarta Sans', sans-serif", size: 12 }
-                        },
-                        grid: {
-                            color: 'rgba(0, 0, 0, 0.05)'
-                        }
-                    },
-                    x: {
-                        ticks: {
-                            font: { family: "'Plus Jakarta Sans', sans-serif", size: 12 }
-                        },
-                        grid: {
-                            display: false
-                        }
+                x: {
+                    grid: { display: false },
+                    border: { display: false },
+                    ticks: { font: { size: 11, weight: '500' } }
+                }
+            },
+            plugins: {
+                tooltip: {
+                    backgroundColor: '#1E293B',
+                    titleColor: '#E2E8F0',
+                    bodyColor: '#F8FAFC',
+                    titleFont: { weight: '600', size: 11 },
+                    bodyFont: { size: 12 },
+                    padding: 12,
+                    cornerRadius: 10,
+                    displayColors: false,
+                    callbacks: {
+                        label: (ctx) => 'Rp ' + ctx.parsed.y.toLocaleString('id-ID')
                     }
                 }
             }
-        });
-    }
-
-    function showDashboardRealtimeToast(order) {
-        const toast = document.getElementById('dashboardRealtimeToast');
-        const text = document.getElementById('dashboardRealtimeToastText');
-        const productName = order.iceType || order.product || 'Es Batu';
-        text.textContent = `${order.customer} (${order.phone}) - ${productName} ${order.quantity} pcs`;
-        toast.style.display = 'block';
-
-        clearTimeout(window.dashboardRealtimeToastTimeout);
-        window.dashboardRealtimeToastTimeout = setTimeout(() => {
-            toast.style.display = 'none';
-        }, 5000);
-    }
-
-    window.addEventListener('realtime:new-order', (event) => {
-        const result = event.detail || {};
-        if (!result.newOrder) {
-            return;
-        }
-
-        showDashboardRealtimeToast(result.newOrder);
-
-        const pendingCountEl = document.getElementById('dashboardPendingOrdersCount');
-        if (pendingCountEl && typeof result.pendingCount !== 'undefined') {
-            pendingCountEl.textContent = result.pendingCount;
         }
     });
+
+    // === Orders Weekly Bar Chart ===
+    const ordersData = revenueData.map(d => d.orders);
+    const maxOrders = Math.max(...ordersData);
+    new Chart(document.getElementById('ordersWeeklyChart'), {
+        type: 'bar',
+        data: {
+            labels: revenueData.map(d => d.date),
+            datasets: [{
+                label: 'Pesanan',
+                data: ordersData,
+                backgroundColor: ordersData.map(v => v === maxOrders ? purple1 : purple4),
+                borderRadius: 6,
+                borderSkipped: false,
+                barThickness: 24,
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { intersect: false, mode: 'index' },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    grid: { color: '#F1F5F9', drawBorder: false },
+                    border: { display: false },
+                    ticks: { maxTicksLimit: 5, font: { size: 11 } }
+                },
+                x: {
+                    grid: { display: false },
+                    border: { display: false },
+                    ticks: {
+                        font: (ctx) => ({
+                            size: 11,
+                            weight: ordersData[ctx.index] === maxOrders ? '700' : '400',
+                        }),
+                        color: (ctx) => ordersData[ctx.index] === maxOrders ? purple1 : '#94A3B8',
+                    }
+                }
+            },
+            plugins: {
+                tooltip: {
+                    backgroundColor: '#1E293B',
+                    bodyColor: '#F8FAFC',
+                    padding: 10,
+                    cornerRadius: 10,
+                    displayColors: false,
+                    callbacks: {
+                        title: (items) => items[0].label,
+                        label: (ctx) => ctx.parsed.y + ' pesanan'
+                    }
+                }
+            }
+        }
+    });
+
+    // === Ice Type Doughnut ===
+    @if($iceTypeStats->count() > 0)
+    new Chart(document.getElementById('iceTypeChart'), {
+        type: 'doughnut',
+        data: {
+            labels: @json($iceTypeStats->pluck('name')),
+            datasets: [{
+                data: @json($iceTypeStats->pluck('total')),
+                backgroundColor: @json($iceTypeStats->pluck('color')),
+                borderWidth: 0,
+                spacing: 3,
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            cutout: '65%',
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: '#1E293B',
+                    bodyColor: '#F8FAFC',
+                    padding: 10,
+                    cornerRadius: 10,
+                    displayColors: true,
+                }
+            }
+        }
+    });
+    @endif
 });
 </script>
-@endpush
+@endsection

@@ -18,7 +18,10 @@ class ZoneController extends Controller
     {
         $validated = $request->validate([
             'name' => 'required|string|max:255|unique:zones,name',
+            'latitude' => 'required|numeric|between:-90,90',
+            'longitude' => 'required|numeric|between:-180,180',
         ]);
+
         Zone::create($validated);
         return redirect()->route('customers.index')->with('success', 'Zone berhasil ditambahkan!');
     }
@@ -32,6 +35,8 @@ class ZoneController extends Controller
     {
         $validated = $request->validate([
             'name' => 'required|string|max:255|unique:zones,name,' . $zone->id,
+            'latitude' => 'required|numeric|between:-90,90',
+            'longitude' => 'required|numeric|between:-180,180',
         ]);
 
         DB::transaction(function () use ($zone, $validated) {

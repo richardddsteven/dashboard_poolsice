@@ -32,8 +32,16 @@ class AppServiceProvider extends ServiceProvider
                 ? (Order::max('id') ?? 0)
                 : 0;
 
+            $latestUpdatedOrder = Auth::check()
+                ? Order::query()->latest('updated_at')->latest('id')->first()
+                : null;
+            $latestUpdateToken = $latestUpdatedOrder
+                ? ($latestUpdatedOrder->id . '-' . $latestUpdatedOrder->updated_at->format('YmdHisu'))
+                : '';
+
             $view->with('pendingOrdersCount', $pendingOrdersCount);
             $view->with('latestOrderIdGlobal', $latestOrderId);
+            $view->with('latestUpdateTokenGlobal', $latestUpdateToken);
         });
     }
 }

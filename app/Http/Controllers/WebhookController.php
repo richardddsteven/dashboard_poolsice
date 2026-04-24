@@ -116,11 +116,14 @@ class WebhookController extends Controller
                 $address        = trim($message);
                 $pendingMessage = $customer->pending_message;
                 $detectedZone   = $this->detectZoneFromAddress($address);
+                $addressCoordinates = $this->resolveAddressCoordinates($address);
 
                 Log::info('Customer address saved', [
                     'phone'   => $phone,
                     'address' => $address,
                     'zone'    => $detectedZone,
+                    'latitude' => $addressCoordinates['latitude'] ?? null,
+                    'longitude' => $addressCoordinates['longitude'] ?? null,
                 ]);
 
                 // Jika pending_message adalah order yang valid → proses langsung
@@ -128,6 +131,8 @@ class WebhookController extends Controller
                     $customer->update([
                         'address'            => $address,
                         'zone'               => $detectedZone,
+                        'latitude'           => $addressCoordinates['latitude'] ?? null,
+                        'longitude'          => $addressCoordinates['longitude'] ?? null,
                         'conversation_state' => null,
                         'pending_message'    => null,
                     ]);
@@ -138,6 +143,8 @@ class WebhookController extends Controller
                 $customer->update([
                     'address'            => $address,
                     'zone'               => $detectedZone,
+                    'latitude'           => $addressCoordinates['latitude'] ?? null,
+                    'longitude'          => $addressCoordinates['longitude'] ?? null,
                     'conversation_state' => 'awaiting_order',
                     'pending_message'    => null,
                 ]);
@@ -347,11 +354,13 @@ class WebhookController extends Controller
 
         $quantityPatterns = [
             // "3 pcs", "5 pc", "2 buah", "10 biji" - TANPA 'lagi' karena "pesen lagi 5kg" akan salah parse
-            '/(\d+)\s*(?:pcs|pc|buah|biji|psc|pieces)\b/i',
+            '/(\d+)\s*(?:pcs|pc|buah|biji|psc|pieces|pca|pck)\b/i',
             // "pcs 3", "pc 5", "buah 2"
-            '/(?:pcs|pc|buah|biji|psc|pieces)\s*(\d+)/i',
+            '/(?:pcs|pc|buah|biji|psc|pieces|pca|pck)\s*(\d+)/i',
             // "5kg 3", "20kg 5" (angka setelah jenis es)
             '/(?:5kg|20kg|5\s?kg|20\s?kg)\s*(\d+)/i',
+            // "5kg nya 10", "20kg sebanyak 7", "5kg = 10pca"
+            '/(?:5kg|20kg|5\s?kg|20\s?kg)\D{0,24}(\d{1,3})/i',
             // "3 5kg", "5 20kg" (angka sebelum jenis es)
             '/(\d+)\s*(?:5kg|20kg|5\s?kg|20\s?kg)/i',
             // "nya 3", "nya 5" - angka setelah kata "nya"
@@ -368,7 +377,7 @@ class WebhookController extends Controller
         }
 
         if ($result['quantity'] === 0) {
-            preg_match_all('/\b(\d+)\b/', $message, $matches);
+            preg_match_all('/(?<!\d)(\d{1,3})(?!\d)/', $message, $matches);
             foreach ($matches[1] ?? [] as $number) {
                 $num = (int) $number;
                 if ($num > 0 && $num <= 50 && $num != 5 && $num != 20) {
@@ -465,6 +474,7 @@ class WebhookController extends Controller
             'uluwatu' => ['uluwatu', 'pecatu', 'padang padang', 'bingin', 'suluban'],
             'tabanan' => ['tabanan', 'kediri', 'marga', 'kerambitan', 'selemadeg'],
             'denpasar' => ['denpasar', 'renon', 'sanur', 'teuku umar', 'imam bonjol'],
+            'surabaya' => ['surabaya', 'rungkut', 'wonokromo', 'sukolilo', 'genteng', 'gubeng', 'wiyung', 'dukuh pakis', 'jambangan', 'lakarsantri', 'mulyorejo', 'tandes'],
         ];
 
         foreach ($zoneAliases as $zoneLower => $aliases) {
@@ -492,11 +502,36 @@ class WebhookController extends Controller
 
     private function getAddressContextFromApi(string $address): string
     {
-        if (!config('services.zone_geocoding.enabled', true)) {
+        $geocoding = $this->getAddressGeocodingResult($address);
+
+        if (!$geocoding) {
             return '';
         }
 
-        $cacheKey = 'zone-geocoding:' . md5(strtolower(trim($address)));
+        return $geocoding['context'] ?? '';
+    }
+
+    private function resolveAddressCoordinates(string $address): ?array
+    {
+        $geocoding = $this->getAddressGeocodingResult($address);
+
+        if (!$geocoding) {
+            return null;
+        }
+
+        return [
+            'latitude' => $geocoding['latitude'],
+            'longitude' => $geocoding['longitude'],
+        ];
+    }
+
+    private function getAddressGeocodingResult(string $address): ?array
+    {
+        if (!config('services.zone_geocoding.enabled', true)) {
+            return null;
+        }
+
+        $cacheKey = 'customer-address-geocoding:' . md5(strtolower(trim($address)));
 
         return Cache::remember($cacheKey, now()->addDays(14), function () use ($address) {
             $endpoint = config('services.zone_geocoding.endpoint', 'https://nominatim.openstreetmap.org/search');
@@ -538,38 +573,51 @@ class WebhookController extends Controller
                     }
 
                     $first = $data[0];
-                    $parts = [];
-
-                    if (!empty($first['display_name'])) {
-                        $parts[] = $first['display_name'];
+                    if (!isset($first['lat'], $first['lon']) || !is_numeric($first['lat']) || !is_numeric($first['lon'])) {
+                        continue;
                     }
 
-                    $addr = $first['address'] ?? [];
-                    if (is_array($addr)) {
-                        foreach (['road', 'suburb', 'village', 'city_district', 'city', 'county', 'state'] as $field) {
-                            if (!empty($addr[$field])) {
-                                $parts[] = $addr[$field];
-                            }
-                        }
-                    }
-
-                    return $this->normalizeText(implode(' ', array_unique($parts)));
+                    return [
+                        'latitude' => (float) $first['lat'],
+                        'longitude' => (float) $first['lon'],
+                        'context' => $this->buildAddressContextFromGeocodingResult($first),
+                    ];
                 }
 
                 Log::info('Zone geocoding returned empty results', [
                     'address' => $address,
                 ]);
 
-                return '';
+                return null;
             } catch (\Throwable $e) {
                 Log::warning('Zone geocoding API failed', [
                     'address' => $address,
                     'error' => $e->getMessage(),
                 ]);
 
-                return '';
+                return null;
             }
         });
+    }
+
+    private function buildAddressContextFromGeocodingResult(array $result): string
+    {
+        $parts = [];
+
+        if (!empty($result['display_name'])) {
+            $parts[] = $result['display_name'];
+        }
+
+        $addressParts = $result['address'] ?? [];
+        if (is_array($addressParts)) {
+            foreach (['road', 'suburb', 'village', 'city_district', 'city', 'county', 'state'] as $field) {
+                if (!empty($addressParts[$field])) {
+                    $parts[] = $addressParts[$field];
+                }
+            }
+        }
+
+        return $this->normalizeText(implode(' ', array_unique($parts)));
     }
 
     private function buildGeocodingQueries(string $address): array
@@ -577,7 +625,12 @@ class WebhookController extends Controller
         $cleaned = $this->simplifyAddressForGeocoding($address);
 
         return array_values(array_unique([
+            trim($address . ', Indonesia'),
+            trim($address . ', Surabaya, Jawa Timur, Indonesia'),
             trim($address . ', Bali, Indonesia'),
+            trim($cleaned . ', Indonesia'),
+            trim($cleaned . ', Surabaya, Jawa Timur, Indonesia'),
+            trim($cleaned . ', Jawa Timur, Indonesia'),
             trim($cleaned . ', Bali, Indonesia'),
             trim($cleaned . ', Denpasar, Bali, Indonesia'),
             trim($cleaned),

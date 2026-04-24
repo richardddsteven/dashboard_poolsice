@@ -10,6 +10,7 @@ use App\Http\Controllers\FinanceController;
 use App\Http\Controllers\ExpenseController;
 use App\Http\Controllers\DriverController;
 use App\Http\Controllers\StockController;
+use App\Http\Controllers\IceTypeController;
 use Illuminate\Support\Facades\Route;
 
 
@@ -42,6 +43,10 @@ Route::middleware('auth')->group(function () {
     // Stock routes
     Route::get('stocks', [StockController::class, 'index'])->name('stocks.index');
     Route::post('stocks', [StockController::class, 'store'])->name('stocks.store');
+    Route::get('stocks/realtime/today', [StockController::class, 'realtimeToday'])->name('stocks.realtime.today');
+
+    // Ice Type routes
+    Route::resource('ice-types', IceTypeController::class)->only(['index', 'create', 'store', 'edit', 'update', 'destroy']);
     
     // Order routes
     Route::resource('orders', OrderController::class)->only(['index', 'update']);

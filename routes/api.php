@@ -3,6 +3,7 @@
 use App\Models\Driver;
 use App\Models\DriverStock;
 use App\Models\Order;
+use App\Models\Zone;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
@@ -48,7 +49,7 @@ $resolveOrderStockDemand = function (Order $order) use ($extractQtyByWeight): ar
         'stock_20kg' => 0,
     ];
 
-    $quantity = max(1, (int) $order->quantity);
+    $quantity = max(1, (int) ($order->effective_quantity ?? $order->quantity));
     $iceTypeName = strtolower(trim((string) ($order->iceType?->name ?? '')));
     $weight = (float) ($order->iceType?->weight ?? 0);
 
@@ -105,6 +106,33 @@ $resolveOrderStockDemand = function (Order $order) use ($extractQtyByWeight): ar
     }
 
     return $required;
+};
+
+$haversineDistanceMeters = function (float $lat1, float $lon1, float $lat2, float $lon2): float {
+    $earthRadiusMeters = 6371000.0;
+
+    $latFrom = deg2rad($lat1);
+    $latTo = deg2rad($lat2);
+    $deltaLat = deg2rad($lat2 - $lat1);
+    $deltaLon = deg2rad($lon2 - $lon1);
+
+    $a =
+        sin($deltaLat / 2) * sin($deltaLat / 2) +
+        cos($latFrom) * cos($latTo) * sin($deltaLon / 2) * sin($deltaLon / 2);
+
+    $c = 2 * atan2(sqrt($a), sqrt(1 - $a));
+
+    return $earthRadiusMeters * $c;
+};
+
+$cleanupOldStockData = function (string $today): void {
+    \App\Models\Stock::query()
+        ->whereDate('date', '<', $today)
+        ->delete();
+
+    DriverStock::query()
+        ->whereDate('date', '<', $today)
+        ->delete();
 };
 
 Route::post('/driver/login', function (Request $request) {
@@ -318,12 +346,8 @@ Route::patch('/driver/orders/{order}/status', function (Request $request, Order 
                 ];
             }
 
-            if ($driverStock && ((int) $requiredStock['stock_5kg'] > 0 || (int) $requiredStock['stock_20kg'] > 0)) {
-                $driverStock->update([
-                    'stock_5kg' => max(0, $current5Kg - (int) $requiredStock['stock_5kg']),
-                    'stock_20kg' => max(0, $current20Kg - (int) $requiredStock['stock_20kg']),
-                ]);
-            }
+            // Stok hanya dicek kecukupannya di sini, tapi belum dikurangi.
+            // Pengurangan stok akan dilakukan saat order selesai (complete).
         }
 
         $freshOrder->update([
@@ -335,7 +359,7 @@ Route::patch('/driver/orders/{order}/status', function (Request $request, Order 
             'ok' => true,
             'order' => $freshOrder->fresh(),
             'message' => $validated['status'] === 'approved'
-                ? 'Order berhasil diterima dan stok telah dikurangi.'
+                ? 'Order berhasil diterima.'
                 : 'Order berhasil ditolak.',
         ];
     });
@@ -368,7 +392,7 @@ Route::patch('/driver/orders/{order}/status', function (Request $request, Order 
     ]);
 });
 
-Route::post('/driver/stocks', function (Request $request) use ($resolveDriverFromToken) {
+Route::patch('/driver/orders/{order}/complete', function (Request $request, Order $order) use ($resolveDriverFromToken, $haversineDistanceMeters, $resolveOrderStockDemand) {
     $driver = $resolveDriverFromToken($request);
     if (!$driver) {
         return response()->json([
@@ -377,33 +401,167 @@ Route::post('/driver/stocks', function (Request $request) use ($resolveDriverFro
     }
 
     $validated = $request->validate([
-        'date' => ['required', 'date'],
+        'latitude' => ['required', 'numeric', 'between:-90,90'],
+        'longitude' => ['required', 'numeric', 'between:-180,180'],
+    ]);
+
+    $result = DB::transaction(function () use ($order, $driver, $validated, $haversineDistanceMeters, $resolveOrderStockDemand) {
+        $freshOrder = Order::query()
+            ->with('customer:id,zone,latitude,longitude')
+            ->lockForUpdate()
+            ->findOrFail($order->id);
+
+        if ($freshOrder->status !== 'approved') {
+            return [
+                'ok' => false,
+                'code' => 422,
+                'message' => 'Order belum berstatus diterima, belum bisa selesai antar.',
+            ];
+        }
+
+        if ((int) ($freshOrder->driver_id ?? 0) !== (int) $driver->id) {
+            return [
+                'ok' => false,
+                'code' => 403,
+                'message' => 'Order ini bukan milik Anda.',
+            ];
+        }
+
+        $targetLat = (float) ($freshOrder->customer?->latitude ?? 0);
+        $targetLng = (float) ($freshOrder->customer?->longitude ?? 0);
+
+        if (abs($targetLat) < 0.000001 || abs($targetLng) < 0.000001) {
+            return [
+                'ok' => false,
+                'code' => 422,
+                'message' => 'Koordinat alamat pelanggan belum tersedia. Minta pelanggan kirim alamat yang lebih lengkap atau hubungi admin.',
+            ];
+        }
+
+        $driverLat = (float) $validated['latitude'];
+        $driverLng = (float) $validated['longitude'];
+        $distanceMeters = $haversineDistanceMeters($driverLat, $driverLng, $targetLat, $targetLng);
+        $maxDistanceMeters = 500.0;
+
+        if ($distanceMeters > $maxDistanceMeters) {
+            return [
+                'ok' => false,
+                'code' => 422,
+                'message' => 'Lokasi Anda masih terlalu jauh dari titik alamat toko pelanggan.',
+                'distance_m' => (int) round($distanceMeters),
+                'max_distance_m' => (int) $maxDistanceMeters,
+            ];
+        }
+
+        $freshOrder->update([
+            'status' => 'completed',
+        ]);
+
+        $requiredStock = $resolveOrderStockDemand($freshOrder);
+        $driverStock = DriverStock::query()
+            ->where('driver_id', (int) $driver->id)
+            ->whereDate('date', now()->toDateString())
+            ->lockForUpdate()
+            ->first();
+
+        if ($driverStock && ((int) $requiredStock['stock_5kg'] > 0 || (int) $requiredStock['stock_20kg'] > 0)) {
+            $driverStock->update([
+                'stock_5kg' => max(0, ((int) $driverStock->stock_5kg) - (int) $requiredStock['stock_5kg']),
+                'stock_20kg' => max(0, ((int) $driverStock->stock_20kg) - (int) $requiredStock['stock_20kg']),
+            ]);
+        }
+
+        return [
+            'ok' => true,
+            'order' => $freshOrder->fresh(),
+            'distance_m' => (int) round($distanceMeters),
+            'max_distance_m' => (int) $maxDistanceMeters,
+            'message' => 'Pesanan berhasil diselesaikan dan stok sudah dikurangi. Terima kasih sudah mengantar.',
+        ];
+    });
+
+    if (!$result['ok']) {
+        return response()->json([
+            'message' => $result['message'],
+            'distance_m' => $result['distance_m'] ?? null,
+            'max_distance_m' => $result['max_distance_m'] ?? 500,
+        ], $result['code']);
+    }
+
+    /** @var \App\Models\Order $updatedOrder */
+    $updatedOrder = $result['order'];
+    $todayStock = DriverStock::query()
+        ->where('driver_id', (int) $driver->id)
+        ->whereDate('date', now()->toDateString())
+        ->first();
+
+    return response()->json([
+        'message' => $result['message'],
+        'data' => [
+            'id' => $updatedOrder->id,
+            'status' => $updatedOrder->status,
+            'driver_id' => $updatedOrder->driver_id,
+            'distance_m' => $result['distance_m'] ?? null,
+            'max_distance_m' => $result['max_distance_m'] ?? 500,
+            'stock_today' => [
+                'date' => now()->toDateString(),
+                'stock_5kg' => (int) ($todayStock->stock_5kg ?? 0),
+                'stock_20kg' => (int) ($todayStock->stock_20kg ?? 0),
+            ],
+        ],
+    ]);
+});
+
+Route::post('/driver/stocks', function (Request $request) use ($resolveDriverFromToken, $cleanupOldStockData) {
+    $driver = $resolveDriverFromToken($request);
+    if (!$driver) {
+        return response()->json([
+            'message' => 'Unauthorized.',
+        ], 401);
+    }
+
+    $validated = $request->validate([
+        'date' => ['nullable', 'date'],
         'stock_5kg' => ['required', 'integer', 'min:0'],
         'stock_20kg' => ['required', 'integer', 'min:0'],
     ]);
 
     $today = now()->toDateString();
-    if ($validated['date'] !== $today) {
+    $cleanupOldStockData($today);
+
+    if (!empty($validated['date']) && $validated['date'] !== $today) {
         return response()->json([
             'message' => 'Input stok hanya diperbolehkan untuk tanggal hari ini.',
         ], 422);
     }
 
-    $stock = DriverStock::updateOrCreate(
-        [
-            'driver_id' => (int) $driver->id,
-            'date' => $validated['date'],
-        ],
-        [
-            'stock_5kg' => (int) $validated['stock_5kg'],
-            'stock_20kg' => (int) $validated['stock_20kg'],
-        ]
-    );
+    $existingStock = DriverStock::query()
+        ->where('driver_id', (int) $driver->id)
+        ->whereDate('date', $today)
+        ->first();
+
+    if ($existingStock) {
+        return response()->json([
+            'message' => 'Stok hari ini sudah pernah diinput. Input ulang tidak diperbolehkan.',
+            'data' => [
+                'id' => $existingStock->id,
+                'driver_id' => $existingStock->driver_id,
+                'date' => $existingStock->date?->format('Y-m-d'),
+                'stock_5kg' => $existingStock->stock_5kg,
+                'stock_20kg' => $existingStock->stock_20kg,
+            ],
+        ], 422);
+    }
+
+    $stock = DriverStock::create([
+        'driver_id' => (int) $driver->id,
+        'date' => $today,
+        'stock_5kg' => (int) $validated['stock_5kg'],
+        'stock_20kg' => (int) $validated['stock_20kg'],
+    ]);
 
     return response()->json([
-        'message' => $stock->wasRecentlyCreated
-            ? 'Stok bawaan berhasil disimpan.'
-            : 'Stok bawaan untuk tanggal ini berhasil diperbarui.',
+        'message' => 'Stok bawaan berhasil disimpan.',
         'data' => [
             'id' => $stock->id,
             'driver_id' => $stock->driver_id,
@@ -414,7 +572,7 @@ Route::post('/driver/stocks', function (Request $request) use ($resolveDriverFro
     ]);
 });
 
-Route::get('/driver/stocks/today', function (Request $request) use ($resolveDriverFromToken) {
+Route::get('/driver/stocks/today', function (Request $request) use ($resolveDriverFromToken, $cleanupOldStockData) {
     $driver = $resolveDriverFromToken($request);
     if (!$driver) {
         return response()->json([
@@ -423,6 +581,8 @@ Route::get('/driver/stocks/today', function (Request $request) use ($resolveDriv
     }
 
     $today = now()->toDateString();
+    $cleanupOldStockData($today);
+
     $stock = DriverStock::query()
         ->where('driver_id', (int) $driver->id)
         ->whereDate('date', $today)
@@ -439,7 +599,7 @@ Route::get('/driver/stocks/today', function (Request $request) use ($resolveDriv
     ]);
 });
 
-Route::get('/driver/stocks/history', function (Request $request) use ($resolveDriverFromToken) {
+Route::get('/driver/stocks/history', function (Request $request) use ($resolveDriverFromToken, $cleanupOldStockData) {
     $driver = $resolveDriverFromToken($request);
     if (!$driver) {
         return response()->json([
@@ -448,20 +608,16 @@ Route::get('/driver/stocks/history', function (Request $request) use ($resolveDr
         ], 401);
     }
 
-    $query = DriverStock::query()
+    $today = now()->toDateString();
+    $cleanupOldStockData($today);
+
+    $data = DriverStock::query()
         ->where('driver_id', $driver->id)
-        ->orderByDesc('date')
-        ->orderByDesc('updated_at');
-
-    if ($request->filled('month')) {
-        $parts = explode('-', (string) $request->query('month'));
-        if (count($parts) === 2) {
-            $query->whereYear('date', (int) $parts[0])
-                ->whereMonth('date', (int) $parts[1]);
-        }
-    }
-
-    $data = $query->limit(90)->get()->map(function (DriverStock $stock) {
+        ->whereDate('date', $today)
+        ->orderByDesc('updated_at')
+        ->limit(1)
+        ->get()
+        ->map(function (DriverStock $stock) {
         return [
             'id' => $stock->id,
             'date' => $stock->date?->format('Y-m-d'),
@@ -469,9 +625,11 @@ Route::get('/driver/stocks/history', function (Request $request) use ($resolveDr
             'stock_20kg' => $stock->stock_20kg,
             'updated_at' => $stock->updated_at,
         ];
-    })->values();
+    })
+        ->values();
 
     return response()->json([
+        'message' => 'Riwayat stok dinonaktifkan. Endpoint ini hanya menampilkan data hari ini.',
         'data' => $data,
     ]);
 });

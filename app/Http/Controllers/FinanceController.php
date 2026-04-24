@@ -50,7 +50,7 @@ class FinanceController extends Controller
 
         // Statistik keuangan
         $totalRevenue = Order::whereHas('iceType')
-            ->where('status', 'approved')
+            ->where('status', 'completed')
             ->when(true, $applyFilter)
             ->sum(DB::raw('quantity * (SELECT price FROM ice_types WHERE ice_types.id = orders.ice_type_id)'));
 
@@ -62,7 +62,7 @@ class FinanceController extends Controller
             ->when(true, $applyFilter)
             ->sum(DB::raw('quantity * (SELECT price FROM ice_types WHERE ice_types.id = orders.ice_type_id)'));
 
-        $totalOrders = Order::where('status', 'approved')
+        $totalOrders = Order::where('status', 'completed')
             ->when(true, $applyFilter)
             ->count();
 
@@ -77,7 +77,7 @@ class FinanceController extends Controller
                 DB::raw('SUM(orders.quantity * ice_types.price) as total_revenue')
             )
             ->join('ice_types', 'orders.ice_type_id', '=', 'ice_types.id')
-            ->where('orders.status', 'approved')
+            ->where('orders.status', 'completed')
             ->when(true, $applyFilter)
             ->groupBy('ice_types.id', 'ice_types.name')
             ->get();
@@ -89,7 +89,7 @@ class FinanceController extends Controller
                 DB::raw('SUM(orders.quantity * ice_types.price) as total_revenue')
             )
             ->join('ice_types', 'orders.ice_type_id', '=', 'ice_types.id')
-            ->where('orders.status', 'approved');
+            ->where('orders.status', 'completed');
 
         $dailySalesQuery->when(true, $applyFilter);
 
@@ -168,7 +168,7 @@ class FinanceController extends Controller
         };
 
         $totalRevenue = Order::whereHas('iceType')
-            ->where('status', 'approved')
+            ->where('status', 'completed')
             ->when(true, $applyFilter)
             ->sum(DB::raw('quantity * (SELECT price FROM ice_types WHERE ice_types.id = orders.ice_type_id)'));
 
@@ -180,7 +180,7 @@ class FinanceController extends Controller
             ->when(true, $applyFilter)
             ->sum(DB::raw('quantity * (SELECT price FROM ice_types WHERE ice_types.id = orders.ice_type_id)'));
 
-        $totalOrders = Order::where('status', 'approved')
+        $totalOrders = Order::where('status', 'completed')
             ->when(true, $applyFilter)
             ->count();
 
@@ -194,7 +194,7 @@ class FinanceController extends Controller
                 DB::raw('SUM(orders.quantity * ice_types.price) as total_revenue')
             )
             ->join('ice_types', 'orders.ice_type_id', '=', 'ice_types.id')
-            ->where('orders.status', 'approved')
+            ->where('orders.status', 'completed')
             ->when(true, $applyFilter)
             ->groupBy('ice_types.id', 'ice_types.name')
             ->get();
@@ -205,7 +205,7 @@ class FinanceController extends Controller
                 DB::raw('SUM(orders.quantity * ice_types.price) as total_revenue')
             )
             ->join('ice_types', 'orders.ice_type_id', '=', 'ice_types.id')
-            ->where('orders.status', 'approved');
+            ->where('orders.status', 'completed');
 
         $dailySalesQuery->when(true, $applyFilter);
 
