@@ -3,6 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Models\DriverStock;
+use App\Models\IceType;
+use App\Models\IceTypeDriverStock;
+use App\Models\IceTypeStock;
 use App\Models\Stock;
 use Illuminate\Http\Request;
 
@@ -10,96 +13,173 @@ class StockController extends Controller
 {
     public function index()
     {
-        $today = now()->toDateString();
-        $this->cleanupOldStockData($today);
+        // Fetch active ice types
+        $iceTypes = IceType::getActiveTypes()->sortBy('weight');
 
-        $stock = Stock::query()
-            ->whereDate('date', $today)
-            ->first();
+        // Get current stocks for each ice type
+        $todayStocks = IceTypeStock::getTodayStocks();
+        $hasTodayStockInput = $todayStocks->isNotEmpty();
 
-        $driverStocks = DriverStock::query()
-            ->with(['driver:id,name'])
-            ->whereDate('date', $today)
-            ->orderByDesc('updated_at')
-            ->get();
+        // Get driver stocks in dynamic format
+        $driverStockRows = $this->getDriverStockRows($iceTypes);
 
-        return view('stocks.index', compact('stock', 'driverStocks', 'today'));
+        // Fallback to old stock format if no ice type stocks found (for backward compatibility)
+        $stock = Stock::first();
+
+        return view('stocks.index', compact('iceTypes', 'todayStocks', 'stock', 'driverStockRows', 'hasTodayStockInput'));
     }
 
     public function store(Request $request)
     {
-        $validated = $request->validate([
-            'stock_5kg' => ['required', 'integer', 'min:0'],
-            'stock_20kg' => ['required', 'integer', 'min:0'],
-        ]);
+        // Get active ice types to build dynamic validation rules
+        $iceTypes = IceType::getActiveTypes();
+        $rules = [
+            'date' => ['nullable', 'date'],
+        ];
 
-        $today = now()->toDateString();
-        $this->cleanupOldStockData($today);
+        foreach ($iceTypes as $iceType) {
+            $rules["stock_{$iceType->id}"] = ['required', 'integer', 'min:0'];
+        }
 
-        $stock = Stock::updateOrCreate(
-            ['date' => $today],
-            [
-                'stock_5kg' => $validated['stock_5kg'],
-                'stock_20kg' => $validated['stock_20kg'],
-            ]
-        );
+        $validated = $request->validate($rules);
+        $stockDate = $validated['date'] ?? now()->toDateString();
 
-        $message = $stock->wasRecentlyCreated
-            ? 'Stok hari ini berhasil disimpan.'
-            : 'Stok hari ini berhasil diperbarui.';
+        // Save stocks for each ice type
+        foreach ($iceTypes as $iceType) {
+            $quantity = $validated["stock_{$iceType->id}"] ?? 0;
 
-        return redirect()->route('stocks.index')->with('success', $message);
+            IceTypeStock::updateOrCreate(
+                [
+                    'ice_type_id' => $iceType->id,
+                    'date' => $stockDate,
+                ],
+                [
+                    'quantity' => $quantity,
+                ]
+            );
+        }
+
+        // Also save to old stocks table for backward compatibility
+        $total5kg = 0;
+        $total20kg = 0;
+
+        foreach ($iceTypes as $iceType) {
+            $quantity = $validated["stock_{$iceType->id}"] ?? 0;
+
+            if (abs((float)$iceType->weight - 5.0) < 0.01) {
+                $total5kg = $quantity;
+            } elseif (abs((float)$iceType->weight - 20.0) < 0.01) {
+                $total20kg = $quantity;
+            }
+        }
+
+        if ($total5kg > 0 || $total20kg > 0) {
+            Stock::updateOrCreate(
+                ['date' => $stockDate],
+                [
+                    'stock_5kg' => $total5kg,
+                    'stock_20kg' => $total20kg,
+                ]
+            );
+        }
+
+        return redirect()->route('stocks.index')
+            ->with('success', 'Stok berhasil disimpan.');
     }
 
     public function realtimeToday()
     {
-        $today = now()->toDateString();
-        $this->cleanupOldStockData($today);
+        // Get ice types stocks
+        $iceTypes = IceType::getActiveTypes()->sortBy('weight');
+        $todayStocks = IceTypeStock::getTodayStocks();
+        $hasTodayStockInput = $todayStocks->isNotEmpty();
 
-        $stock = Stock::query()
-            ->whereDate('date', $today)
-            ->first();
+        $allDriverStocks = $this->getDriverStockRows($iceTypes);
 
-        $driverStocks = DriverStock::query()
-            ->with(['driver:id,name'])
-            ->whereDate('date', $today)
-            ->orderByDesc('updated_at')
-            ->get()
-            ->map(function (DriverStock $driverStock) {
-                return [
-                    'id' => $driverStock->id,
-                    'driver_id' => $driverStock->driver_id,
-                    'driver_name' => $driverStock->driver?->name,
-                    'date' => $driverStock->date?->format('Y-m-d'),
-                    'stock_5kg' => (int) $driverStock->stock_5kg,
-                    'stock_20kg' => (int) $driverStock->stock_20kg,
-                    'updated_at' => $driverStock->updated_at,
-                ];
-            })
-            ->values();
+        // Build stock summary
+        $stockSummary = [];
+        foreach ($iceTypes as $iceType) {
+            $stockData = $todayStocks->get($iceType->id);
+            $stockSummary[] = [
+                'id' => $iceType->id,
+                'name' => $iceType->name,
+                'weight' => (float) $iceType->weight,
+                'quantity' => is_array($stockData) ? ($stockData['quantity'] ?? 0) : 0,
+            ];
+        }
 
         return response()->json([
             'data' => [
-                'date' => $today,
-                'stock' => [
-                    'stock_5kg' => (int) ($stock->stock_5kg ?? 0),
-                    'stock_20kg' => (int) ($stock->stock_20kg ?? 0),
-                    'has_stock_input' => !is_null($stock),
-                    'updated_at' => $stock?->updated_at,
-                ],
-                'driver_stocks' => $driverStocks,
+                'stocks' => $stockSummary,
+                'total' => IceTypeStock::getTodayTotal(),
+                'has_today_stock_input' => $hasTodayStockInput,
+                'ice_types' => $iceTypes->map(fn (IceType $iceType) => [
+                    'id' => $iceType->id,
+                    'name' => $iceType->name,
+                    'weight' => (float) $iceType->weight,
+                ])->values(),
+                'driver_stocks' => $allDriverStocks,
             ],
         ]);
     }
 
-    private function cleanupOldStockData(string $today): void
+    private function getDriverStockRows($iceTypes)
     {
-        Stock::query()
-            ->whereDate('date', '<', $today)
-            ->delete();
+        $driverStocksNew = IceTypeDriverStock::query()
+            ->with(['driver:id,name'])
+            ->forDate()
+            ->get()
+            ->groupBy('driver_id')
+            ->map(function ($group) use ($iceTypes) {
+                $firstRecord = $group->first();
 
-        DriverStock::query()
-            ->whereDate('date', '<', $today)
-            ->delete();
+                $row = [
+                    'driver_id' => $firstRecord->driver_id,
+                    'driver_name' => $firstRecord->driver?->name,
+                    'format' => 'new',
+                    'updated_at' => $firstRecord->updated_at,
+                ];
+
+                foreach ($iceTypes as $iceType) {
+                    $stock = $group->firstWhere('ice_type_id', $iceType->id);
+                    $row["qty_{$iceType->id}"] = $stock ? (int) $stock->quantity : 0;
+                }
+
+                return $row;
+            })
+            ->values();
+
+        $usedDriverIds = $driverStocksNew->pluck('driver_id')->toArray();
+        $driverStocksOld = DriverStock::query()
+            ->with(['driver:id,name'])
+            ->whereNotIn('driver_id', $usedDriverIds)
+            ->get()
+            ->map(function (DriverStock $driverStock) use ($iceTypes) {
+                $row = [
+                    'driver_id' => $driverStock->driver_id,
+                    'driver_name' => $driverStock->driver?->name,
+                    'format' => 'old',
+                    'updated_at' => $driverStock->updated_at,
+                ];
+
+                foreach ($iceTypes as $iceType) {
+                    if (abs((float) $iceType->weight - 5.0) < 0.01) {
+                        $row["qty_{$iceType->id}"] = (int) $driverStock->stock_5kg;
+                    } elseif (abs((float) $iceType->weight - 20.0) < 0.01) {
+                        $row["qty_{$iceType->id}"] = (int) $driverStock->stock_20kg;
+                    } else {
+                        $row["qty_{$iceType->id}"] = 0;
+                    }
+                }
+
+                return $row;
+            })
+            ->values();
+
+        return $driverStocksNew
+            ->concat($driverStocksOld)
+            ->values();
     }
+
+
 }

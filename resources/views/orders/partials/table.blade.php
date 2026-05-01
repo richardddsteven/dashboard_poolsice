@@ -5,11 +5,11 @@
                 <tr>
                     <th style="width: 50px;">No</th>
                     <th>Pelanggan</th>
+                    <th>Zona</th>
                     <th>Produk</th>
                     <th>Jumlah</th>
                     <th>Tanggal Order</th>
                     <th>Status</th>
-                    <th style="width: 180px; text-align: center;">Aksi</th>
                 </tr>
             </thead>
             <tbody>
@@ -33,6 +33,14 @@
                         </div>
                     </td>
                     <td>
+                        @if($order->customer && $order->customer->zone)
+                            <div style="font-weight: 600; font-size: 14px; color: var(--text-main);">{{ $order->customer->zone }}</div>
+                        @else
+                            <div style="font-weight: 600; font-size: 14px;">Zona Tidak Diketahui</div>
+                            <div style="font-size: 12px; color: var(--text-light);">Zona tidak terdeteksi</div>
+                        @endif
+                    </td>
+                    <td>  
                         <div style="min-width: 120px;">
                             @if($order->iceType)
                                 <div style="font-weight: 600; font-size: 14px; color: var(--text-main);">{{ $order->iceType->name }}</div>
@@ -62,11 +70,6 @@
                         @else
                             <span class="status-badge">{{ ucfirst($order->status ?? 'Unknown') }}</span>
                         @endif
-                    </td>
-                    <td>
-                        <div style="text-align: center; color: var(--text-muted); font-size: 13px;">
-                            Diproses di aplikasi supir
-                        </div>
                     </td>
                 </tr>
                 @empty

@@ -25,8 +25,27 @@ class IceType extends Model
         return $this->hasMany(Order::class);
     }
 
+    public function driverStocks()
+    {
+        return $this->hasMany(IceTypeDriverStock::class);
+    }
+
     public static function getActiveTypes()
     {
-        return static::where('is_active', true)->get();
+        return static::where('is_active', true)->orderBy('weight')->get();
+    }
+
+    public static function getActiveTypesForApi()
+    {
+        return static::where('is_active', true)
+            ->orderBy('weight')
+            ->get()
+            ->map(fn($type) => [
+                'id' => $type->id,
+                'name' => $type->name,
+                'weight' => (float) $type->weight,
+                'price' => (float) $type->price,
+                'description' => $type->description,
+            ]);
     }
 }

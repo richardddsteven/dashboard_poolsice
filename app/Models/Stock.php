@@ -11,8 +11,4 @@ class Stock extends Model
         'stock_5kg',
         'stock_20kg',
     ];
-
-    protected $casts = [
-        'date' => 'date',
-    ];
 }

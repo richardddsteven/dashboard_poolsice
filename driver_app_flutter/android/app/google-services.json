@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "802075123807",
+    "project_id": "aplikasi-supir",
+    "storage_bucket": "aplikasi-supir.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:802075123807:android:3c32c16f16b9a340c5bbea",
+        "android_client_info": {
+          "package_name": "com.example.driver_app_flutter"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD76rnkJkldyxhsYAW63umThzn5P-iVLN4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

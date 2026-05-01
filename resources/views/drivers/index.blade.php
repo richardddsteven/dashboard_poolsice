@@ -55,7 +55,7 @@
     @else
         <div class="table-responsive">
             <table class="table">
-                <thead><tr><th>No</th><th>Nama Supir</th><th>Username</th><th>No Telepon</th><th>Zona</th><th style="text-align: center;">Aksi</th></tr></thead>
+                <thead><tr><th>No</th><th>Nama Supir</th><th>Username</th><th>No Telepon</th><th>Zona</th><th>Order Selesai</th><th style="text-align: center;">Aksi</th></tr></thead>
                 <tbody>
                     @foreach($drivers as $index => $driver)
                     <tr>
@@ -64,6 +64,11 @@
                         <td style="font-size: 13px; color: var(--text-muted);">{{ $driver->username ?? '-' }}</td>
                         <td style="font-family: monospace; font-size: 13px;">{{ $driver->phone }}</td>
                         <td><span style="font-size: 13px; color: var(--text-secondary);">{{ $driver->zone->name }}</span></td>
+                        <td>
+                            <span style="background: #ECFDF5; color: #059669; border: 1px solid #A7F3D0; padding: 4px 8px; border-radius: 6px; font-weight: 600; font-size: 13px; display: inline-block;">
+                                {{ $driver->completed_orders_count }} Order
+                            </span>
+                        </td>
                         <td>
                             <div style="display: flex; justify-content: center; gap: 6px;">
                                 <a href="{{ route('drivers.edit', $driver->id) }}" class="btn btn-secondary" style="padding: 4px 10px; font-size: 13px;">

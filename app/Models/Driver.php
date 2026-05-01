@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class Driver extends Model
 {
-    protected $fillable = ['name', 'phone', 'zone_id', 'username', 'password', 'api_token'];
+    protected $fillable = ['name', 'phone', 'zone_id', 'username', 'password', 'api_token', 'fcm_token'];
 
     protected $hidden = ['password', 'api_token'];
 
@@ -18,5 +18,10 @@ class Driver extends Model
     public function stocks()
     {
         return $this->hasMany(DriverStock::class);
+    }
+
+    public function orders()
+    {
+        return $this->hasMany(Order::class);
     }
 }

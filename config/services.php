@@ -40,10 +40,15 @@ return [
     ],
 
     'zone_geocoding' => [
-        'enabled' => env('ZONE_GEOCODING_ENABLED', true),
+        'enabled'  => env('ZONE_GEOCODING_ENABLED', true),
         'endpoint' => env('ZONE_GEOCODING_ENDPOINT', 'https://nominatim.openstreetmap.org/search'),
-        'email' => env('ZONE_GEOCODING_EMAIL'),
-        'timeout' => env('ZONE_GEOCODING_TIMEOUT', 8),
+        'email'    => env('ZONE_GEOCODING_EMAIL'),
+        'timeout'  => env('ZONE_GEOCODING_TIMEOUT', 8),
+    ],
+
+    'firebase' => [
+        'project_id'  => env('FIREBASE_PROJECT_ID', 'aplikasi-supir'),
+        'credentials' => env('FIREBASE_CREDENTIALS', 'storage/app/firebase-service-account.json'),
     ],
 
 ];

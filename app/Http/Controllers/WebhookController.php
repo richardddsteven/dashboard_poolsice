@@ -1,9 +1,11 @@
 <?php
 namespace App\Http\Controllers;
 use App\Models\Customer;
+use App\Models\Driver;
 use App\Models\Order;
 use App\Models\IceType;
 use App\Models\Zone;
+use App\Services\FcmService;
 use App\Services\FonnteService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -57,7 +59,9 @@ class WebhookController extends Controller
             // ----------------------------------------------------------------
             // CONVERSATION FLOW: tanya nama & alamat untuk customer baru
             // ----------------------------------------------------------------
+            // Refresh dari database untuk memastikan state terbaru
             $customer = Customer::where('phone', $phone)->first();
+            $currentState = $customer?->conversation_state;
 
             // 1. Customer baru
             if (!$customer) {
@@ -95,7 +99,7 @@ class WebhookController extends Controller
             }
 
             // 2. Menunggu nama toko
-            if ($customer->conversation_state === 'awaiting_name') {
+            if ($currentState === 'awaiting_name') {
                 $name = trim($message);
                 $customer->update([
                     'name'               => $name,
@@ -107,12 +111,12 @@ class WebhookController extends Controller
                     "Terima kasih, {$name}!\n\nSekarang, boleh tahu alamat toko Anda?"
                 );
 
-                Log::info('Customer name saved', ['phone' => $phone, 'name' => $name]);
+                Log::info('Customer name saved', ['phone' => $phone, 'name' => $name, 'state' => 'awaiting_name']);
                 return response()->json(['status' => 'ok', 'message' => 'Awaiting customer address']);
             }
 
             // 3. Menunggu alamat toko
-            if ($customer->conversation_state === 'awaiting_address') {
+            if ($currentState === 'awaiting_address') {
                 $address        = trim($message);
                 $pendingMessage = $customer->pending_message;
                 $detectedZone   = $this->detectZoneFromAddress($address);
@@ -124,6 +128,7 @@ class WebhookController extends Controller
                     'zone'    => $detectedZone,
                     'latitude' => $addressCoordinates['latitude'] ?? null,
                     'longitude' => $addressCoordinates['longitude'] ?? null,
+                    'state' => 'awaiting_address',
                 ]);
 
                 // Jika pending_message adalah order yang valid → proses langsung
@@ -158,16 +163,47 @@ class WebhookController extends Controller
             }
 
             // 4. Menunggu detail pesanan (dari alur inquiry)
-            if ($customer->conversation_state === 'awaiting_order') {
+            if ($currentState === 'awaiting_order') {
                 $customer->update(['conversation_state' => null]);
 
-                Log::info('Processing order from inquiry flow', ['phone' => $phone, 'message' => $message]);
+                Log::info('Processing order from inquiry flow', ['phone' => $phone, 'message' => $message, 'state' => 'awaiting_order']);
                 // Skip validasi keyword order - pelanggan sudah dalam konteks pemesanan
                 return $this->processOrder($phone, $message, $customer, $request, true);
             }
 
             // ----------------------------------------------------------------
-            // CUSTOMER SUDAH ADA - proses order langsung
+            // CUSTOMER SUDAH ADA - tapi cek dulu apakah ada conversation state
+            // ----------------------------------------------------------------
+            if ($customer && !$currentState) {
+                Log::info('Customer exists but no conversation state', [
+                    'phone' => $phone,
+                    'customer_name' => $customer->name,
+                    'has_address' => !empty($customer->address),
+                ]);
+                
+                // Jika belum ada nama (baru di-reset), restart flow
+                if ($customer->name === $phone || empty($customer->name)) {
+                    $customer->update(['conversation_state' => 'awaiting_name']);
+                    $this->fonnte->sendMessage(
+                        $phone,
+                        "Halo kembali! 👋\n\nBoleh tahu nama toko Anda?"
+                    );
+                    Log::info('Restarted conversation flow - awaiting name', ['phone' => $phone]);
+                    return response()->json(['status' => 'ok', 'message' => 'Restarted - awaiting name']);
+                }
+                
+                // Sudah ada nama dan address, langsung proses order dengan validasi keyword
+                // (TETAP cek keyword "pesen", tapi TIDAK tanya nama/alamat lagi)
+                Log::info('Customer registered with complete data, processing order with keyword validation', [
+                    'phone' => $phone,
+                    'name' => $customer->name,
+                    'address' => $customer->address,
+                ]);
+                return $this->processOrder($phone, $message, $customer, $request);
+            }
+
+            // ----------------------------------------------------------------
+            // CUSTOMER SUDAH ADA DENGAN STATE NULL - validasi keyword sebelum proses
             // ----------------------------------------------------------------
             return $this->processOrder($phone, $message, $customer, $request);
 
@@ -185,6 +221,14 @@ class WebhookController extends Controller
 
     private function processOrder(string $phone, string $message, Customer $customer, Request $request, bool $skipValidation = false)
     {
+        Log::info('processOrder called', [
+            'phone' => $phone,
+            'message' => $message,
+            'customer_id' => $customer->id,
+            'customer_name' => $customer->name,
+            'skip_validation' => $skipValidation,
+        ]);
+
         if (!$skipValidation) {
             $isValidOrder = $this->validateOrderMessage($message);
 
@@ -193,6 +237,7 @@ class WebhookController extends Controller
                     'phone'   => $phone,
                     'message' => $message,
                     'reason'  => $isValidOrder['reason'],
+                    'skip_validation' => $skipValidation,
                 ]);
                 return response()->json([
                     'status'  => 'ok',
@@ -211,18 +256,15 @@ class WebhookController extends Controller
                 'skip_validation' => $skipValidation,
             ]);
 
-            // Jika dari alur inquiry, beri tahu customer format yang benar
+            // Jika dari alur inquiry/new customer dalam state awaiting_order, beri tahu format benar
             if ($skipValidation) {
-                // Set ulang state ke awaiting_order agar bisa coba lagi
-                $customer->update(['conversation_state' => 'awaiting_order']);
-
                 $this->fonnte->sendMessage(
                     $phone,
                     "Maaf kak, format pesanan belum dikenali 🙏\n\nSilakan kirim dengan format:\n*[jenis es] [jumlah] pcs*\n\nContoh:\n- *20kg 2 pcs*\n- *5kg 3 pcs*"
                 );
 
                 return response()->json([
-                    'status'  => 'error',
+                    'status'  => 'ok',
                     'message' => 'Order format not recognized, asked customer to retry',
                 ]);
             }
@@ -248,12 +290,71 @@ class WebhookController extends Controller
             'customer_id' => $customer->id,
         ]);
 
+        // Kirim push notification ke semua supir di zona yang sama.
+        $this->notifyDriversInZone($order, $customer);
+
         return response()->json([
             'status'   => 'success',
             'message'  => 'Order created',
             'order_id' => $order->id,
             'customer' => $customer->name,
         ]);
+    }
+
+    /**
+     * Kirim push notification ke semua supir di zona yang sama dengan customer.
+     * Berjalan asynchronous (fire and forget) agar tidak memperlambat response webhook.
+     */
+    private function notifyDriversInZone(Order $order, Customer $customer): void
+    {
+        $customerZone = strtolower(trim((string) ($customer->zone ?? '')));
+
+        if ($customerZone === '') {
+            Log::info('[FCM] Zone kosong, notifikasi supir dilewati.', ['order_id' => $order->id]);
+            return;
+        }
+
+        try {
+            // Cari semua supir di zona yang sama yang memiliki FCM token
+            $drivers = Driver::with('zone:id,name')
+                ->whereNotNull('fcm_token')
+                ->whereNotNull('api_token') // hanya supir yang sedang login
+                ->whereHas('zone', function ($query) use ($customerZone) {
+                    $query->whereRaw('LOWER(name) = ?', [$customerZone]);
+                })
+                ->get();
+
+            if ($drivers->isEmpty()) {
+                Log::info('[FCM] Tidak ada supir online dengan FCM token di zona: ' . $customerZone);
+                return;
+            }
+
+            $fcm = app(FcmService::class);
+
+            $orderData = [
+                'id'            => $order->id,
+                'customer_name' => $customer->name,
+                'zone'          => $customer->zone,
+                'items'         => $order->items ?? '',
+            ];
+
+            foreach ($drivers as $driver) {
+                $fcm->sendOrderNotification($driver->fcm_token, $orderData);
+
+                Log::info('[FCM] Notifikasi order terkirim ke supir.', [
+                    'driver_id'   => $driver->id,
+                    'driver_name' => $driver->name,
+                    'order_id'    => $order->id,
+                    'zone'        => $customerZone,
+                ]);
+            }
+        } catch (\Throwable $e) {
+            // Jangan gagalkan webhook karena error FCM
+            Log::error('[FCM] Gagal kirim notifikasi ke supir: ' . $e->getMessage(), [
+                'order_id' => $order->id,
+                'zone'     => $customerZone,
+            ]);
+        }
     }
 
     private function validateOrderMessage($message)
@@ -272,7 +373,16 @@ class WebhookController extends Controller
             return ['is_valid' => false, 'reason' => 'No order keywords found'];
         }
 
-        $iceTypePatterns = ['/\b5\s?kg\b/i', '/\b20\s?kg\b/i', '/\b5\s?kilo\b/i', '/\b20\s?kilo\b/i'];
+        $iceTypePatterns = [];
+        $iceTypes = IceType::getActiveTypes();
+        foreach ($iceTypes as $iceType) {
+            $weightLabel = preg_quote((string) $iceType->weight, '/');
+            $nameLabel = preg_quote((string) $iceType->name, '/');
+
+            $iceTypePatterns[] = '/\b' . $nameLabel . '\b/i';
+            $iceTypePatterns[] = '/\b' . $weightLabel . '\s?kg\b/i';
+            $iceTypePatterns[] = '/\b' . $weightLabel . '\s?kilo\b/i';
+        }
         $hasIceType = false;
         foreach ($iceTypePatterns as $pattern) {
             if (preg_match($pattern, $message)) {
@@ -281,7 +391,7 @@ class WebhookController extends Controller
             }
         }
         if (!$hasIceType) {
-            return ['is_valid' => false, 'reason' => 'No ice type (5kg/20kg) specified'];
+            return ['is_valid' => false, 'reason' => 'No active ice type specified'];
         }
 
         $quantityPatterns = [
@@ -352,17 +462,28 @@ class WebhookController extends Controller
             }
         }
 
+        $quantityPatterns = [];
+        foreach ($iceTypes as $iceType) {
+            $weight = preg_quote((string) $iceType->weight, '/');
+            $name = preg_quote((string) $iceType->name, '/');
+
+            // "15kg nya 5 pcs", "15kg 5pcs", "5pcs 15kg"
+            $quantityPatterns[] = '/\b' . $weight . '\s?kg\b\D{0,18}(?:nya\s*)?(\d{1,3})\s*(?:pcs|pc|buah|biji|psc|pieces|pca|pck)\b/i';
+            $quantityPatterns[] = '/\b(?:nya\s*)?(\d{1,3})\s*(?:pcs|pc|buah|biji|psc|pieces|pca|pck)\b\D{0,18}\b' . $weight . '\s?kg\b/i';
+            $quantityPatterns[] = '/\b' . $name . '\b\D{0,18}(?:nya\s*)?(\d{1,3})\s*(?:pcs|pc|buah|biji|psc|pieces|pca|pck)\b/i';
+            $quantityPatterns[] = '/\b(?:nya\s*)?(\d{1,3})\s*(?:pcs|pc|buah|biji|psc|pieces|pca|pck)\b\D{0,18}\b' . $name . '\b/i';
+        }
+
         $quantityPatterns = [
+            ...$quantityPatterns,
             // "3 pcs", "5 pc", "2 buah", "10 biji" - TANPA 'lagi' karena "pesen lagi 5kg" akan salah parse
             '/(\d+)\s*(?:pcs|pc|buah|biji|psc|pieces|pca|pck)\b/i',
             // "pcs 3", "pc 5", "buah 2"
             '/(?:pcs|pc|buah|biji|psc|pieces|pca|pck)\s*(\d+)/i',
-            // "5kg 3", "20kg 5" (angka setelah jenis es)
-            '/(?:5kg|20kg|5\s?kg|20\s?kg)\s*(\d+)/i',
-            // "5kg nya 10", "20kg sebanyak 7", "5kg = 10pca"
-            '/(?:5kg|20kg|5\s?kg|20\s?kg)\D{0,24}(\d{1,3})/i',
-            // "3 5kg", "5 20kg" (angka sebelum jenis es)
-            '/(\d+)\s*(?:5kg|20kg|5\s?kg|20\s?kg)/i',
+            // "15kg 5 pcs" / "15kg nya 5 pcs" / "15kg = 5 pcs"
+            '/(?:\b\d+\s?kg\b|\b\d+\s?kilo\b)\s*(?:nya\s*)?(\d{1,3})/i',
+            // "5 pcs 15kg"
+            '/(\d+)\s*(?:pcs|pc|buah|biji|psc|pieces|pca|pck)\b\D{0,18}(?:\b\d+\s?kg\b|\b\d+\s?kilo\b)/i',
             // "nya 3", "nya 5" - angka setelah kata "nya"
             '/\bnya\s+(\d+)\b/i',
         ];

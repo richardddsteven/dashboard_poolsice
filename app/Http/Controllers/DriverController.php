@@ -11,7 +11,9 @@ class DriverController extends Controller
 {
     public function index(Request $request)
     {
-        $query = Driver::with('zone');
+        $query = Driver::with('zone')->withCount(['orders as completed_orders_count' => function ($q) {
+            $q->where('status', 'completed');
+        }]);
 
         if ($request->filled('search')) {
             $query->where('name', 'like', '%' . $request->search . '%')

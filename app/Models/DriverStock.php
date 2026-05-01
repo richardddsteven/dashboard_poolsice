@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Carbon;
 
 class DriverStock extends Model
 {
@@ -13,9 +14,10 @@ class DriverStock extends Model
         'stock_20kg',
     ];
 
-    protected $casts = [
-        'date' => 'date',
-    ];
+    public function scopeForDate($query, ?string $date = null)
+    {
+        return $query->whereDate('date', $date ?? Carbon::today()->toDateString());
+    }
 
     public function driver()
     {

@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -22,8 +24,59 @@ String get apiBaseUrl {
 final FlutterLocalNotificationsPlugin localNotifications =
     FlutterLocalNotificationsPlugin();
 
+// Channel Android — harus konsisten di semua tempat
+const AndroidNotificationChannel _kDriverOrderChannel = AndroidNotificationChannel(
+  'driver_orders',
+  'Order Masuk',
+  description: 'Notifikasi order baru untuk supir Pools Ice',
+  importance: Importance.max,
+  playSound: true,
+);
+
+/// Handler untuk pesan FCM saat app BACKGROUND atau TERMINATED.
+/// Harus top-level function (bukan method class) dan diberi @pragma.
+@pragma('vm:entry-point')
+Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  await Firebase.initializeApp();
+
+  // Init local notifications untuk background
+  const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+  final plugin = FlutterLocalNotificationsPlugin();
+  await plugin.initialize(const InitializationSettings(android: androidSettings));
+
+  // Buat channel (idempotent — aman dipanggil berulang)
+  await plugin
+      .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
+      ?.createNotificationChannel(_kDriverOrderChannel);
+
+  final notification = message.notification;
+  final data = message.data;
+
+  final title = notification?.title ?? data['title'] ?? '🛵 Order Baru';
+  final body  = notification?.body  ?? data['body']  ?? 'Ada pesanan baru masuk!';
+
+  await plugin.show(
+    message.hashCode,
+    title,
+    body,
+    NotificationDetails(
+      android: AndroidNotificationDetails(
+        _kDriverOrderChannel.id,
+        _kDriverOrderChannel.name,
+        channelDescription: _kDriverOrderChannel.description,
+        importance: Importance.max,
+        priority: Priority.high,
+        playSound: true,
+        icon: '@mipmap/ic_launcher',
+      ),
+    ),
+  );
+}
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp();
+  FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
   await _initNotifications();
   runApp(const DriverApp());
 }
@@ -32,13 +85,29 @@ Future<void> _initNotifications() async {
   const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
   const initSettings = InitializationSettings(android: androidSettings);
 
-  await localNotifications.initialize(initSettings);
+  await localNotifications.initialize(
+    initSettings,
+    // Handle tap notifikasi saat app background (bukan terminated)
+    onDidReceiveNotificationResponse: (NotificationResponse response) {
+      // Bisa digunakan untuk navigasi ke halaman order tertentu
+    },
+  );
+
+  // Buat channel Android (penting untuk Android 8+)
+  await localNotifications
+      .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
+      ?.createNotificationChannel(_kDriverOrderChannel);
 
   await localNotifications
-      .resolvePlatformSpecificImplementation<
-        AndroidFlutterLocalNotificationsPlugin
-      >()
+      .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
       ?.requestNotificationsPermission();
+
+  // Izinkan FCM menampilkan notifikasi di foreground (penting untuk iOS, opsional Android)
+  await FirebaseMessaging.instance.setForegroundNotificationPresentationOptions(
+    alert: true,
+    badge: true,
+    sound: true,
+  );
 }
 
 class DriverApp extends StatelessWidget {
@@ -46,28 +115,31 @@ class DriverApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const seed = Color(0xFF0F766E);
+    const seed = Color(0xFF2563EB); // Royal Blue
     final colorScheme = ColorScheme.fromSeed(
       seedColor: seed,
       brightness: Brightness.light,
+      surface: const Color(0xFFF8FAFC),
     );
 
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'Driver Notifier',
+      title: 'Pools Ice',
       theme: ThemeData(
         colorScheme: colorScheme,
-        scaffoldBackgroundColor: const Color(0xFFF3F6FB),
-        appBarTheme: AppBarTheme(
+        scaffoldBackgroundColor: const Color(0xFFF8FAFC),
+        appBarTheme: const AppBarTheme(
           elevation: 0,
-          backgroundColor: const Color(0xFFF3F6FB),
-          foregroundColor: const Color(0xFF0F172A),
+          scrolledUnderElevation: 2,
+          shadowColor: Color(0x33000000),
+          backgroundColor: Colors.white,
+          foregroundColor: Color(0xFF0F172A),
           centerTitle: false,
-          titleTextStyle: const TextStyle(
+          titleTextStyle: TextStyle(
             color: Color(0xFF0F172A),
-            fontSize: 18,
+            fontSize: 20,
             fontWeight: FontWeight.w700,
-            letterSpacing: 0.2,
+            letterSpacing: -0.5,
           ),
         ),
         cardTheme: CardThemeData(
@@ -75,30 +147,144 @@ class DriverApp extends StatelessWidget {
           color: Colors.white,
           margin: EdgeInsets.zero,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(18),
-            side: const BorderSide(color: Color(0xFFE2E8F0)),
+            borderRadius: BorderRadius.circular(20),
           ),
         ),
         inputDecorationTheme: InputDecorationTheme(
           filled: true,
-          fillColor: const Color(0xFFF8FAFC),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          fillColor: const Color(0xFFF1F5F9),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
           border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+            borderRadius: BorderRadius.circular(16),
+            borderSide: BorderSide.none,
           ),
           enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+            borderRadius: BorderRadius.circular(16),
+            borderSide: BorderSide.none,
           ),
           focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(color: colorScheme.primary, width: 1.4),
+            borderRadius: BorderRadius.circular(16),
+            borderSide: BorderSide(color: colorScheme.primary, width: 1.5),
+          ),
+          errorBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: const BorderSide(color: Color(0xFFEF4444), width: 1.5),
+          ),
+          labelStyle: const TextStyle(color: Color(0xFF64748B)),
+          hintStyle: const TextStyle(color: Color(0xFF94A3B8)),
+        ),
+        filledButtonTheme: FilledButtonThemeData(
+          style: FilledButton.styleFrom(
+            elevation: 0,
+            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            textStyle: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.2,
+            ),
           ),
         ),
         useMaterial3: true,
       ),
-      home: const LoginScreen(),
+      home: const SplashScreen(),
+    );
+  }
+}
+
+class SplashScreen extends StatefulWidget {
+  const SplashScreen({super.key});
+
+  @override
+  State<SplashScreen> createState() => _SplashScreenState();
+}
+
+class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderStateMixin {
+  late AnimationController _animationController;
+  late Animation<double> _fadeAnimation;
+  late Animation<double> _scaleAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _animationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1500),
+    );
+
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _animationController,
+        curve: const Interval(0.0, 0.6, curve: Curves.easeIn),
+      ),
+    );
+
+    _scaleAnimation = Tween<double>(begin: 0.8, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _animationController,
+        curve: const Interval(0.0, 0.6, curve: Curves.easeOutBack),
+      ),
+    );
+
+    _animationController.forward();
+
+    Timer(const Duration(milliseconds: 2500), () {
+      if (mounted) {
+        Navigator.of(context).pushReplacement(
+          PageRouteBuilder(
+            transitionDuration: const Duration(milliseconds: 600),
+            pageBuilder: (_, __, ___) => const LoginScreen(),
+            transitionsBuilder: (_, animation, __, child) {
+              return FadeTransition(opacity: animation, child: child);
+            },
+          ),
+        );
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.white,
+      body: Center(
+        child: AnimatedBuilder(
+          animation: _animationController,
+          builder: (context, child) {
+            return FadeTransition(
+              opacity: _fadeAnimation,
+              child: Transform.scale(
+                scale: _scaleAnimation.value,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Image.asset(
+                      'assets/images/poolsice.png',
+                      width: 140,
+                      height: 140,
+                      fit: BoxFit.contain,
+                      errorBuilder: (context, error, stackTrace) => const Icon(
+                        Icons.image_not_supported_rounded,
+                        size: 100,
+                        color: Color(0xFF94A3B8),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
+      ),
     );
   }
 }
@@ -223,84 +409,121 @@ class _LoginScreenState extends State<LoginScreen> {
     return Scaffold(
       body: Container(
         decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xFFE6FFFA), Color(0xFFF3F6FB)],
+          color: Color(0xFFF8FAFC),
+          image: DecorationImage(
+            image: NetworkImage('https://www.transparenttextures.com/patterns/cubes.png'), // Subtle clean texture overlay (optional)
+            opacity: 0.05,
+            repeat: ImageRepeat.repeat,
           ),
         ),
         child: SafeArea(
           child: Center(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 24),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
               child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 420),
-                child: Card(
+                constraints: const BoxConstraints(maxWidth: 400),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(28),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.04),
+                        blurRadius: 32,
+                        offset: const Offset(0, 12),
+                        spreadRadius: -4,
+                      ),
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.02),
+                        blurRadius: 8,
+                        offset: const Offset(0, 4),
+                        spreadRadius: -2,
+                      ),
+                    ],
+                  ),
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
+                    padding: const EdgeInsets.fromLTRB(32, 40, 32, 40),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Container(
-                          width: 52,
-                          height: 52,
+                          width: 64,
+                          height: 64,
                           decoration: BoxDecoration(
-                            color: const Color(0xFF0F766E).withValues(alpha: 0.12),
-                            borderRadius: BorderRadius.circular(14),
+                            color: const Color(0xFFEFF6FF), // Soft Blue
+                            borderRadius: BorderRadius.circular(16),
                           ),
-                          child: const Icon(
-                            Icons.local_shipping_rounded,
-                            color: Color(0xFF0F766E),
-                            size: 28,
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(12),
+                            child: Image.asset(
+                              'assets/images/poolsice.png',
+                              fit: BoxFit.contain,
+                              errorBuilder: (context, error, stackTrace) => const Icon(
+                                Icons.local_shipping_rounded,
+                                color: Color(0xFF2563EB),
+                                size: 32,
+                              ),
+                            ),
                           ),
                         ),
-                        const SizedBox(height: 14),
+                        const SizedBox(height: 24),
                         const Text(
-                          'Masuk Aplikasi Supir',
-                          style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
+                          'Login\nAplikasi Supir Pools Ice',
+                          style: TextStyle(
+                            fontSize: 26,
+                            fontWeight: FontWeight.w800,
+                            height: 1.2,
+                            letterSpacing: -0.5,
+                            color: Color(0xFF0F172A),
+                          ),
                         ),
-                        const SizedBox(height: 6),
+                        const SizedBox(height: 8),
                         const Text(
-                          'Pantau order dan stok harian dengan cepat.',
-                          style: TextStyle(color: Color(0xFF64748B)),
+                          'Silahkan masuk untuk memantau order dan stok harian.',
+                          style: TextStyle(
+                            color: Color(0xFF64748B),
+                            fontSize: 15,
+                            height: 1.4,
+                          ),
                         ),
-                        const SizedBox(height: 18),
+                        const SizedBox(height: 32),
                         TextField(
                           controller: _usernameController,
                           decoration: const InputDecoration(
                             labelText: 'Username',
-                            prefixIcon: Icon(Icons.person_outline),
+                            prefixIcon: Icon(Icons.person_outline_rounded, color: Color(0xFF94A3B8)),
                           ),
                         ),
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 16),
                         TextField(
                           controller: _passwordController,
                           obscureText: true,
                           decoration: const InputDecoration(
                             labelText: 'Password',
-                            prefixIcon: Icon(Icons.lock_outline),
+                            prefixIcon: Icon(Icons.lock_outline_rounded, color: Color(0xFF94A3B8)),
                           ),
                         ),
-                        const SizedBox(height: 18),
+                        const SizedBox(height: 32),
                         SizedBox(
                           width: double.infinity,
-                          child: FilledButton.icon(
+                          child: FilledButton(
                             onPressed: _isSubmitting ? null : _submitLogin,
-                            icon: _isSubmitting
-                                ? const SizedBox(
-                                    width: 16,
-                                    height: 16,
-                                    child: CircularProgressIndicator(strokeWidth: 2),
-                                  )
-                                : const Icon(Icons.login_rounded),
-                            label: Text(_isSubmitting ? 'Memproses...' : 'Login Supir'),
                             style: FilledButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 13),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
+                              backgroundColor: const Color(0xFF2563EB),
+                              foregroundColor: Colors.white,
+                              disabledBackgroundColor: const Color(0xFF94A3B8),
                             ),
+                            child: _isSubmitting
+                                ? const SizedBox(
+                                    width: 24,
+                                    height: 24,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2.5,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : const Text('Login Supir'),
                           ),
                         ),
                       ],
@@ -334,7 +557,8 @@ class DriverHomeScreen extends StatefulWidget {
   State<DriverHomeScreen> createState() => _DriverHomeScreenState();
 }
 
-class _DriverHomeScreenState extends State<DriverHomeScreen> {
+class _DriverHomeScreenState extends State<DriverHomeScreen>
+  with WidgetsBindingObserver {
   final List<Map<String, dynamic>> _orders = [];
   final Set<int> _notifiedOrderIds = <int>{};
   Timer? _timer;
@@ -344,10 +568,20 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
   bool _isSubmittingStock = false;
   bool _isLoggingOut = false;
   bool _isSessionExpiredHandled = false;
+  bool _isLoadingIceTypes = false;
   final Set<int> _isUpdatingOrderIds = <int>{};
   int _todayStock5Kg = 0;
   int _todayStock20Kg = 0;
   bool _hasTodayStockInput = false;
+  String _selectedFilterDate = '';
+
+  // FCM
+  StreamSubscription<RemoteMessage>? _fcmSubscription;
+
+  // Dynamic ice types
+  List<Map<String, dynamic>> _iceTypes = [];
+  final Map<int, TextEditingController> _stockControllers = {};
+  final Map<int, int> _todayStockByIceTypeId = {};
 
   final _stock5KgController = TextEditingController();
   final _stock20KgController = TextEditingController();
@@ -355,16 +589,169 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
   @override
   void initState() {
     super.initState();
+    _selectedFilterDate = _formatDateYmd(DateTime.now());
+    WidgetsBinding.instance.addObserver(this);
+    _loadIceTypes();
     _startPolling();
     _fetchTodayStock();
+    _registerFcmToken();
+    _setupForegroundFcmListener();
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _timer?.cancel();
+    _fcmSubscription?.cancel();
     _stock5KgController.dispose();
     _stock20KgController.dispose();
+    for (var controller in _stockControllers.values) {
+      controller.dispose();
+    }
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _loadIceTypes();
+      _fetchOrders();
+      _fetchTodayStock();
+      _startPolling();
+      return;
+    }
+
+    if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
+      _timer?.cancel();
+    }
+  }
+
+  /// Ambil FCM token dari Firebase dan kirim ke server untuk disimpan.
+  /// Dipanggil saat login dan saat token diperbarui.
+  Future<void> _registerFcmToken() async {
+    try {
+      final messaging = FirebaseMessaging.instance;
+
+      // Minta izin notifikasi (diperlukan untuk iOS, opsional Android 13+)
+      await messaging.requestPermission(
+        alert: true,
+        badge: true,
+        sound: true,
+      );
+
+      final token = await messaging.getToken();
+      if (token == null || token.isEmpty) {
+        return;
+      }
+
+      // Kirim token ke server
+      final uri = Uri.parse('$apiBaseUrl/driver/fcm-token');
+      await http.post(
+        uri,
+        headers: _authHeaders(json: true),
+        body: jsonEncode({'fcm_token': token}),
+      );
+
+      // Pantau perubahan token (FCM bisa memperbarui token secara berkala)
+      messaging.onTokenRefresh.listen((newToken) async {
+        if (!mounted) return;
+        final refreshUri = Uri.parse('$apiBaseUrl/driver/fcm-token');
+        await http.post(
+          refreshUri,
+          headers: _authHeaders(json: true),
+          body: jsonEncode({'fcm_token': newToken}),
+        );
+      });
+    } catch (_) {
+      // Gagal diam-diam — tidak mengganggu flow utama
+    }
+  }
+
+  /// Setup listener untuk pesan FCM saat app FOREGROUND (terbuka).
+  /// FCM tidak menampilkan notifikasi otomatis saat foreground di Android,
+  /// jadi kita tampilkan sendiri via flutter_local_notifications.
+  void _setupForegroundFcmListener() {
+    _fcmSubscription = FirebaseMessaging.onMessage.listen((RemoteMessage message) async {
+      final notification = message.notification;
+      final data = message.data;
+
+      final title = notification?.title ?? data['title'] ?? '🛵 Order Baru';
+      final body  = notification?.body  ?? data['body']  ?? 'Ada pesanan baru masuk!';
+
+      await localNotifications.show(
+        message.hashCode,
+        title,
+        body,
+        const NotificationDetails(
+          android: AndroidNotificationDetails(
+            'driver_orders',
+            'Order Masuk',
+            channelDescription: 'Notifikasi order baru untuk supir Pools Ice',
+            importance: Importance.max,
+            priority: Priority.high,
+            playSound: true,
+            icon: '@mipmap/ic_launcher',
+          ),
+        ),
+      );
+
+      // Juga refresh daftar order supaya tampilan langsung update
+      _fetchOrders();
+    });
+  }
+
+  Future<void> _loadIceTypes() async {
+    if (_isLoadingIceTypes) {
+      return;
+    }
+
+    setState(() {
+      _isLoadingIceTypes = true;
+    });
+
+    try {
+      final uri = Uri.parse('$apiBaseUrl/ice-types');
+      final response = await http.get(uri);
+
+      if (response.statusCode != 200) {
+        throw Exception('Failed to load ice types');
+      }
+
+      final payload = jsonDecode(response.body) as Map<String, dynamic>;
+      final data = (payload['data'] as List<dynamic>? ?? [])
+          .whereType<Map<String, dynamic>>()
+          .toList();
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _iceTypes = data;
+        // Initialize controllers for each ice type
+        for (final iceType in _iceTypes) {
+          final id = iceType['id'] as int?;
+          if (id != null && !_stockControllers.containsKey(id)) {
+            _stockControllers[id] = TextEditingController();
+          }
+        }
+        _syncTodayStockIntoControllers();
+      });
+    } catch (e) {
+      if (!mounted) {
+        return;
+      }
+      // Silently fail - will retry on refresh
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Gagal ambil daftar jenis es: $e')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoadingIceTypes = false;
+        });
+      }
+    }
   }
 
   Map<String, String> _authHeaders({bool json = false}) {
@@ -475,17 +862,24 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
       return '-';
     }
 
-    final qty5 = _extractQtyByWeight(source, 5);
-    final qty20 = _extractQtyByWeight(source, 20);
+    final qtyAny = RegExp(r'\b(\d{1,3})\s*(?:pcs|pc|buah|biji|psc|pieces|pca|pck)\b', caseSensitive: false).firstMatch(source);
+    if (qtyAny != null) {
+      final qty = qtyAny.group(1) ?? '1';
+      final weightMatch = RegExp(r'\b(\d{1,3})\s?(?:kg|kilo)\b', caseSensitive: false).firstMatch(source);
+      if (weightMatch != null) {
+        return '${weightMatch.group(1)}kg - $qty pcs';
+      }
+    }
 
-    if (qty5 != null || qty20 != null) {
-      final parts = <String>[];
-      if (qty5 != null) {
-        parts.add('5kg - $qty5''pcs');
+    final parts = <String>[];
+    for (final weight in [5, 10, 15, 20, 25, 30]) {
+      final qty = _extractQtyByWeight(source, weight);
+      if (qty != null) {
+        parts.add('${weight}kg - $qty''pcs');
       }
-      if (qty20 != null) {
-        parts.add('20kg - $qty20''pcs');
-      }
+    }
+
+    if (parts.isNotEmpty) {
       return parts.join(' | ');
     }
 
@@ -525,6 +919,16 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
 
       final data = payload['data'] as Map<String, dynamic>? ?? {};
 
+      final stockMap = <int, int>{};
+      final stocks = (data['stocks'] as List<dynamic>? ?? []).whereType<Map<String, dynamic>>();
+      for (final stock in stocks) {
+        final iceTypeId = (stock['id'] as num?)?.toInt() ?? (stock['ice_type_id'] as num?)?.toInt();
+        final quantity = (stock['quantity'] as num?)?.toInt() ?? 0;
+        if (iceTypeId != null) {
+          stockMap[iceTypeId] = quantity;
+        }
+      }
+
       if (!mounted) {
         return;
       }
@@ -532,7 +936,11 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
       setState(() {
         _todayStock5Kg = (data['stock_5kg'] as num?)?.toInt() ?? 0;
         _todayStock20Kg = (data['stock_20kg'] as num?)?.toInt() ?? 0;
-        _hasTodayStockInput = data['has_stock_input'] == true;
+        _todayStockByIceTypeId
+          ..clear()
+          ..addAll(stockMap);
+        _hasTodayStockInput = data['has_stock_input'] == true || _todayStockByIceTypeId.isNotEmpty;
+        _syncTodayStockIntoControllers();
       });
     } catch (e) {
       if (!mounted) {
@@ -551,6 +959,32 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
     }
   }
 
+  void _syncTodayStockIntoControllers() {
+    // Jangan overwrite input jika supir belum submit stock (masih dalam mode input).
+    if (!_hasTodayStockInput || _iceTypes.isEmpty || _stockControllers.isEmpty) {
+      return;
+    }
+
+    for (final iceType in _iceTypes) {
+      final id = iceType['id'] as int?;
+      if (id == null || !_stockControllers.containsKey(id)) {
+        continue;
+      }
+
+      int quantity = _todayStockByIceTypeId[id] ?? 0;
+      if (quantity == 0) {
+        final weight = (iceType['weight'] as num?)?.toDouble() ?? 0;
+        if ((weight - 5).abs() < 0.01) {
+          quantity = _todayStock5Kg;
+        } else if ((weight - 20).abs() < 0.01) {
+          quantity = _todayStock20Kg;
+        }
+      }
+
+      _stockControllers[id]!.text = quantity > 0 ? quantity.toString() : '';
+    }
+  }
+
   Future<void> _submitDriverStock() async {
     if (_isSubmittingStock) {
       return;
@@ -565,12 +999,24 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
       return;
     }
 
-    final stock5kg = int.tryParse(_stock5KgController.text.trim());
-    final stock20kg = int.tryParse(_stock20KgController.text.trim());
+    // Collect stocks from controllers
+    final stocks = <Map<String, dynamic>>[];
+    for (final iceType in _iceTypes) {
+      final id = iceType['id'] as int?;
+      if (id != null && _stockControllers.containsKey(id)) {
+        final qty = int.tryParse(_stockControllers[id]!.text.trim());
+        if (qty != null && qty >= 0) {
+          stocks.add({
+            'ice_type_id': id,
+            'quantity': qty,
+          });
+        }
+      }
+    }
 
-    if (stock5kg == null || stock5kg < 0 || stock20kg == null || stock20kg < 0) {
+    if (stocks.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Input stok harus angka 0 atau lebih.')),
+        const SnackBar(content: Text('Masukkan stok untuk minimal satu jenis es.')),
       );
       return;
     }
@@ -580,15 +1026,12 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
     });
 
     try {
-      final today = DateTime.now();
       final uri = Uri.parse('$apiBaseUrl/driver/stocks');
       final response = await http.post(
         uri,
         headers: _authHeaders(json: true),
         body: jsonEncode({
-          'date': _formatDateYmd(today),
-          'stock_5kg': stock5kg,
-          'stock_20kg': stock20kg,
+          'stocks': stocks,
         }),
       );
 
@@ -635,12 +1078,12 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
 
   void _startPolling() {
     _timer?.cancel();
+    _loadIceTypes();
     _fetchOrders();
     _fetchTodayStock();
     _timer = Timer.periodic(const Duration(seconds: 10), (_) {
       if (_isOnline) {
         _fetchOrders();
-        _fetchTodayStock();
       }
     });
   }
@@ -682,24 +1125,13 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
 
       for (final order in data) {
         final orderId = order['id'] as int? ?? 0;
-        final orderDriverId = (order['driver_id'] as num?)?.toInt();
         final orderZone = (order['zone'] as String? ?? '').toLowerCase();
-        final orderStatus = (order['status'] as String? ?? '').toLowerCase();
 
         final sameZone = orderZone == widget.zone.toLowerCase();
-        final canProcessOrder =
-            orderStatus == 'pending' &&
-            (orderDriverId == null || orderDriverId == widget.driverId);
-
+        
         if (!sameZone || orderId == 0) {
           continue;
         }
-
-        if (canProcessOrder && !_notifiedOrderIds.contains(orderId)) {
-          await _showOrderNotification(order);
-          _notifiedOrderIds.add(orderId);
-        }
-
       }
 
       setState(() {
@@ -740,29 +1172,6 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
         });
       }
     }
-  }
-
-  Future<void> _showOrderNotification(Map<String, dynamic> order) async {
-    const details = NotificationDetails(
-      android: AndroidNotificationDetails(
-        'driver_orders',
-        'Driver Orders',
-        channelDescription: 'Notifikasi order baru untuk supir',
-        importance: Importance.max,
-        priority: Priority.high,
-      ),
-    );
-
-    final title = 'Order Baru #${order['id']}';
-    final body =
-        'Pelanggan: ${order['customer_name'] ?? '-'} | Zona: ${order['zone'] ?? '-'}';
-
-    await localNotifications.show(
-      order['id'] as int? ?? DateTime.now().millisecondsSinceEpoch,
-      title,
-      body,
-      details,
-    );
   }
 
   Future<void> _updateOrderStatus({
@@ -835,6 +1244,8 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(successMessage)),
       );
+      
+      _fetchTodayStock();
     } catch (e) {
       if (!mounted) {
         return;
@@ -1013,6 +1424,8 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(finalMessage)),
       );
+      
+      _fetchTodayStock();
     } catch (e) {
       if (!mounted) {
         return;
@@ -1032,6 +1445,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
 
   Future<void> _refreshAll() async {
     await Future.wait([
+      _loadIceTypes(),
       _fetchOrders(),
       _fetchTodayStock(),
     ]);
@@ -1088,38 +1502,6 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
     }
   }
 
-  Widget _buildTodayStockTile({
-    required String label,
-    required int value,
-    required Color accent,
-  }) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: accent.withValues(alpha: 0.09),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: accent.withValues(alpha: 0.35)),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(label, style: const TextStyle(color: Color(0xFF475569), fontSize: 12)),
-            const SizedBox(height: 4),
-            Text(
-              '$value pcs',
-              style: TextStyle(
-                color: accent,
-                fontSize: 18,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _buildOrderCard(Map<String, dynamic> order) {
     final orderId = order['id'] as int? ?? 0;
     final status = (order['status'] as String? ?? '-').trim().toLowerCase();
@@ -1134,27 +1516,55 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
       status == 'approved' && orderDriverId != null && orderDriverId != widget.driverId;
     final isUpdating = _isUpdatingOrderIds.contains(orderId);
 
-    return Card(
+    final itemLabel = (order['items_display'] as String?)?.trim().isNotEmpty == true
+      ? order['items_display'].toString()
+      : _formatOrderItems(order['items']);
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+            spreadRadius: -4,
+          ),
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.01),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+            spreadRadius: -2,
+          ),
+        ],
+      ),
       child: Padding(
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                CircleAvatar(
-                  radius: 18,
-                  backgroundColor: const Color(0xFFE2E8F0),
+                Container(
+                  width: 40,
+                  height: 40,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF1F5F9),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                   child: Text(
                     '#$orderId',
                     style: const TextStyle(
-                      color: Color(0xFF0F172A),
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF475569),
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
                     ),
                   ),
                 ),
-                const SizedBox(width: 10),
+                const SizedBox(width: 14),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1164,50 +1574,90 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                             ? order['customer_name'].toString()
                             : 'Pelanggan',
                         style: const TextStyle(
-                          fontWeight: FontWeight.w700,
-                          fontSize: 15,
+                          color: Color(0xFF0F172A),
+                          fontWeight: FontWeight.w800,
+                          fontSize: 16,
+                          letterSpacing: -0.2,
                         ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      const SizedBox(height: 2),
-                      Text(
-                        'Zona ${order['zone'] ?? '-'}',
-                        style: const TextStyle(color: Color(0xFF64748B), fontSize: 12),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          const Icon(Icons.location_on_rounded, size: 12, color: Color(0xFF94A3B8)),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Zona ${order['zone'] ?? '-'}',
+                            style: const TextStyle(color: Color(0xFF64748B), fontSize: 13, fontWeight: FontWeight.w500),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Icon(Icons.home_rounded, size: 12, color: Color(0xFF94A3B8)),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              (order['customer_address'] as String?)?.trim().isNotEmpty == true
+                                  ? order['customer_address'].toString()
+                                  : 'Alamat belum tersedia',
+                              style: const TextStyle(
+                                color: Color(0xFF64748B),
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   decoration: BoxDecoration(
                     color: _statusBgColor(status, isClaimedByOtherDriver),
-                    borderRadius: BorderRadius.circular(999),
+                    borderRadius: BorderRadius.circular(10),
                   ),
                   child: Text(
                     _statusLabel(status, isClaimedByOtherDriver),
                     style: TextStyle(
                       color: _statusTextColor(status, isClaimedByOtherDriver),
-                      fontWeight: FontWeight.w700,
-                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 12,
                     ),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 20),
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.all(10),
+              padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: const Color(0xFFF8FAFC),
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(14),
                 border: Border.all(color: const Color(0xFFE2E8F0)),
               ),
-              child: Text(
-                _formatOrderItems(order['items']),
-                style: const TextStyle(fontWeight: FontWeight.w600),
+              child: Row(
+                children: [
+                  const Icon(Icons.shopping_bag_rounded, size: 18, color: Color(0xFF64748B)),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      itemLabel,
+                      style: const TextStyle(fontWeight: FontWeight.w700, color: Color(0xFF334155), fontSize: 14),
+                    ),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 20),
             if (isPending && !isClaimedByOtherDriver)
               Row(
                 children: [
@@ -1220,14 +1670,15 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                                 status: 'rejected',
                               ),
                       style: OutlinedButton.styleFrom(
-                        foregroundColor: const Color(0xFFB91C1C),
-                        side: const BorderSide(color: Color(0xFFEF4444)),
-                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        foregroundColor: const Color(0xFFDC2626),
+                        side: const BorderSide(color: Color(0xFFFECACA), width: 1.5),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       ),
-                      child: const Text('Tolak'),
+                      child: const Text('Tolak', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
                     ),
                   ),
-                  const SizedBox(width: 10),
+                  const SizedBox(width: 12),
                   Expanded(
                     child: FilledButton(
                       onPressed: isUpdating || orderId == 0
@@ -1237,9 +1688,15 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                                 status: 'approved',
                               ),
                       style: FilledButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        backgroundColor: const Color(0xFF2563EB),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       ),
-                      child: Text(isUpdating ? 'Memproses...' : 'Terima'),
+                      child: Text(
+                        isUpdating ? 'Proses...' : 'Terima',
+                        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+                      ),
                     ),
                   ),
                 ],
@@ -1254,28 +1711,50 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                   style: FilledButton.styleFrom(
                     backgroundColor: const Color(0xFF2563EB),
                     foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                   ),
-                  icon: const Icon(Icons.check_circle_outline),
-                  label: Text(isUpdating ? 'Memproses...' : 'Selesai Antar'),
+                  icon: const Icon(Icons.check_circle_rounded, size: 20),
+                  label: Text(
+                    isUpdating ? 'Memproses Selesai...' : 'Konfirmasi Selesai Antar',
+                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+                  ),
                 ),
               )
             else
-              Row(
-                children: [
-                  const Icon(Icons.info_outline, size: 16, color: Color(0xFF64748B)),
-                  const SizedBox(width: 6),
-                  Text(
-                    isClaimedByOtherDriver
-                        ? 'Order sedang diproses oleh supir lain'
-                        : isApprovedByOtherDriver
-                        ? 'Order sudah diterima supir lain'
-                        : isCompleted
-                        ? 'Order sudah selesai diantar'
-                        : 'Order sudah diproses',
-                    style: const TextStyle(color: Color(0xFF64748B)),
-                  ),
-                ],
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                decoration: BoxDecoration(
+                  color: isCompleted ? const Color(0xFFEFF6FF) : const Color(0xFFF1F5F9),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      isCompleted ? Icons.check_circle_rounded : Icons.info_rounded,
+                      size: 18,
+                      color: isCompleted ? const Color(0xFF2563EB) : const Color(0xFF64748B),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        isClaimedByOtherDriver
+                            ? 'Order ditangani oleh supir lain'
+                            : isApprovedByOtherDriver
+                            ? 'Order sudah diterima supir lain'
+                            : isCompleted
+                            ? 'Pengantaran order telah selesai'
+                            : 'Order sudah diproses',
+                        style: TextStyle(
+                          color: isCompleted ? const Color(0xFF1E3A8A) : const Color(0xFF475569),
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
           ],
         ),
@@ -1291,36 +1770,61 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(widget.driverName),
-            const SizedBox(height: 2),
             Text(
-              widget.zone,
-              style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+              widget.driverName,
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+                letterSpacing: -0.5,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Row(
+              children: [
+                const Icon(Icons.location_on, size: 12, color: Color(0xFF64748B)),
+                const SizedBox(width: 4),
+                Text(
+                  'Zona ${widget.zone}',
+                  style: const TextStyle(fontSize: 13, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
+                ),
+              ],
             ),
           ],
         ),
         actions: [
           Container(
-            margin: const EdgeInsets.only(right: 6),
-            padding: const EdgeInsets.symmetric(horizontal: 6),
+            margin: const EdgeInsets.only(right: 8),
+            padding: const EdgeInsets.fromLTRB(14, 4, 8, 4),
             decoration: BoxDecoration(
               color: _isOnline
-                  ? const Color(0xFFDCFCE7)
-                  : const Color(0xFFE2E8F0),
+                  ? const Color(0xFFEFF6FF)
+                  : const Color(0xFFF1F5F9),
               borderRadius: BorderRadius.circular(999),
             ),
             child: Row(
               children: [
+                Container(
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    color: _isOnline ? const Color(0xFF2563EB) : const Color(0xFF94A3B8),
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                const SizedBox(width: 6),
                 Text(
                   _isOnline ? 'Online' : 'Offline',
                   style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: _isOnline ? const Color(0xFF166534) : const Color(0xFF475569),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: _isOnline ? const Color(0xFF1E3A8A) : const Color(0xFF475569),
                   ),
                 ),
+                const SizedBox(width: 4),
                 Switch(
                   value: _isOnline,
+                  activeColor: const Color(0xFF2563EB),
+                  activeTrackColor: const Color(0xFFBFDBFE),
                   onChanged: (value) {
                     setState(() {
                       _isOnline = value;
@@ -1335,150 +1839,350 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
             onPressed: _isLoggingOut ? null : _logout,
             icon: _isLoggingOut
                 ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2.5),
                   )
-                : const Icon(Icons.logout),
+                : const Icon(Icons.logout_rounded, color: Color(0xFF64748B)),
           ),
+          const SizedBox(width: 8),
         ],
       ),
       body: RefreshIndicator(
         onRefresh: _refreshAll,
+        color: const Color(0xFF2563EB),
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(12, 6, 12, 18),
+          padding: const EdgeInsets.fromLTRB(16, 20, 16, 32),
           children: [
-            Card(
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(24),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.03),
+                    blurRadius: 20,
+                    offset: const Offset(0, 10),
+                    spreadRadius: -4,
+                  ),
+                ],
+              ),
               child: Padding(
-                padding: const EdgeInsets.all(14),
+                padding: const EdgeInsets.all(20),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
                       children: [
-                        const Icon(Icons.inventory_2_outlined, size: 18),
-                        const SizedBox(width: 8),
-                        const Text(
-                          'Stok Bawaan Hari Ini',
-                          style: TextStyle(fontWeight: FontWeight.w700),
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFEFF6FF),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Icon(Icons.inventory_2_rounded, size: 20, color: Color(0xFF2563EB)),
                         ),
-                        const Spacer(),
-                        Chip(
-                          visualDensity: VisualDensity.compact,
-                          label: Text(_formatDateYmd(DateTime.now())),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        _buildTodayStockTile(
-                          label: 'Sisa 5kg',
-                          value: _todayStock5Kg,
-                          accent: const Color(0xFF0F766E),
-                        ),
-                        const SizedBox(width: 10),
-                        _buildTodayStockTile(
-                          label: 'Sisa 20kg',
-                          value: _todayStock20Kg,
-                          accent: const Color(0xFF1D4ED8),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    if (_isLoadingTodayStock)
-                      const LinearProgressIndicator(minHeight: 2),
-                    if (!_isLoadingTodayStock)
-                      Text(
-                        _hasTodayStockInput
-                            ? 'Stok tersinkron otomatis setiap 10 detik.'
-                            : 'Belum ada input stok untuk hari ini.',
-                        style: const TextStyle(color: Color(0xFF64748B), fontSize: 12),
-                      ),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            controller: _stock5KgController,
-                            enabled: !_hasTodayStockInput,
-                            keyboardType: TextInputType.number,
-                            decoration: const InputDecoration(
-                              labelText: 'Input 5kg',
-                              prefixIcon: Icon(Icons.icecream_outlined),
-                            ),
+                        const SizedBox(width: 12),
+                        const Expanded(
+                          child: Text(
+                            'Stok Bawaan Hari Ini',
+                            style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
                           ),
                         ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: TextField(
-                            controller: _stock20KgController,
-                            enabled: !_hasTodayStockInput,
-                            keyboardType: TextInputType.number,
-                            decoration: const InputDecoration(
-                              labelText: 'Input 20kg',
-                              prefixIcon: Icon(Icons.ac_unit_outlined),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF1F5F9),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            _formatDateYmd(DateTime.now()),
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF475569),
                             ),
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 10),
-                    SizedBox(
-                      width: double.infinity,
-                      child: FilledButton.icon(
-                        onPressed: (_isSubmittingStock || _hasTodayStockInput)
-                            ? null
-                            : _submitDriverStock,
-                        icon: _isSubmittingStock
-                            ? const SizedBox(
-                                width: 16,
-                                height: 16,
-                                child: CircularProgressIndicator(strokeWidth: 2),
-                              )
-                            : const Icon(Icons.save_outlined),
-                        label: Text(
-                          _isSubmittingStock
-                              ? 'Menyimpan...'
-                              : (_hasTodayStockInput
-                                  ? 'Stok Hari Ini Sudah Diinput'
-                                  : 'Simpan Stok'),
+                    const SizedBox(height: 20),
+                    if (_isLoadingIceTypes)
+                      const Center(child: Padding(
+                        padding: EdgeInsets.symmetric(vertical: 24),
+                        child: CircularProgressIndicator(strokeWidth: 3),
+                      ))
+                    else if (_iceTypes.isEmpty)
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF8FAFC),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: const Color(0xFFE2E8F0)),
                         ),
-                        style: FilledButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        child: const Text(
+                          'Belum ada jenis es yang tersedia.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: Color(0xFF64748B)),
                         ),
+                      )
+                    else
+                      Column(
+                        children: [
+                          ..._iceTypes.map((iceType) {
+                            final id = iceType['id'] as int? ?? 0;
+                            final name = (iceType['name'] as String? ?? 'Es').trim();
+                            final weight = iceType['weight'] as dynamic;
+                            final weightStr = weight is int
+                                ? '$weight kg'
+                                : '${(weight as double?)?.toStringAsFixed(1) ?? '?'} kg';
+
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 14),
+                              child: TextField(
+                                controller: _stockControllers[id],
+                                enabled: !_hasTodayStockInput,
+                                keyboardType: TextInputType.number,
+                                decoration: InputDecoration(
+                                  labelText: 'Stok $name ($weightStr)',
+                                  prefixIcon: const Icon(Icons.ac_unit_rounded, color: Color(0xFF94A3B8)),
+                                  hintText: '0',
+                                ),
+                              ),
+                            );
+                          }).toList(),
+                          const SizedBox(height: 8),
+                          if (_isLoadingTodayStock)
+                            const LinearProgressIndicator(minHeight: 3, borderRadius: BorderRadius.all(Radius.circular(2)))
+                          else
+                            Row(
+                              children: [
+                                Icon(
+                                  _hasTodayStockInput ? Icons.check_circle_rounded : Icons.info_rounded,
+                                  size: 16,
+                                  color: _hasTodayStockInput ? const Color(0xFF10B981) : const Color(0xFF94A3B8),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    _hasTodayStockInput
+                                        ? 'Stok sudah dicatat dan akan terupdate otomatis.'
+                                        : 'Belum ada input stok untuk hari ini.',
+                                    style: TextStyle(
+                                      color: _hasTodayStockInput ? const Color(0xFF047857) : const Color(0xFF64748B),
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          const SizedBox(height: 20),
+                          SizedBox(
+                            width: double.infinity,
+                            child: FilledButton.icon(
+                              onPressed: (_isSubmittingStock || _hasTodayStockInput || _iceTypes.isEmpty)
+                                  ? null
+                                  : _submitDriverStock,
+                              icon: _isSubmittingStock
+                                  ? const SizedBox(
+                                      width: 20,
+                                      height: 20,
+                                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                    )
+                                  : const Icon(Icons.save_rounded, size: 20),
+                              label: Text(
+                                _isSubmittingStock
+                                    ? 'Menyimpan...'
+                                    : (_hasTodayStockInput
+                                        ? 'Stok Hari Ini Sudah Diinput'
+                                        : 'Simpan Stok'),
+                              ),
+                              style: FilledButton.styleFrom(
+                                backgroundColor: const Color(0xFF2563EB),
+                                disabledBackgroundColor: const Color(0xFFE2E8F0),
+                                disabledForegroundColor: const Color(0xFF94A3B8),
+                                padding: const EdgeInsets.symmetric(vertical: 14),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
                   ],
                 ),
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 28),
             Row(
               children: [
-                const Text(
-                  'Daftar Order',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
-                ),
+                const Icon(Icons.receipt_long_rounded, color: Color(0xFF64748B), size: 24),
                 const SizedBox(width: 8),
+                const Text(
+                  'Daftar Order Aktif',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.5,
+                    color: Color(0xFF0F172A),
+                  ),
+                ),
+                const Spacer(),
                 if (_isLoading)
                   const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2),
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2.5),
                   ),
               ],
             ),
-            const SizedBox(height: 8),
-            if (_orders.isEmpty)
-              const Card(
-                child: Padding(
-                  padding: EdgeInsets.all(18),
-                  child: Center(child: Text('Belum ada order yang cocok.')),
+            const SizedBox(height: 16),
+            ...(() {
+              final List<DateTime> sortedDates = [];
+              final today = DateTime.now();
+              for (int i = 0; i < 30; i++) {
+                sortedDates.add(today.subtract(Duration(days: i)));
+              }
+
+              return [
+                SizedBox(
+                  height: 80,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: sortedDates.length,
+                    separatorBuilder: (context, index) => const SizedBox(width: 8),
+                    itemBuilder: (context, index) {
+                      final dateObj = sortedDates[index];
+                      final dateStr = _formatDateYmd(dateObj);
+                      final isSelected = dateStr == _selectedFilterDate;
+                      
+                      String getDayInitials(int weekday) {
+                        switch (weekday) {
+                          case 1: return 'Sen';
+                          case 2: return 'Sel';
+                          case 3: return 'Rab';
+                          case 4: return 'Kam';
+                          case 5: return 'Jum';
+                          case 6: return 'Sab';
+                          case 7: return 'Min';
+                          default: return '';
+                        }
+                      }
+                      
+                      final dayName = getDayInitials(dateObj.weekday);
+                      final dateNum = dateObj.day.toString();
+                      
+                      return GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            _selectedFilterDate = dateStr;
+                          });
+                        },
+                        child: Container(
+                          width: 52,
+                          padding: const EdgeInsets.symmetric(vertical: 6),
+                          decoration: BoxDecoration(
+                            color: isSelected ? Colors.white : const Color(0xFFF8FAFC),
+                            borderRadius: BorderRadius.circular(26),
+                            border: Border.all(
+                              color: isSelected ? const Color(0xFF2563EB) : Colors.transparent,
+                              width: 1.5,
+                            ),
+                          ),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                dayName,
+                                style: const TextStyle(
+                                  color: Color(0xFF475569),
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 12,
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              Container(
+                                width: 34,
+                                height: 34,
+                                decoration: BoxDecoration(
+                                  color: isSelected ? const Color(0xFF2563EB) : const Color(0xFFE2E8F0),
+                                  shape: BoxShape.circle,
+                                ),
+                                alignment: Alignment.center,
+                                child: Text(
+                                  dateNum,
+                                  style: TextStyle(
+                                    color: isSelected ? Colors.white : const Color(0xFF64748B),
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
                 ),
-              )
-            else
-              ..._orders.map(_buildOrderCard),
+                const SizedBox(height: 16),
+              ];
+            })(),
+            ...(() {
+              final filteredOrders = _orders.where((order) {
+                if (order['created_at'] != null) {
+                  try {
+                    final dt = DateTime.parse(order['created_at'].toString());
+                    return _formatDateYmd(dt) == _selectedFilterDate;
+                  } catch (_) {}
+                }
+                return false;
+              }).toList();
+
+              if (filteredOrders.isEmpty) {
+                return [
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(32),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(24),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.03),
+                          blurRadius: 20,
+                          offset: const Offset(0, 10),
+                          spreadRadius: -4,
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      children: [
+                        Icon(Icons.inbox_rounded, size: 48, color: const Color(0xFF94A3B8).withValues(alpha: 0.5)),
+                        const SizedBox(height: 16),
+                        const Text(
+                          'Belum Ada Order',
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Color(0xFF475569)),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          _selectedFilterDate == _formatDateYmd(DateTime.now())
+                              ? 'Pastikan status Anda Online untuk menerima order.'
+                              : 'Tidak ada order pada tanggal ini.',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 13),
+                        ),
+                      ],
+                    ),
+                  )
+                ];
+              }
+
+              return filteredOrders.map((order) => Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: _buildOrderCard(order),
+              )).toList();
+            })(),
           ],
         ),
       ),

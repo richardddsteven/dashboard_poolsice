@@ -32,8 +32,8 @@ class DashboardController extends Controller
         // Total drivers
         $totalDrivers = Driver::count();
         
-        // Latest stock
-        $todayStock = Stock::orderByDesc('date')->first();
+        // Latest stock (use timestamps since `date` column was removed)
+        $todayStock = Stock::orderByDesc('created_at')->first();
         
         // Revenue last 7 days for line chart
         $revenueLast7Days = Order::select(
