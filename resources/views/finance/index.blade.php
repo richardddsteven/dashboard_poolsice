@@ -251,9 +251,25 @@
     document.addEventListener('DOMContentLoaded', function () {
         // --- Data Preparation ---
         const dailySalesData = @json($dailySales->reverse()->values()); 
-        const trendDates = dailySalesData.map(item => item.date);
+        const trendDayCategories = dailySalesData.map((item) => {
+            const date = new Date(item.date + 'T00:00:00');
+            return date.toLocaleDateString('id-ID', { day: '2-digit', month: 'short' });
+        });
         const trendRevenues = dailySalesData.map(item => Number(item.total_revenue));
         const trendOrders = dailySalesData.map(item => Number(item.total_orders));
+
+        const revenueStep = 50000;
+        const minRevenue = Math.min(...trendRevenues);
+        const maxRevenue = Math.max(...trendRevenues);
+        const revenueAxisMin = Math.floor(minRevenue / revenueStep) * revenueStep;
+        const revenueAxisMax = Math.ceil(maxRevenue / revenueStep) * revenueStep;
+        const revenueTickAmount = Math.max(1, Math.round((revenueAxisMax - revenueAxisMin) / revenueStep));
+
+        const minOrders = Math.min(...trendOrders);
+        const maxOrders = Math.max(...trendOrders);
+        const ordersAxisMin = Math.floor(minOrders);
+        const ordersAxisMax = Math.ceil(maxOrders);
+        const ordersTickAmount = Math.max(1, ordersAxisMax - ordersAxisMin);
 
         const salesByIceTypeData = @json($salesByIceType);
         const iceTypeLabels = salesByIceTypeData.map(item => item.name);
@@ -303,9 +319,9 @@
                     width: [2, 2]
                 },
                 dataLabels: { enabled: false },
-                labels: trendDates,
                 xaxis: {
-                    type: 'datetime',
+                    categories: trendDayCategories,
+                    title: { text: 'Hari', style: { color: '#64748B', fontWeight: 500 } },
                     labels: { style: { colors: '#64748B', fontSize: '12px' } },
                     axisBorder: { show: false },
                     axisTicks: { show: false },
@@ -313,6 +329,9 @@
                 },
                 yaxis: [
                     {
+                        min: revenueAxisMin,
+                        max: revenueAxisMax,
+                        tickAmount: revenueTickAmount,
                         title: { text: 'Pendapatan', style: { color: '#4f46e5', fontWeight: 500 } },
                         labels: {
                             style: { colors: '#64748B', fontSize: '12px' },
@@ -324,9 +343,17 @@
                         }
                     },
                     {
+                        min: ordersAxisMin,
+                        max: ordersAxisMax,
+                        tickAmount: ordersTickAmount,
+                        forceNiceScale: false,
+                        decimalsInFloat: 0,
                         opposite: true,
                         title: { text: 'Pesanan', style: { color: '#0ea5e9', fontWeight: 500 } },
-                        labels: { style: { colors: '#64748B', fontSize: '12px' } }
+                        labels: {
+                            style: { colors: '#64748B', fontSize: '12px' },
+                            formatter: (value) => String(Math.round(value))
+                        }
                     }
                 ],
                 grid: {
@@ -338,10 +365,15 @@
                 tooltip: {
                     shared: true,
                     intersect: false,
+                    x: {
+                        formatter: function (_, { dataPointIndex }) {
+                            return dailySalesData[dataPointIndex]?.date || '';
+                        }
+                    },
                     y: {
                         formatter: function (y, { seriesIndex }) {
                             if (typeof y !== "undefined") {
-                                return seriesIndex === 0 ? formatIDR(y) : y + " Pesanan";
+                                return seriesIndex === 0 ? formatIDR(y) : y + " pesanan";
                             }
                             return y;
                         }

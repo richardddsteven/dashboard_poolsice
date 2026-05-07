@@ -38,16 +38,7 @@ class Order extends Model
 
     public function getEffectiveQuantityAttribute(): int
     {
-        $quantity = max(1, (int) $this->quantity);
-        $items = strtolower(trim((string) $this->items));
-
-        if ($items === '') {
-            return $quantity;
-        }
-
-        $qtyFromItems = $this->extractQuantityFromItems($items);
-
-        return $qtyFromItems > 0 ? $qtyFromItems : $quantity;
+        return max(1, (int) $this->quantity);
     }
 
     private function extractQuantityFromItems(string $items): int

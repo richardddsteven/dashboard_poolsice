@@ -1,6 +1,6 @@
 @extends('layouts.dashboard')
 
-@section('title', 'Edit Jenis Es — Dashboard Admin')
+@section('title')
 
 @section('content')
 <div class="page-header">

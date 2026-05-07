@@ -47,5 +47,9 @@
 	<true/>
 	<key>NSUserNotificationUsageDescription</key>
 	<string>Aplikasi memerlukan notifikasi untuk order baru supir.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Aplikasi memerlukan akses lokasi untuk mengirimkan koordinat GPS saat menambahkan customer.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Aplikasi memerlukan akses lokasi untuk mengirimkan koordinat GPS saat menambahkan customer.</string>
 </dict>
 </plist>

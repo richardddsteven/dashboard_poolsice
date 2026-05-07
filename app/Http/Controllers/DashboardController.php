@@ -60,6 +60,33 @@ class DashboardController extends Controller
             ]);
         }
 
+        // Expense last 7 days for finance chart
+        $expenseLast7Days = Expense::select(
+                DB::raw('DATE(date) as date'),
+                DB::raw('SUM(amount) as total_expense')
+            )
+            ->where('date', '>=', now()->subDays(6)->startOfDay())
+            ->groupBy('date')
+            ->orderBy('date')
+            ->get();
+
+        $financeChartData = collect();
+        for ($i = 6; $i >= 0; $i--) {
+            $date = now()->subDays($i)->format('Y-m-d');
+            $revenueFound = $revenueLast7Days->firstWhere('date', $date);
+            $expenseFound = $expenseLast7Days->firstWhere('date', $date);
+
+            $revenue = $revenueFound ? (float) $revenueFound->total_revenue : 0;
+            $expense = $expenseFound ? (float) $expenseFound->total_expense : 0;
+
+            $financeChartData->push([
+                'date' => Carbon::parse($date)->format('d M'),
+                'revenue' => $revenue,
+                'expense' => $expense,
+                'net' => $revenue - $expense,
+            ]);
+        }
+
         // Customer growth (this month vs last month)
         $thisMonthCustomers = Customer::whereMonth('created_at', now()->month)
             ->whereYear('created_at', now()->year)
@@ -99,7 +126,7 @@ class DashboardController extends Controller
         $latestOrderId = Order::max('id') ?? 0;
         
         // Get ice type statistics for pie chart (only approved orders)
-        $iceColors = ['#7C3AED', '#3B82F6', '#14B8A6', '#F59E0B', '#EC4899', '#6366F1', '#10B981', '#EF4444'];
+        $iceColors = ['#29449B', '#2956E3', '#4F83F4', '#76A7FF', '#D7E4FF', '#9CC1FF', '#5B7DEB', '#1E40AF'];
 
         $iceTypeStats = Order::select('ice_type_id', DB::raw('count(*) as total'))
             ->with('iceType')
@@ -137,6 +164,7 @@ class DashboardController extends Controller
             'totalDrivers',
             'todayStock',
             'revenueChartData',
+            'financeChartData',
             'growthCustomers',
             'monthlyExpenses',
             'recentActivities',

@@ -1,146 +1,238 @@
 <!DOCTYPE html>
 <html lang="id">
+
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Activity Diagram (Swimlane) - Bab 3</title>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            font-family: 'Segoe UI', system-ui, sans-serif;
-            background: #f0f2f5;
-            color: #1a1a2e;
-            padding: 32px;
-        }
-        h1 { text-align: center; margin-bottom: 8px; font-size: 26px; color: #1565C0; }
-        .subtitle { text-align: center; color: #666; margin-bottom: 32px; font-size: 14px; }
-        .diagram-section {
-            background: #fff;
-            border-radius: 16px;
-            box-shadow: 0 2px 12px rgba(0,0,0,0.08);
-            padding: 28px;
-            margin-bottom: 28px;
-            max-width: 1200px;
-            margin-left: auto;
-            margin-right: auto;
-        }
-        .diagram-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 16px;
-            flex-wrap: wrap;
-            gap: 10px;
-        }
-        .diagram-header h2 { font-size: 18px; color: #333; }
-        .btn-group { display: flex; gap: 8px; flex-wrap: wrap; }
-        .btn {
-            display: inline-flex; align-items: center; gap: 6px;
-            padding: 9px 18px; color: #fff; border: none;
-            border-radius: 8px; font-size: 13px; font-weight: 600;
-            cursor: pointer; transition: all 0.2s;
-        }
-        .btn:hover { filter: brightness(0.9); }
-        .btn-png { background: #1565C0; }
-        .btn-svg { background: #6A1B9A; }
-        .btn-all {
-            display: block; margin: 0 auto 24px; padding: 13px 32px;
-            background: #2E7D32; color: #fff; border: none;
-            border-radius: 10px; font-size: 15px; font-weight: 700;
-            cursor: pointer;
-        }
-        .btn-all:hover { background: #1B5E20; }
-        .diagram-container {
-            display: flex; justify-content: center;
-            padding: 12px 0; min-height: 200px;
-            overflow-x: auto;
-        }
-        .diagram-container img {
-            max-width: 100%; height: auto;
-            border: 1px solid #e0e0e0; border-radius: 8px;
-        }
-        .loading-text { color: #E65100; font-weight: 600; text-align: center; padding: 40px; }
-        .status { text-align: center; margin-bottom: 24px; font-size: 14px; color: #888; min-height: 22px; }
-        .success { color: #2E7D32; font-weight: 600; }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Activity Diagram (Swimlane) - Bab 3</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: #f0f2f5;
+      color: #1a1a2e;
+      padding: 32px;
+    }
+
+    h1 {
+      text-align: center;
+      margin-bottom: 8px;
+      font-size: 26px;
+      color: #1565C0;
+    }
+
+    .subtitle {
+      text-align: center;
+      color: #666;
+      margin-bottom: 32px;
+      font-size: 14px;
+    }
+
+    .diagram-section {
+      background: #fff;
+      border-radius: 16px;
+      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+      padding: 28px;
+      margin-bottom: 28px;
+      max-width: 1200px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .diagram-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .diagram-header h2 {
+      font-size: 18px;
+      color: #333;
+    }
+
+    .btn-group {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 9px 18px;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn:hover {
+      filter: brightness(0.9);
+    }
+
+    .btn-png {
+      background: #1565C0;
+    }
+
+    .btn-svg {
+      background: #6A1B9A;
+    }
+
+    .btn-all {
+      display: block;
+      margin: 0 auto 24px;
+      padding: 13px 32px;
+      background: #2E7D32;
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .btn-all:hover {
+      background: #1B5E20;
+    }
+
+    .diagram-container {
+      display: flex;
+      justify-content: center;
+      padding: 12px 0;
+      min-height: 200px;
+      overflow-x: auto;
+    }
+
+    .diagram-container img {
+      max-width: 100%;
+      height: auto;
+      border: 1px solid #e0e0e0;
+      border-radius: 8px;
+    }
+
+    .loading-text {
+      color: #E65100;
+      font-weight: 600;
+      text-align: center;
+      padding: 40px;
+    }
+
+    .status {
+      text-align: center;
+      margin-bottom: 24px;
+      font-size: 14px;
+      color: #888;
+      min-height: 22px;
+    }
+
+    .success {
+      color: #2E7D32;
+      font-weight: 600;
+    }
+  </style>
 </head>
+
 <body>
 
-<h1>📊 Activity Diagram (Swimlane) - Bab 3</h1>
-<p class="subtitle">Diagram aktivitas dengan format swimlane (partisi per aktor). Klik Download untuk mengunduh.</p>
+  <h1>📊 Activity Diagram (Swimlane) - Bab 3</h1>
+  <p class="subtitle">Diagram aktivitas dengan format swimlane (partisi per aktor). Klik Download untuk mengunduh.</p>
 
-<button class="btn-all" onclick="downloadAll()">⬇️ Download Semua Diagram (PNG)</button>
-<div class="status" id="global-status"></div>
+  <button class="btn-all" onclick="downloadAll()">⬇️ Download Semua Diagram (PNG)</button>
+  <div class="status" id="global-status"></div>
 
-<div class="diagram-section">
+  <div class="diagram-section">
     <div class="diagram-header">
-        <h2>1. Activity Diagram — Pemesanan via WhatsApp (Conversation Flow)</h2>
-        <div class="btn-group">
-            <button class="btn btn-svg" onclick="downloadSVG(0)">⬇ SVG</button>
-            <button class="btn btn-png" onclick="downloadPNG(0)">⬇ PNG</button>
-        </div>
+      <h2>1. Activity Diagram — Pemesanan via WhatsApp (Conversation Flow)</h2>
+      <div class="btn-group">
+        <button class="btn btn-svg" onclick="downloadSVG(0)">⬇ SVG</button>
+        <button class="btn btn-png" onclick="downloadPNG(0)">⬇ PNG</button>
+      </div>
     </div>
-    <div class="diagram-container" id="container0"><p class="loading-text">⏳ Rendering...</p></div>
-</div>
-
-<div class="diagram-section">
-    <div class="diagram-header">
-        <h2>2. Activity Diagram — Validasi & Parsing Pesan Pesanan</h2>
-        <div class="btn-group">
-            <button class="btn btn-svg" onclick="downloadSVG(1)">⬇ SVG</button>
-            <button class="btn btn-png" onclick="downloadPNG(1)">⬇ PNG</button>
-        </div>
-    </div>
-    <div class="diagram-container" id="container1"><p class="loading-text">⏳ Rendering...</p></div>
-</div>
-
-<div class="diagram-section">
-    <div class="diagram-header">
-    <h2>3. Activity Diagram — Geocoding Alamat & Deteksi Zona</h2>
-        <div class="btn-group">
-            <button class="btn btn-svg" onclick="downloadSVG(2)">⬇ SVG</button>
-            <button class="btn btn-png" onclick="downloadPNG(2)">⬇ PNG</button>
-        </div>
-    </div>
-    <div class="diagram-container" id="container2"><p class="loading-text">⏳ Rendering...</p></div>
-</div>
-
-<div class="diagram-section">
-    <div class="diagram-header">
-  <h2>4. Activity Diagram — Proses Supir Approve/Reject Order</h2>
-        <div class="btn-group">
-            <button class="btn btn-svg" onclick="downloadSVG(3)">⬇ SVG</button>
-            <button class="btn btn-png" onclick="downloadPNG(3)">⬇ PNG</button>
-        </div>
-    </div>
-    <div class="diagram-container" id="container3"><p class="loading-text">⏳ Rendering...</p></div>
-</div>
-
-<div class="diagram-section">
-    <div class="diagram-header">
-    <h2>5. Activity Diagram — Proses Supir Selesai Antar (Validasi GPS)</h2>
-        <div class="btn-group">
-      <button class="btn btn-svg" onclick="downloadSVG(4)">⬇ SVG</button>
-      <button class="btn btn-png" onclick="downloadPNG(4)">⬇ PNG</button>
-        </div>
-    </div>
-    <div class="diagram-container" id="container4"><p class="loading-text">⏳ Rendering...</p></div>
-</div>
-
-<div class="diagram-section">
-  <div class="diagram-header">
-    <h2>6. Activity Diagram — Real-time Polling Order (Admin Dashboard)</h2>
-    <div class="btn-group">
-      <button class="btn btn-svg" onclick="downloadSVG(5)">⬇ SVG</button>
-      <button class="btn btn-png" onclick="downloadPNG(5)">⬇ PNG</button>
+    <div class="diagram-container" id="container0">
+      <p class="loading-text">⏳ Rendering...</p>
     </div>
   </div>
-  <div class="diagram-container" id="container5"><p class="loading-text">⏳ Rendering...</p></div>
-</div>
 
-<script>
-const diagramDefs = [
-    {
+  <div class="diagram-section">
+    <div class="diagram-header">
+      <h2>2. Activity Diagram — Validasi & Parsing Pesan Pesanan</h2>
+      <div class="btn-group">
+        <button class="btn btn-svg" onclick="downloadSVG(1)">⬇ SVG</button>
+        <button class="btn btn-png" onclick="downloadPNG(1)">⬇ PNG</button>
+      </div>
+    </div>
+    <div class="diagram-container" id="container1">
+      <p class="loading-text">⏳ Rendering...</p>
+    </div>
+  </div>
+
+  <div class="diagram-section">
+    <div class="diagram-header">
+      <h2>3. Activity Diagram — Geocoding Alamat & Deteksi Zona</h2>
+      <div class="btn-group">
+        <button class="btn btn-svg" onclick="downloadSVG(2)">⬇ SVG</button>
+        <button class="btn btn-png" onclick="downloadPNG(2)">⬇ PNG</button>
+      </div>
+    </div>
+    <div class="diagram-container" id="container2">
+      <p class="loading-text">⏳ Rendering...</p>
+    </div>
+  </div>
+
+  <div class="diagram-section">
+    <div class="diagram-header">
+      <h2>4. Activity Diagram — Proses Supir Approve/Reject Order</h2>
+      <div class="btn-group">
+        <button class="btn btn-svg" onclick="downloadSVG(3)">⬇ SVG</button>
+        <button class="btn btn-png" onclick="downloadPNG(3)">⬇ PNG</button>
+      </div>
+    </div>
+    <div class="diagram-container" id="container3">
+      <p class="loading-text">⏳ Rendering...</p>
+    </div>
+  </div>
+
+  <div class="diagram-section">
+    <div class="diagram-header">
+      <h2>5. Activity Diagram — Proses Supir Selesai Antar (Validasi GPS)</h2>
+      <div class="btn-group">
+        <button class="btn btn-svg" onclick="downloadSVG(4)">⬇ SVG</button>
+        <button class="btn btn-png" onclick="downloadPNG(4)">⬇ PNG</button>
+      </div>
+    </div>
+    <div class="diagram-container" id="container4">
+      <p class="loading-text">⏳ Rendering...</p>
+    </div>
+  </div>
+
+  <div class="diagram-section">
+    <div class="diagram-header">
+      <h2>6. Activity Diagram — Real-time Polling Order (Admin Dashboard)</h2>
+      <div class="btn-group">
+        <button class="btn btn-svg" onclick="downloadSVG(5)">⬇ SVG</button>
+        <button class="btn btn-png" onclick="downloadPNG(5)">⬇ PNG</button>
+      </div>
+    </div>
+    <div class="diagram-container" id="container5">
+      <p class="loading-text">⏳ Rendering...</p>
+    </div>
+  </div>
+
+  <script>
+    const diagramDefs = [
+      {
         name: 'AD_Pemesanan_WhatsApp',
         code: `@startuml
   scale 2.1
@@ -196,6 +288,7 @@ if (Customer terdaftar?) then (Tidak)
     if (Ada pending order valid?) then (Ya)
       :Simpan address + zone + koordinat;
       :Buat Order (pending);
+      :Kirim Push Notification ke Supir Zona;
       :Reset conversation_state;
     else (Tidak)
       :Simpan address + zone + koordinat;
@@ -208,6 +301,7 @@ if (Customer terdaftar?) then (Tidak)
       |Sistem|
       :Proses order\n(skip validasi keyword);
       :Buat Order (pending);
+      :Kirim Push Notification ke Supir Zona;
       :Reset conversation_state;
     endif
 
@@ -219,12 +313,13 @@ if (Customer terdaftar?) then (Tidak)
 else (Ya)
   :Validasi & parsing pesan;
   :Simpan Order (pending);
+  :Kirim Push Notification ke Supir Zona;
 endif
 
 stop
 @enduml`
-    },
-    {
+      },
+      {
         name: 'AD_Parsing_Pesan',
         code: `@startuml
 skinparam backgroundColor #FFFFFF
@@ -264,6 +359,7 @@ if (Ada keyword order?) then (Ya)
 
     if (Bukan pertanyaan?) then (Ya)
       :Simpan Order (ice_type + quantity);
+      :Kirim Push Notification ke Supir Zona;
       stop
     else (Tidak)
       :Pesan diabaikan;
@@ -287,8 +383,8 @@ else (Tidak)
   endif
 endif
 @enduml`
-    },
-    {
+      },
+      {
         name: 'AD_Deteksi_Zona',
         code: `@startuml
 skinparam backgroundColor #FFFFFF
@@ -351,8 +447,8 @@ endif
 :Simpan data customer:\naddress + zone + latitude + longitude;
 stop
 @enduml`
-    },
-    {
+      },
+      {
         name: 'AD_Validasi_Stok',
         code: `@startuml
   scale 2.6
@@ -428,8 +524,8 @@ endif
 
 stop
 @enduml`
-    },
-    {
+      },
+      {
         name: 'AD_Selesai_Antar_GPS',
         code: `@startuml
   scale 3.2
@@ -485,8 +581,8 @@ endif
 
 stop
 @enduml`
-    },
-    {
+      },
+      {
         name: 'AD_Realtime_Polling',
         code: `@startuml
 skinparam backgroundColor #FFFFFF
@@ -541,19 +637,19 @@ repeat while (Halaman masih terbuka?)
 
 stop
 @enduml`
-    }
-];
+      }
+    ];
 
-// SVG cache for each diagram
-const svgCache = [];
+    // SVG cache for each diagram
+    const svgCache = [];
 
-async function renderDiagram(index) {
-    const container = document.getElementById('container' + index);
-    try {
+    async function renderDiagram(index) {
+      const container = document.getElementById('container' + index);
+      try {
         const response = await fetch('https://kroki.io/plantuml/svg', {
-            method: 'POST',
-            headers: { 'Content-Type': 'text/plain' },
-            body: diagramDefs[index].code
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain' },
+          body: diagramDefs[index].code
         });
 
         if (!response.ok) throw new Error('HTTP ' + response.status);
@@ -565,62 +661,62 @@ async function renderDiagram(index) {
         // Make SVG responsive
         const svg = container.querySelector('svg');
         if (svg) {
-            svg.style.maxWidth = '100%';
-            svg.style.height = 'auto';
+          svg.style.maxWidth = '100%';
+          svg.style.height = 'auto';
         }
-    } catch (e) {
+      } catch (e) {
         container.innerHTML = '<p style="color:red;text-align:center;padding:20px;">❌ Gagal render diagram: ' + e.message + '<br><small>Pastikan koneksi internet aktif (menggunakan Kroki.io API).</small></p>';
         console.error('Render error for diagram ' + index, e);
+      }
     }
-}
 
-async function renderAll() {
-    const status = document.getElementById('global-status');
-    status.innerHTML = '<span style="color:#E65100;font-weight:600;">⏳ Rendering semua diagram via Kroki.io...</span>';
+    async function renderAll() {
+      const status = document.getElementById('global-status');
+      status.innerHTML = '<span style="color:#E65100;font-weight:600;">⏳ Rendering semua diagram via Kroki.io...</span>';
 
-    for (let i = 0; i < diagramDefs.length; i++) {
+      for (let i = 0; i < diagramDefs.length; i++) {
         await renderDiagram(i);
+      }
+
+      status.innerHTML = '<span class="success">✅ Semua diagram berhasil di-render! Silakan download.</span>';
     }
 
-    status.innerHTML = '<span class="success">✅ Semua diagram berhasil di-render! Silakan download.</span>';
-}
+    function downloadSVG(index) {
+      const svg = svgCache[index];
+      if (!svg) { alert('Diagram belum ter-render.'); return; }
 
-function downloadSVG(index) {
-    const svg = svgCache[index];
-    if (!svg) { alert('Diagram belum ter-render.'); return; }
+      const blob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = diagramDefs[index].name + '.svg';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(link.href);
+    }
 
-    const blob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = diagramDefs[index].name + '.svg';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(link.href);
-}
+    function downloadPNG(index) {
+      const svgText = svgCache[index];
+      if (!svgText) { alert('Diagram belum ter-render.'); return; }
 
-function downloadPNG(index) {
-    const svgText = svgCache[index];
-    if (!svgText) { alert('Diagram belum ter-render.'); return; }
+      // Parse SVG to get dimensions
+      const parser = new DOMParser();
+      const svgDoc = parser.parseFromString(svgText, 'image/svg+xml');
+      const svgEl = svgDoc.querySelector('svg');
 
-    // Parse SVG to get dimensions
-    const parser = new DOMParser();
-    const svgDoc = parser.parseFromString(svgText, 'image/svg+xml');
-    const svgEl = svgDoc.querySelector('svg');
+      let w = parseFloat(svgEl.getAttribute('width')) || 800;
+      let h = parseFloat(svgEl.getAttribute('height')) || 600;
 
-    let w = parseFloat(svgEl.getAttribute('width')) || 800;
-    let h = parseFloat(svgEl.getAttribute('height')) || 600;
+      const scale = 5;
+      const canvas = document.createElement('canvas');
+      canvas.width = w * scale;
+      canvas.height = h * scale;
+      const ctx = canvas.getContext('2d');
 
-    const scale = 5;
-    const canvas = document.createElement('canvas');
-    canvas.width = w * scale;
-    canvas.height = h * scale;
-    const ctx = canvas.getContext('2d');
+      const img = new Image();
+      const encodedSvg = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgText);
 
-    const img = new Image();
-    const encodedSvg = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgText);
-
-    img.onload = function() {
+      img.onload = function () {
         ctx.fillStyle = '#ffffff';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
@@ -631,28 +727,29 @@ function downloadPNG(index) {
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
-    };
-    img.onerror = function() {
+      };
+      img.onerror = function () {
         // Fallback: download as SVG instead
         alert('PNG export gagal. Mengunduh SVG sebagai alternatif.');
         downloadSVG(index);
-    };
-    img.src = encodedSvg;
-}
+      };
+      img.src = encodedSvg;
+    }
 
-async function downloadAll() {
-    const status = document.getElementById('global-status');
-    for (let i = 0; i < diagramDefs.length; i++) {
-        status.innerHTML = '<span style="color:#E65100;font-weight:600;">⬇️ Mengunduh ' + (i+1) + '/' + diagramDefs.length + ': ' + diagramDefs[i].name + '...</span>';
+    async function downloadAll() {
+      const status = document.getElementById('global-status');
+      for (let i = 0; i < diagramDefs.length; i++) {
+        status.innerHTML = '<span style="color:#E65100;font-weight:600;">⬇️ Mengunduh ' + (i + 1) + '/' + diagramDefs.length + ': ' + diagramDefs[i].name + '...</span>';
         downloadPNG(i);
         await new Promise(r => setTimeout(r, 1500));
+      }
+      status.innerHTML = '<span class="success">✅ Semua diagram berhasil diunduh!</span>';
+      setTimeout(() => { status.textContent = ''; }, 5000);
     }
-    status.innerHTML = '<span class="success">✅ Semua diagram berhasil diunduh!</span>';
-    setTimeout(() => { status.textContent = ''; }, 5000);
-}
 
-// Start
-renderAll();
-</script>
+    // Start
+    renderAll();
+  </script>
 </body>
+
 </html>

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Order;
+use App\Services\FonnteService;
 use Illuminate\Http\Request;
 
 class OrderController extends Controller
@@ -13,6 +14,17 @@ class OrderController extends Controller
             ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
             ->header('Pragma', 'no-cache')
             ->header('Expires', '0');
+    }
+
+    private function sendStatusReply(Order $order, string $status, ?string $note = null): void
+    {
+        $phone = trim((string) ($order->customer?->phone ?? $order->phone ?? ''));
+        if ($phone === '') {
+            return;
+        }
+
+        $order->loadMissing('customer:id,name,phone');
+        app(FonnteService::class)->sendOrderStatusUpdate($phone, $order, $status, $note);
     }
 
     private function buildFilteredOrdersQuery(Request $request)
@@ -58,7 +70,7 @@ class OrderController extends Controller
         $filterStart = $request->input('filter_start');
         $filterEnd   = $request->input('filter_end');
 
-        $orders = $query->latest()->paginate(15)->withQueryString();
+        $orders = $query->latest('orders.id')->paginate(10)->withQueryString();
         $latestOrderId = (clone $query)->max('orders.id') ?? 0;
 
         return $this->withNoStoreHeaders(response()->view('orders.index', compact(
@@ -74,8 +86,8 @@ class OrderController extends Controller
     public function tableData(Request $request)
     {
         $orders = $this->buildFilteredOrdersQuery($request)
-            ->latest()
-            ->paginate(15)
+            ->latest('orders.id')
+            ->paginate(10)
             ->withQueryString();
 
         return $this->withNoStoreHeaders(response()->json([
@@ -124,6 +136,15 @@ class OrderController extends Controller
         ]);
 
         $order->update(['status' => $validated['status']]);
+        $order->loadMissing('customer:id,name,phone');
+
+        $this->sendStatusReply(
+            $order,
+            $validated['status'],
+            $validated['status'] === 'approved'
+                ? 'Pesanan Anda diterima dan sedang diproses.'
+                : 'Pesanan Anda ditolak oleh admin.'
+        );
 
         $message = $validated['status'] === 'approved'
             ? 'Order berhasil di-approve.'

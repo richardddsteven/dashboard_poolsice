@@ -1,5 +1,5 @@
 @extends('layouts.dashboard')
-@section('title', 'Edit Supir')
+@section('title')
 @section('content')
 <div class="page-header">
     <div>

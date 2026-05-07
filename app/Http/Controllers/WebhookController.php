@@ -290,6 +290,11 @@ class WebhookController extends Controller
             'customer_id' => $customer->id,
         ]);
 
+        $this->fonnte->sendMessage(
+            $phone,
+            "Terima kasih, {$customer->name}!\n\nPesanan Anda sudah kami terima dan sedang dicek stok supir.\nNanti akan ada update status otomatis ketika pesanan diterima, ditolak, atau selesai diantar."
+        );
+
         // Kirim push notification ke semua supir di zona yang sama.
         $this->notifyDriversInZone($order, $customer);
 

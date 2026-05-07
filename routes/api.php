@@ -7,6 +7,7 @@ use App\Models\IceTypeDriverStock;
 use App\Models\Order;
 use App\Models\Zone;
 use App\Services\FcmService;
+use App\Services\FonnteService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
@@ -30,6 +31,17 @@ $resolveDriverFromToken = function (Request $request): ?Driver {
     return Driver::with('zone:id,name')
         ->where('api_token', $hashedToken)
         ->first();
+};
+
+$sendOrderStatusReply = function (Order $order, string $status, ?string $note = null): bool {
+    $phone = trim((string) ($order->customer?->phone ?? $order->phone ?? ''));
+    if ($phone === '') {
+        return false;
+    }
+
+    $order->loadMissing('customer:id,name,phone');
+
+    return app(FonnteService::class)->sendOrderStatusUpdate($phone, $order, $status, $note);
 };
 
 $extractQtyByWeight = function (string $text, int $weight): ?int {
@@ -317,7 +329,7 @@ Route::post('/driver/fcm-token', function (Request $request) use ($resolveDriver
     return response()->json(['message' => 'FCM token berhasil disimpan.']);
 });
 
-Route::get('/driver/orders/notifications', function (Request $request) use ($resolveDriverFromToken, $resolveOrderStockDemand, $checkDriverHasEnoughStock, $resolveDriverTodayStock) {
+Route::get('/driver/orders/notifications', function (Request $request) use ($resolveDriverFromToken, $resolveOrderStockDemand, $checkDriverHasEnoughStock, $resolveDriverTodayStock, $sendOrderStatusReply) {
     $driver = $resolveDriverFromToken($request);
     if (!$driver) {
         return response()->json([
@@ -375,13 +387,27 @@ Route::get('/driver/orders/notifications', function (Request $request) use ($res
             // Check stock dari kedua format (baru dan lama)
             $hasEnoughStock = $checkDriverHasEnoughStock((int) $driver->id, $freshOrder, $resolveDriverTodayStock);
 
-            if (!$hasEnoughStock) {
-                $freshOrder->update([
-                    'driver_id' => (int) $driver->id,
-                    'status' => 'rejected',
-                ]);
-            }
+            $freshOrder->update([
+                'driver_id' => (int) $driver->id,
+                'status' => $hasEnoughStock ? 'approved' : 'rejected',
+            ]);
         });
+
+        $updatedOrder = Order::query()
+            ->with(['customer:id,name,phone', 'iceType:id,name,weight'])
+            ->find($pendingOrder->id);
+
+        if ($updatedOrder) {
+            if ($updatedOrder->status === 'approved') {
+                $sendOrderStatusReply($updatedOrder, 'approved');
+            } elseif ($updatedOrder->status === 'rejected') {
+                $sendOrderStatusReply(
+                    $updatedOrder,
+                    'rejected',
+                    'Stok bawaan supir tidak cukup untuk pesanan ini.'
+                );
+            }
+        }
     }
 
     $orders = Order::query()
@@ -416,7 +442,7 @@ Route::get('/driver/orders/notifications', function (Request $request) use ($res
     return response()->json(['data' => $orders]);
 });
 
-Route::patch('/driver/orders/{order}/status', function (Request $request, Order $order) use ($resolveDriverFromToken, $resolveOrderStockDemand, $checkDriverHasEnoughStock, $resolveDriverTodayStock) {
+Route::patch('/driver/orders/{order}/status', function (Request $request, Order $order) use ($resolveDriverFromToken, $resolveOrderStockDemand, $checkDriverHasEnoughStock, $resolveDriverTodayStock, $sendOrderStatusReply) {
     $driver = $resolveDriverFromToken($request);
     if (!$driver) {
         return response()->json([
@@ -493,6 +519,15 @@ Route::patch('/driver/orders/{order}/status', function (Request $request, Order 
 
     /** @var \App\Models\Order $updatedOrder */
     $updatedOrder = $statusUpdateResult['order'];
+    $updatedOrder->loadMissing('customer:id,name,phone');
+
+    if ($updatedOrder->status === 'approved') {
+        $sendOrderStatusReply($updatedOrder, 'approved');
+    } elseif ($updatedOrder->status === 'rejected') {
+        $note = $statusUpdateResult['message'] ?? 'Order ditolak oleh sistem.';
+        $sendOrderStatusReply($updatedOrder, 'rejected', $note);
+    }
+
     $todayStock = DriverStock::query()
         ->where('driver_id', (int) $driver->id)
         ->first();
@@ -511,7 +546,7 @@ Route::patch('/driver/orders/{order}/status', function (Request $request, Order 
     ]);
 });
 
-Route::patch('/driver/orders/{order}/complete', function (Request $request, Order $order) use ($resolveDriverFromToken, $haversineDistanceMeters, $resolveOrderStockDemand) {
+Route::patch('/driver/orders/{order}/complete', function (Request $request, Order $order) use ($resolveDriverFromToken, $haversineDistanceMeters, $resolveOrderStockDemand, $sendOrderStatusReply) {
     $driver = $resolveDriverFromToken($request);
     if (!$driver) {
         return response()->json([
@@ -626,6 +661,9 @@ Route::patch('/driver/orders/{order}/complete', function (Request $request, Orde
 
     /** @var \App\Models\Order $updatedOrder */
     $updatedOrder = $result['order'];
+    $updatedOrder->loadMissing('customer:id,name,phone');
+    $sendOrderStatusReply($updatedOrder, 'completed');
+
     $todayStock = DriverStock::query()
         ->where('driver_id', (int) $driver->id)
         ->first();
@@ -779,5 +817,130 @@ Route::get('/driver/stocks/today', function (Request $request) use ($resolveDriv
             'has_stock_input' => $hasStockInput,
         ],
     ]);
+});
+
+/**
+ * GET /api/driver/customers
+ * Daftar customer lama milik supir untuk dropdown/autofill
+ */
+Route::get('/driver/customers', function (Request $request) use ($resolveDriverFromToken) {
+    $driver = $resolveDriverFromToken($request);
+    if (!$driver) {
+        return response()->json([
+            'message' => 'Unauthorized.',
+        ], 401);
+    }
+
+    $search = trim((string) $request->query('search', ''));
+    $limit = max(1, min(50, (int) $request->query('limit', 30)));
+    $zone = $driver->zone?->name ?? 'Unknown Zone';
+
+    $customers = \App\Models\Customer::query()
+        ->where('zone', $zone)
+        ->when($search !== '', function ($query) use ($search) {
+            $query->where(function ($subQuery) use ($search) {
+                $subQuery->where('name', 'like', "%{$search}%")
+                    ->orWhere('phone', 'like', "%{$search}%")
+                    ->orWhere('address', 'like', "%{$search}%");
+            });
+        })
+        ->orderByDesc('updated_at')
+        ->limit($limit)
+        ->get(['id', 'name', 'address', 'phone', 'zone', 'latitude', 'longitude']);
+
+    return response()->json([
+        'data' => $customers,
+    ]);
+});
+
+/**
+ * POST /api/driver/customers
+ * Supir membuat customer baru beserta order-nya
+ */
+Route::post('/driver/customers', function (Request $request) use ($resolveDriverFromToken) {
+    $driver = $resolveDriverFromToken($request);
+    if (!$driver) {
+        return response()->json([
+            'message' => 'Unauthorized.',
+        ], 401);
+    }
+
+    $validated = $request->validate([
+        'customer_name' => 'required|string|min:3|max:255',
+        'customer_address' => 'required|string|min:5|max:500',
+        'items' => 'required|string|min:3|max:500',
+        'quantity' => 'required|integer|min:1|max:1000',
+        'customer_phone' => 'required|string|min:10|max:20',
+        'existing_customer_id' => 'nullable|integer|exists:customers,id',
+        'ice_type_id' => 'required|exists:ice_types,id',
+        'latitude' => 'nullable|numeric|between:-90,90',
+        'longitude' => 'nullable|numeric|between:-180,180',
+    ]);
+
+    try {
+        $result = DB::transaction(function () use ($driver, $validated) {
+            $zone = $driver->zone?->name ?? 'Unknown Zone';
+            $customerPhone = trim((string) ($validated['customer_phone'] ?? ''));
+            if ($customerPhone === '') {
+                $customerPhone = 'CUST_' . time() . '_' . rand(1000, 9999);
+            }
+
+            $customer = null;
+
+            if (!empty($validated['existing_customer_id'])) {
+                $customer = \App\Models\Customer::find($validated['existing_customer_id']);
+            }
+
+            if (!$customer) {
+                $customer = \App\Models\Customer::where('phone', $customerPhone)->first();
+            }
+
+            if (!$customer) {
+                // Buat customer baru hanya jika belum ada data yang cocok
+                $customer = \App\Models\Customer::create([
+                    'name' => trim($validated['customer_name']),
+                    'address' => trim($validated['customer_address']),
+                    'zone' => $zone,
+                    'phone' => $customerPhone,
+                    'latitude' => (float) ($validated['latitude'] ?? 0),
+                    'longitude' => (float) ($validated['longitude'] ?? 0),
+                ]);
+            }
+
+            // Buat order untuk customer ini
+            // Gunakan ice_type_id dan quantity yang dikirim user
+            $itemsString = trim($validated['items']);
+
+            $order = \App\Models\Order::create([
+                'customer_id' => $customer->id,
+                'phone' => $customerPhone, // Phone dari customer yang baru dibuat
+                'ice_type_id' => $validated['ice_type_id'], // Gunakan dari request, bukan hardcode
+                'items' => $itemsString,
+                'status' => 'pending',
+                'quantity' => (int) $validated['quantity'],
+            ]);
+
+            return [
+                'customer' => $customer,
+                'order' => $order,
+            ];
+        });
+
+        return response()->json([
+            'message' => 'Customer dan order berhasil dibuat. Menunggu untuk diproses di dashboard admin.',
+            'data' => [
+                'customer_id' => $result['customer']->id,
+                'customer_name' => $result['customer']->name,
+                'customer_phone' => $result['customer']->phone,
+                'order_id' => $result['order']->id,
+                'order_status' => $result['order']->status,
+            ],
+        ], 201);
+    } catch (\Throwable $e) {
+        return response()->json([
+            'message' => 'Gagal membuat customer dan order.',
+            'error' => app()->hasDebugModeEnabled() ? $e->getMessage() : null,
+        ], 500);
+    }
 });
 

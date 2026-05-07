@@ -22,9 +22,9 @@
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
             </div>
             <span class="dash-stat-label">Total Pelanggan</span>
-            <div style="margin-left: auto; cursor: pointer; color: #CBD5E1;">
+            <!-- <div style="margin-left: auto; cursor: pointer; color: #CBD5E1;">
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
-            </div>
+            </div> -->
         </div>
         <div class="dash-stat-body">
             <span class="dash-stat-value">{{ number_format($totalCustomers) }}</span>
@@ -44,9 +44,9 @@
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.46 4.7 4.13 2.5.6 3 1.48 3 2.41 0 .69-.49 1.79-2.7 1.79-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c1.95-.37 3.5-1.5 3.5-3.55 0-2.84-2.43-3.81-4.7-4.4z"/></svg>
             </div>
             <span class="dash-stat-label">Pendapatan Hari Ini</span>
-            <div style="margin-left: auto; cursor: pointer; color: #CBD5E1;">
+            <!-- <div style="margin-left: auto; cursor: pointer; color: #CBD5E1;">
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
-            </div>
+            </div> -->
         </div>
         <div class="dash-stat-body">
             <span class="dash-stat-value">Rp {{ number_format($todayRevenue, 0, ',', '.') }}</span>
@@ -61,9 +61,9 @@
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/></svg>
             </div>
             <span class="dash-stat-label">Pesanan Pending</span>
-            <div style="margin-left: auto; cursor: pointer; color: #CBD5E1;">
+            <!-- <div style="margin-left: auto; cursor: pointer; color: #CBD5E1;">
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
-            </div>
+            </div> -->
         </div>
         <div class="dash-stat-body">
             <span class="dash-stat-value" id="dashboard-pending-count">{{ number_format($pendingOrders) }}</span>
@@ -228,46 +228,25 @@
     </div>
 </div>
 
-<!-- Row 4: Aktivitas Terbaru + Pelanggan Teraktif -->
+<!-- Row 4: Arus Kas + Pelanggan Teraktif -->
 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
-    <!-- Aktivitas Terbaru (Timeline) -->
+    <!-- Arus Kas Harian -->
     <div class="dash-card">
         <div class="dash-card-header">
             <div style="display: flex; align-items: center; gap: 8px;">
                 <div style="color: #3B82F6;">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M13 3c-4.97 0-9 4.03-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42C8.27 19.99 10.51 21 13 21c4.97 0 9-4.03 9-9s-4.03-9-9-9zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z"/></svg>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M4 19h16v2H4v-2zm2-4h3V9H6v6zm5 0h3V5h-3v10zm5 0h3v-8h-3v8z"/></svg>
                 </div>
-                <span class="dash-card-title">Aktivitas Terbaru</span>
+                <span class="dash-card-title">Arus Kas 7 Hari Terakhir</span>
             </div>
         </div>
-        <div class="dash-activity-list">
-            @forelse($recentActivities->take(6) as $activity)
-            <div class="dash-activity-item">
-                <div class="dash-activity-dot {{ $activity->status === 'completed' ? 'dot-primary' : ($activity->status === 'approved' ? 'dot-success' : ($activity->status === 'rejected' ? 'dot-danger' : 'dot-warning')) }}"></div>
-                <div style="flex: 1; min-width: 0;">
-                    <div style="font-size: 16px; color: #1E293B; font-weight: 500;">
-                        {{ $activity->customer->name ?? 'Pelanggan' }}
-                        <span style="font-weight: 400; color: #94A3B8;"> — {{ $activity->iceType->name ?? 'Es Batu' }} × {{ $activity->quantity ?? 1 }}</span>
-                    </div>
-                    <div style="font-size: 14px; color: #CBD5E1; margin-top: 2px;">
-                        {{ $activity->created_at->diffForHumans() }}
-                    </div>
-                </div>
-                @if($activity->status === 'completed')
-                <span class="dash-status-pill dash-status-primary" style="font-size: 13px; padding: 2px 8px;">Selesai Antar</span>
-                @elseif($activity->status === 'approved')
-                <span class="dash-status-pill dash-status-success" style="font-size: 13px; padding: 2px 8px;">Diterima</span>
-                @elseif($activity->status === 'rejected')
-                <span class="dash-status-pill dash-status-danger" style="font-size: 13px; padding: 2px 8px;">Ditolak</span>
-                @elseif($activity->status === 'pending')
-                <span class="dash-status-pill dash-status-warning" style="font-size: 13px; padding: 2px 8px;">Pending</span>
-                @else
-                <span class="dash-status-pill dash-status-neutral" style="font-size: 13px; padding: 2px 8px;">{{ ucfirst($activity->status) }}</span>
-                @endif
-            </div>
-            @empty
-            <div style="text-align: center; padding: 30px; color: #94A3B8; font-size: 14px;">Belum ada aktivitas</div>
-            @endforelse
+        <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px;">
+            <div class="dash-stat-badge badge-up">Pendapatan Rp {{ number_format(collect($financeChartData)->sum('revenue'), 0, ',', '.') }}</div>
+            <div class="dash-stat-badge badge-warning">Pengeluaran Rp {{ number_format(collect($financeChartData)->sum('expense'), 0, ',', '.') }}</div>
+            <div class="dash-stat-badge badge-neutral">Laba Rp {{ number_format(collect($financeChartData)->sum('net'), 0, ',', '.') }}</div>
+        </div>
+        <div style="height: 260px; position: relative;">
+            <canvas id="financeFlowChart"></canvas>
         </div>
     </div>
 
@@ -428,15 +407,28 @@ document.addEventListener('DOMContentLoaded', function() {
     Chart.defaults.color = '#94A3B8';
     Chart.defaults.plugins.legend.display = false;
 
-    // Purple gradient colors
-    const purple1 = '#7C3AED';
-    const purple2 = '#A78BFA';
-    const purple3 = '#C4B5FD';
-    const purple4 = '#DDD6FE';
+    // Blue gradient colors
+    const blue1 = '#2956E3';
+    const blue2 = '#9CC1FF';
+    const blue3 = '#9CC1FF';
+    const blue4 = '#D7E4FF';
     const teal1 = '#14B8A6';
+    const todayDark = '#1E3A8A'; // biru tua untuk hari ini
+
+    // Today's label (format sama dengan label chart: "d M")
+    const todayLabel = '{{ \Carbon\Carbon::now()->format("d M") }}';
 
     // === Sales Overview: Stacked Bar Chart ===
     const revenueData = @json($revenueChartData);
+    const maxRevenue = Math.max(...revenueData.map(d => d.revenue));
+    const salesColors = revenueData.map(d => {
+        if (d.date === todayLabel) return todayDark;
+        const ratio = maxRevenue > 0 ? d.revenue / maxRevenue : 0;
+        if (ratio > 0.7) return blue1;
+        if (ratio > 0.4) return blue2;
+        if (ratio > 0.2) return blue3;
+        return blue4;
+    });
     new Chart(document.getElementById('salesOverviewChart'), {
         type: 'bar',
         data: {
@@ -444,15 +436,7 @@ document.addEventListener('DOMContentLoaded', function() {
             datasets: [{
                 label: 'Pendapatan',
                 data: revenueData.map(d => d.revenue),
-                backgroundColor: (ctx) => {
-                    const max = Math.max(...revenueData.map(d => d.revenue));
-                    const val = ctx.parsed?.y || 0;
-                    const ratio = max > 0 ? val / max : 0;
-                    if (ratio > 0.7) return purple1;
-                    if (ratio > 0.4) return purple2;
-                    if (ratio > 0.2) return purple3;
-                    return purple4;
-                },
+                backgroundColor: salesColors,
                 borderRadius: 6,
                 borderSkipped: false,
                 barThickness: 28,
@@ -480,7 +464,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 x: {
                     grid: { display: false },
                     border: { display: false },
-                    ticks: { font: { size: 11, weight: '500' } }
+                    ticks: {
+                        font: (ctx) => ({ size: 11, weight: revenueData[ctx.index]?.date === todayLabel ? '700' : '500' }),
+                        color: (ctx) => revenueData[ctx.index]?.date === todayLabel ? todayDark : '#94A3B8',
+                    }
                 }
             },
             plugins: {
@@ -503,7 +490,15 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // === Orders Weekly Bar Chart ===
     const ordersData = revenueData.map(d => d.orders);
-    const maxOrders = Math.max(...ordersData);
+    const maxOrders = Math.max(...revenueData.map(d => d.orders));
+    const ordersColors = revenueData.map(d => {
+        if (d.date === todayLabel) return todayDark;
+        const ratio = maxOrders > 0 ? d.orders / maxOrders : 0;
+        if (ratio > 0.7) return blue1;
+        if (ratio > 0.4) return blue2;
+        if (ratio > 0.2) return blue3;
+        return blue4;
+    });
     new Chart(document.getElementById('ordersWeeklyChart'), {
         type: 'bar',
         data: {
@@ -511,7 +506,7 @@ document.addEventListener('DOMContentLoaded', function() {
             datasets: [{
                 label: 'Pesanan',
                 data: ordersData,
-                backgroundColor: ordersData.map(v => v === maxOrders ? purple1 : purple4),
+                backgroundColor: ordersColors,
                 borderRadius: 6,
                 borderSkipped: false,
                 barThickness: 24,
@@ -532,11 +527,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     grid: { display: false },
                     border: { display: false },
                     ticks: {
-                        font: (ctx) => ({
-                            size: 11,
-                            weight: ordersData[ctx.index] === maxOrders ? '700' : '400',
-                        }),
-                        color: (ctx) => ordersData[ctx.index] === maxOrders ? purple1 : '#94A3B8',
+                        font: (ctx) => ({ size: 11, weight: revenueData[ctx.index]?.date === todayLabel ? '700' : '400' }),
+                        color: (ctx) => revenueData[ctx.index]?.date === todayLabel ? todayDark : '#94A3B8',
                     }
                 }
             },
@@ -550,6 +542,85 @@ document.addEventListener('DOMContentLoaded', function() {
                     callbacks: {
                         title: (items) => items[0].label,
                         label: (ctx) => ctx.parsed.y + ' pesanan'
+                    }
+                }
+            }
+        }
+    });
+
+    // === Finance Flow Chart ===
+    const financeFlowData = @json($financeChartData);
+    new Chart(document.getElementById('financeFlowChart'), {
+        type: 'bar',
+        data: {
+            labels: financeFlowData.map(d => d.date),
+            datasets: [
+                {
+                    label: 'Pendapatan',
+                    data: financeFlowData.map(d => d.revenue),
+                    backgroundColor: financeFlowData.map(d => d.date === todayLabel ? todayDark : '#2956E3'),
+                    borderRadius: 8,
+                    borderSkipped: false,
+                    barPercentage: 0.7,
+                    categoryPercentage: 0.58,
+                },
+                {
+                    label: 'Pengeluaran',
+                    data: financeFlowData.map(d => d.expense),
+                    backgroundColor: financeFlowData.map(d => d.date === todayLabel ? blue2 : '#A8C5FF'),
+                    borderRadius: 8,
+                    borderSkipped: false,
+                    barPercentage: 0.7,
+                    categoryPercentage: 0.58,
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    grid: { color: '#F1F5F9', drawBorder: false },
+                    border: { display: false },
+                    ticks: {
+                        stepSize: 50000,
+                        callback: function(value) {
+                            if (value >= 1000000) return 'Rp ' + (value / 1000000).toFixed(1) + 'jt';
+                            if (value >= 1000) return 'Rp ' + (value / 1000).toFixed(0) + 'rb';
+                            return 'Rp ' + value;
+                        },
+                        font: { size: 11 },
+                    }
+                },
+                x: {
+                    grid: { display: false },
+                    border: { display: false },
+                    ticks: {
+                        font: (ctx) => ({ size: 11, weight: financeFlowData[ctx.index]?.date === todayLabel ? '700' : '500' }),
+                        color: (ctx) => financeFlowData[ctx.index]?.date === todayLabel ? todayDark : '#94A3B8',
+                    }
+                }
+            },
+            plugins: {
+                legend: {
+                    display: true,
+                    position: 'bottom',
+                    labels: {
+                        usePointStyle: true,
+                        pointStyle: 'circle',
+                        boxWidth: 8,
+                        padding: 18,
+                    }
+                },
+                tooltip: {
+                    backgroundColor: '#1E293B',
+                    bodyColor: '#F8FAFC',
+                    padding: 10,
+                    cornerRadius: 10,
+                    displayColors: false,
+                    callbacks: {
+                        label: (ctx) => ctx.dataset.label + ': Rp ' + ctx.parsed.y.toLocaleString('id-ID')
                     }
                 }
             }

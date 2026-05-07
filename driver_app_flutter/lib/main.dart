@@ -6,6 +6,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 
@@ -24,27 +25,24 @@ String get apiBaseUrl {
 final FlutterLocalNotificationsPlugin localNotifications =
     FlutterLocalNotificationsPlugin();
 
-// Channel Android — harus konsisten di semua tempat
 const AndroidNotificationChannel _kDriverOrderChannel = AndroidNotificationChannel(
-  'driver_orders',
+  'driver_orders_v2',
   'Order Masuk',
   description: 'Notifikasi order baru untuk supir Pools Ice',
   importance: Importance.max,
   playSound: true,
 );
 
-/// Handler untuk pesan FCM saat app BACKGROUND atau TERMINATED.
-/// Harus top-level function (bukan method class) dan diberi @pragma.
+enum AppSnackBarType { success, error, warning }
+
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp();
 
-  // Init local notifications untuk background
   const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
   final plugin = FlutterLocalNotificationsPlugin();
   await plugin.initialize(const InitializationSettings(android: androidSettings));
 
-  // Buat channel (idempotent — aman dipanggil berulang)
   await plugin
       .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
       ?.createNotificationChannel(_kDriverOrderChannel);
@@ -52,11 +50,11 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   final notification = message.notification;
   final data = message.data;
 
-  final title = notification?.title ?? data['title'] ?? '🛵 Order Baru';
-  final body  = notification?.body  ?? data['body']  ?? 'Ada pesanan baru masuk!';
+  final title = notification?.title ?? data['title'] ?? 'Order Baru';
+  final body = notification?.body ?? data['body'] ?? 'Ada pesanan baru masuk!';
 
   await plugin.show(
-    message.hashCode,
+    message.hashCode.abs() % 2147483647,
     title,
     body,
     NotificationDetails(
@@ -73,11 +71,52 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   );
 }
 
+void showAppSnackBar(
+  BuildContext context, {
+  required String message,
+  AppSnackBarType type = AppSnackBarType.success,
+}) {
+  final isSuccess = type == AppSnackBarType.success;
+  final isWarning = type == AppSnackBarType.warning;
+  final backgroundColor = isSuccess
+      ? const Color(0xFFDCFCE7)
+      : isWarning
+          ? const Color(0xFFFEF3C7)
+          : const Color(0xFFFEE2E2);
+  final icon = isSuccess
+      ? Icons.check_circle_rounded
+      : isWarning
+          ? Icons.info_rounded
+          : Icons.error_rounded;
+
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(
+      behavior: SnackBarBehavior.floating,
+      backgroundColor: backgroundColor,
+      content: Row(
+        children: [
+          Icon(icon, color: const Color(0xFF0F172A), size: 20),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              message,
+              style: const TextStyle(
+                color: Color(0xFF0F172A),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
-  await _initNotifications();
+  _initNotifications(); // Tidak di-await agar tidak memblokir runApp
   runApp(const DriverApp());
 }
 
@@ -98,9 +137,7 @@ Future<void> _initNotifications() async {
       .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
       ?.createNotificationChannel(_kDriverOrderChannel);
 
-  await localNotifications
-      .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
-      ?.requestNotificationsPermission();
+  // Permission request dipindah ke _registerFcmToken() agar tidak nge-hang saat launch
 
   // Izinkan FCM menampilkan notifikasi di foreground (penting untuk iOS, opsional Android)
   await FirebaseMessaging.instance.setForegroundNotificationPresentationOptions(
@@ -317,8 +354,10 @@ class _LoginScreenState extends State<LoginScreen> {
     final password = _passwordController.text;
 
     if (username.isEmpty || password.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Username dan password wajib diisi.')),
+      showAppSnackBar(
+        context,
+        message: 'Username dan password wajib diisi.',
+        type: AppSnackBarType.warning,
       );
       return;
     }
@@ -379,8 +418,10 @@ class _LoginScreenState extends State<LoginScreen> {
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Login gagal: $e')),
+      showAppSnackBar(
+        context,
+        message: 'Login gagal: $e',
+        type: AppSnackBarType.error,
       );
     } finally {
       if (mounted) {
@@ -560,9 +601,7 @@ class DriverHomeScreen extends StatefulWidget {
 class _DriverHomeScreenState extends State<DriverHomeScreen>
   with WidgetsBindingObserver {
   final List<Map<String, dynamic>> _orders = [];
-  final Set<int> _notifiedOrderIds = <int>{};
   Timer? _timer;
-  bool _isOnline = true;
   bool _isLoading = false;
   bool _isLoadingTodayStock = false;
   bool _isSubmittingStock = false;
@@ -678,22 +717,39 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
       final title = notification?.title ?? data['title'] ?? '🛵 Order Baru';
       final body  = notification?.body  ?? data['body']  ?? 'Ada pesanan baru masuk!';
 
-      await localNotifications.show(
-        message.hashCode,
-        title,
-        body,
-        const NotificationDetails(
-          android: AndroidNotificationDetails(
-            'driver_orders',
-            'Order Masuk',
-            channelDescription: 'Notifikasi order baru untuk supir Pools Ice',
-            importance: Importance.max,
-            priority: Priority.high,
-            playSound: true,
-            icon: '@mipmap/ic_launcher',
+      // if (mounted) {
+      //   showAppSnackBar(
+      //     context,
+      //     message: 'DEBUG: FCM Diterima! $title',
+      //     type: AppSnackBarType.success,
+      //   );
+      // }
+
+      try {
+        await localNotifications.show(
+          message.hashCode.abs() % 2147483647,
+          title,
+          body,
+          const NotificationDetails(
+            android: AndroidNotificationDetails(
+              'driver_orders_v2',
+              'Order Masuk',
+              channelDescription: 'Notifikasi order baru untuk supir Pools Ice',
+              importance: Importance.max,
+              priority: Priority.high,
+              playSound: true,
+            ),
           ),
-        ),
-      );
+        );
+      } catch (e) {
+        if (mounted) {
+          showAppSnackBar(
+            context,
+            message: 'DEBUG: localNotifications error - $e',
+            type: AppSnackBarType.error,
+          );
+        }
+      }
 
       // Juga refresh daftar order supaya tampilan langsung update
       _fetchOrders();
@@ -742,8 +798,10 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
         return;
       }
       // Silently fail - will retry on refresh
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Gagal ambil daftar jenis es: $e')),
+      showAppSnackBar(
+        context,
+        message: 'Gagal ambil daftar jenis es: $e',
+        type: AppSnackBarType.error,
       );
     } finally {
       if (mounted) {
@@ -773,8 +831,10 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
 
     _isSessionExpiredHandled = true;
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Sesi login supir habis. Silakan login ulang.')),
+    showAppSnackBar(
+      context,
+      message: 'Sesi login supir habis. Silakan login ulang.',
+      type: AppSnackBarType.error,
     );
 
     Navigator.pushAndRemoveUntil(
@@ -947,8 +1007,10 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
         return;
       }
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Gagal ambil stok hari ini: $e')),
+      showAppSnackBar(
+        context,
+        message: 'Gagal ambil stok hari ini: $e',
+        type: AppSnackBarType.error,
       );
     } finally {
       if (mounted) {
@@ -991,10 +1053,10 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
     }
 
     if (_hasTodayStockInput) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Stok hari ini sudah diinput. Input ulang tidak diperbolehkan.'),
-        ),
+      showAppSnackBar(
+        context,
+        message: 'Stok hari ini sudah diinput. Input ulang tidak diperbolehkan.',
+        type: AppSnackBarType.warning,
       );
       return;
     }
@@ -1015,8 +1077,10 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
     }
 
     if (stocks.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Masukkan stok untuk minimal satu jenis es.')),
+      showAppSnackBar(
+        context,
+        message: 'Masukkan stok untuk minimal satu jenis es.',
+        type: AppSnackBarType.warning,
       );
       return;
     }
@@ -1054,7 +1118,11 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
 
       final message =
           (payload['message'] as String?) ?? 'Stok bawaan berhasil disimpan.';
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+      showAppSnackBar(
+        context,
+        message: message,
+        type: AppSnackBarType.success,
+      );
       setState(() {
         _hasTodayStockInput = true;
       });
@@ -1064,8 +1132,10 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
         return;
       }
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Gagal simpan stok: $e')),
+      showAppSnackBar(
+        context,
+        message: 'Gagal simpan stok: $e',
+        type: AppSnackBarType.error,
       );
     } finally {
       if (mounted) {
@@ -1082,9 +1152,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
     _fetchOrders();
     _fetchTodayStock();
     _timer = Timer.periodic(const Duration(seconds: 10), (_) {
-      if (_isOnline) {
-        _fetchOrders();
-      }
+      _fetchOrders();
     });
   }
 
@@ -1162,8 +1230,10 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Gagal ambil data order: $e')),
+      showAppSnackBar(
+        context,
+        message: 'Gagal ambil data order: $e',
+        type: AppSnackBarType.error,
       );
     } finally {
       if (mounted) {
@@ -1171,126 +1241,6 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
           _isLoading = false;
         });
       }
-    }
-  }
-
-  Future<void> _updateOrderStatus({
-    required int orderId,
-    required String status,
-  }) async {
-    if (_isUpdatingOrderIds.contains(orderId)) {
-      return;
-    }
-
-    setState(() {
-      _isUpdatingOrderIds.add(orderId);
-    });
-
-    try {
-      final uri = Uri.parse('$apiBaseUrl/driver/orders/$orderId/status');
-      final response = await http.patch(
-        uri,
-        headers: _authHeaders(json: true),
-        body: jsonEncode({
-          'status': status,
-        }),
-      );
-
-      final payload = jsonDecode(response.body) as Map<String, dynamic>;
-
-      if (response.statusCode == 401) {
-        _handleUnauthorized();
-        return;
-      }
-
-      if (response.statusCode != 200) {
-        final errorMessage =
-            (payload['message'] as String?) ?? 'Gagal memproses order.';
-        throw Exception(errorMessage);
-      }
-
-      final responseData = payload['data'] as Map<String, dynamic>?;
-      final updatedStatus =
-          (responseData?['status'] as String? ?? status).trim().toLowerCase();
-      final updatedDriverId = (responseData?['driver_id'] as num?)?.toInt();
-        final stockToday = responseData?['stock_today'] as Map<String, dynamic>?;
-
-      if (!mounted) {
-        return;
-      }
-
-      setState(() {
-        final index = _orders.indexWhere(
-          (order) => (order['id'] as int? ?? 0) == orderId,
-        );
-        if (index >= 0) {
-          _orders[index] = {
-            ..._orders[index],
-            'status': updatedStatus,
-            'driver_id': updatedDriverId,
-          };
-        }
-
-        if (stockToday != null) {
-          _todayStock5Kg = (stockToday['stock_5kg'] as num?)?.toInt() ?? _todayStock5Kg;
-          _todayStock20Kg =
-              (stockToday['stock_20kg'] as num?)?.toInt() ?? _todayStock20Kg;
-          _hasTodayStockInput = true;
-        }
-      });
-
-      final successMessage =
-          (payload['message'] as String?) ?? 'Order berhasil diproses.';
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(successMessage)),
-      );
-      
-      _fetchTodayStock();
-    } catch (e) {
-      if (!mounted) {
-        return;
-      }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Gagal update status: $e')),
-      );
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isUpdatingOrderIds.remove(orderId);
-        });
-      }
-    }
-  }
-
-  Future<void> _confirmAndUpdateOrderStatus({
-    required int orderId,
-    required String status,
-  }) async {
-    final isApprove = status == 'approved';
-    final actionText = isApprove ? 'terima' : 'tolak';
-
-    final shouldProceed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          title: Text(isApprove ? 'Terima Pesanan?' : 'Tolak Pesanan?'),
-          content: Text('Anda yakin ingin $actionText pesanan #$orderId?'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: const Text('Batal'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.of(dialogContext).pop(true),
-              child: Text(isApprove ? 'Ya, Terima' : 'Ya, Tolak'),
-            ),
-          ],
-        );
-      },
-    );
-
-    if (shouldProceed == true) {
-      await _updateOrderStatus(orderId: orderId, status: status);
     }
   }
 
@@ -1421,18 +1371,22 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
           ? '$successMessage (Jarak tervalidasi: ${distance}m)'
           : successMessage;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(finalMessage)),
+      showAppSnackBar(
+        context,
+        message: finalMessage,
+        type: AppSnackBarType.success,
       );
-      
+
       _fetchTodayStock();
     } catch (e) {
       if (!mounted) {
         return;
       }
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Gagal selesai antar: $e')),
+      showAppSnackBar(
+        context,
+        message: 'Gagal selesai antar: $e',
+        type: AppSnackBarType.error,
       );
     } finally {
       if (mounted) {
@@ -1498,7 +1452,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
       case 'rejected':
         return 'Ditolak';
       default:
-        return 'Pending';
+        return 'Sedang Dicek Sistem';
     }
   }
 
@@ -1658,50 +1612,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
               ),
             ),
             const SizedBox(height: 20),
-            if (isPending && !isClaimedByOtherDriver)
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: isUpdating || orderId == 0
-                          ? null
-                          : () => _confirmAndUpdateOrderStatus(
-                                orderId: orderId,
-                                status: 'rejected',
-                              ),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: const Color(0xFFDC2626),
-                        side: const BorderSide(color: Color(0xFFFECACA), width: 1.5),
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      ),
-                      child: const Text('Tolak', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: FilledButton(
-                      onPressed: isUpdating || orderId == 0
-                          ? null
-                          : () => _confirmAndUpdateOrderStatus(
-                                orderId: orderId,
-                                status: 'approved',
-                              ),
-                      style: FilledButton.styleFrom(
-                        backgroundColor: const Color(0xFF2563EB),
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      ),
-                      child: Text(
-                        isUpdating ? 'Proses...' : 'Terima',
-                        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
-                      ),
-                    ),
-                  ),
-                ],
-              )
-            else if (isApprovedByCurrentDriver)
+            if (isApprovedByCurrentDriver)
               SizedBox(
                 width: double.infinity,
                 child: FilledButton.icon(
@@ -1739,7 +1650,9 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
-                        isClaimedByOtherDriver
+                        isPending
+                            ? 'Sedang dicek stok oleh sistem'
+                            : isClaimedByOtherDriver
                             ? 'Order ditangani oleh supir lain'
                             : isApprovedByOtherDriver
                             ? 'Order sudah diterima supir lain'
@@ -1794,42 +1707,22 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
         actions: [
           Container(
             margin: const EdgeInsets.only(right: 8),
-            padding: const EdgeInsets.fromLTRB(14, 4, 8, 4),
+            padding: const EdgeInsets.fromLTRB(14, 6, 14, 6),
             decoration: BoxDecoration(
-              color: _isOnline
-                  ? const Color(0xFFEFF6FF)
-                  : const Color(0xFFF1F5F9),
+              color: const Color(0xFFEFF6FF),
               borderRadius: BorderRadius.circular(999),
             ),
             child: Row(
-              children: [
-                Container(
-                  width: 8,
-                  height: 8,
-                  decoration: BoxDecoration(
-                    color: _isOnline ? const Color(0xFF2563EB) : const Color(0xFF94A3B8),
-                    shape: BoxShape.circle,
-                  ),
-                ),
-                const SizedBox(width: 6),
+              children: const [
+                Icon(Icons.circle, size: 8, color: Color(0xFF2563EB)),
+                SizedBox(width: 6),
                 Text(
-                  _isOnline ? 'Online' : 'Offline',
+                  'Online',
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
-                    color: _isOnline ? const Color(0xFF1E3A8A) : const Color(0xFF475569),
+                    color: Color(0xFF1E3A8A),
                   ),
-                ),
-                const SizedBox(width: 4),
-                Switch(
-                  value: _isOnline,
-                  activeColor: const Color(0xFF2563EB),
-                  activeTrackColor: const Color(0xFFBFDBFE),
-                  onChanged: (value) {
-                    setState(() {
-                      _isOnline = value;
-                    });
-                  },
                 ),
               ],
             ),
@@ -2167,7 +2060,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
                         const SizedBox(height: 4),
                         Text(
                           _selectedFilterDate == _formatDateYmd(DateTime.now())
-                              ? 'Pastikan status Anda Online untuk menerima order.'
+                              ? 'Belum ada order yang masuk.'
                               : 'Tidak ada order pada tanggal ini.',
                           textAlign: TextAlign.center,
                           style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 13),
@@ -2184,6 +2077,984 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
               )).toList();
             })(),
           ],
+        ),
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (context) => AddCustomerScreen(
+                driverId: widget.driverId,
+                driverName: widget.driverName,
+                driverZone: widget.zone,
+                authToken: widget.authToken,
+                onCustomerAdded: () {
+                  _refreshAll();
+                },
+              ),
+            ),
+          );
+        },
+        backgroundColor: const Color(0xFF2563EB),
+        child: const Icon(Icons.person_add_rounded, color: Colors.white),
+      ),
+    );
+  }
+}
+
+// ============ ADD CUSTOMER SCREEN ============
+
+class AddCustomerScreen extends StatefulWidget {
+  const AddCustomerScreen({
+    super.key,
+    required this.driverId,
+    required this.driverName,
+    required this.driverZone,
+    required this.authToken,
+    required this.onCustomerAdded,
+  });
+
+  final int driverId;
+  final String driverName;
+  final String driverZone;
+  final String authToken;
+  final Function onCustomerAdded;
+
+  @override
+  State<AddCustomerScreen> createState() => _AddCustomerScreenState();
+}
+
+class _AddCustomerScreenState extends State<AddCustomerScreen> {
+  final _formKey = GlobalKey<FormState>();
+  final _customerNameController = TextEditingController();
+  final _addressController = TextEditingController();
+  final _phoneController = TextEditingController();
+  final _quantityController = TextEditingController(text: '1');
+
+  bool _isSubmitting = false;
+  bool _isLoadingIceTypes = false;
+  bool _isLoadingExistingCustomers = false;
+  List<Map<String, dynamic>> _iceTypes = [];
+  List<Map<String, dynamic>> _existingCustomers = [];
+  int? _selectedIceTypeId;
+  String _selectedCustomerValue = 'new';
+  int? _selectedExistingCustomerId;
+
+  void _handleFormChanged() {
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _customerNameController.addListener(_handleFormChanged);
+    _addressController.addListener(_handleFormChanged);
+    _phoneController.addListener(_handleFormChanged);
+    _quantityController.addListener(_handleFormChanged);
+    _loadIceTypes();
+    _loadExistingCustomers();
+  }
+
+  @override
+  void dispose() {
+    _customerNameController.removeListener(_handleFormChanged);
+    _addressController.removeListener(_handleFormChanged);
+    _phoneController.removeListener(_handleFormChanged);
+    _quantityController.removeListener(_handleFormChanged);
+    _customerNameController.dispose();
+    _addressController.dispose();
+    _phoneController.dispose();
+    _quantityController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadIceTypes() async {
+    setState(() => _isLoadingIceTypes = true);
+    try {
+      final response = await http.get(
+        Uri.parse('$apiBaseUrl/ice-types'),
+      );
+
+      if (!mounted) return;
+
+      if (response.statusCode == 200) {
+        final responseData = jsonDecode(response.body);
+        final dataList = responseData['data'] as List? ?? [];
+        
+        setState(() {
+          _iceTypes = List<Map<String, dynamic>>.from(
+            dataList.map((item) => {
+              'id': item['id'] as int? ?? 0,
+              'name': item['name'] as String? ?? 'Es',
+              'weight': item['weight'] as dynamic,
+            }),
+          );
+          
+          if (_iceTypes.isNotEmpty) {
+            _selectedIceTypeId = _iceTypes.first['id'] as int;
+          }
+        });
+      }
+    } catch (e) {
+      print('Error loading ice types: $e');
+    } finally {
+      if (mounted) {
+        setState(() => _isLoadingIceTypes = false);
+      }
+    }
+  }
+
+  Future<void> _loadExistingCustomers() async {
+    setState(() => _isLoadingExistingCustomers = true);
+    try {
+      final response = await http.get(
+        Uri.parse('$apiBaseUrl/driver/customers?limit=30'),
+        headers: {
+          'Authorization': 'Bearer ${widget.authToken}',
+          'Content-Type': 'application/json',
+        },
+      );
+
+      if (!mounted) return;
+
+      if (response.statusCode == 200) {
+        final responseData = jsonDecode(response.body);
+        final dataList = responseData['data'] as List? ?? [];
+
+        setState(() {
+          _existingCustomers = List<Map<String, dynamic>>.from(
+            dataList.map((item) => {
+              'id': item['id'] as int? ?? 0,
+              'name': item['name'] as String? ?? '',
+              'address': item['address'] as String? ?? '',
+              'phone': item['phone'] as String? ?? '',
+              'zone': item['zone'] as String? ?? widget.driverZone,
+            }),
+          );
+        });
+      }
+    } catch (e) {
+      print('Error loading existing customers: $e');
+    } finally {
+      if (mounted) {
+        setState(() => _isLoadingExistingCustomers = false);
+      }
+    }
+  }
+
+  void _selectCustomerPreset(String value) {
+    setState(() {
+      _selectedCustomerValue = value;
+
+      if (value == 'new') {
+        _selectedExistingCustomerId = null;
+        _customerNameController.clear();
+        _addressController.clear();
+        _phoneController.clear();
+        return;
+      }
+
+      final selectedCustomer = _existingCustomers.firstWhere(
+        (customer) => customer['id'].toString() == value,
+        orElse: () => {},
+      );
+
+      if (selectedCustomer.isEmpty) {
+        _selectedExistingCustomerId = null;
+        return;
+      }
+
+      _selectedExistingCustomerId = int.tryParse(value);
+      _customerNameController.text = selectedCustomer['name']?.toString() ?? '';
+      _addressController.text = selectedCustomer['address']?.toString() ?? '';
+      _phoneController.text = selectedCustomer['phone']?.toString() ?? '';
+    });
+  }
+
+  Future<Map<String, double>> _geocodeAddress(String address) async {
+    try {
+      if (address.trim().isEmpty) {
+        throw Exception('Alamat tidak boleh kosong');
+      }
+
+      // Geocode the address
+      List<Location> locations = await locationFromAddress(address);
+
+      if (locations.isEmpty) {
+        throw Exception('Alamat tidak ditemukan. Coba masukkan alamat yang lebih lengkap.');
+      }
+
+      final Location location = locations.first;
+      
+      // if (mounted) {
+      //   showAppSnackBar(
+      //     context,
+      //     message: 'Koordinat terdeteksi: ${location.latitude.toStringAsFixed(6)}, ${location.longitude.toStringAsFixed(6)}',
+      //     type: AppSnackBarType.success,
+      //   );
+      // }
+
+      return {
+        'latitude': location.latitude,
+        'longitude': location.longitude,
+      };
+    } catch (e) {
+      print('Error geocoding address: $e');
+      if (mounted) {
+        showAppSnackBar(
+          context,
+          message: 'Gagal geocode alamat: $e. Menggunakan koordinat default (0, 0)',
+          type: AppSnackBarType.warning,
+        );
+      }
+      // Return default coordinates on error
+      return {
+        'latitude': 0.0,
+        'longitude': 0.0,
+      };
+    }
+  }
+
+  String _buildItemsDescription() {
+    if (_selectedIceTypeId == null) return '';
+    
+    final selectedIceType = _iceTypes.firstWhere(
+      (ice) => ice['id'] == _selectedIceTypeId,
+      orElse: () => {},
+    );
+    
+    if (selectedIceType.isEmpty) return '';
+    
+    final iceName = selectedIceType['name'] as String;
+    final weight = selectedIceType['weight'] as dynamic;
+    final weightStr = weight is int
+        ? '$weight kg'
+        : '${(weight as double?)?.toStringAsFixed(1) ?? '?'} kg';
+    final quantity = int.tryParse(_quantityController.text) ?? 1;
+    
+    return '$weightStr ($quantity pcs)';
+  }
+
+  Future<void> _submitForm() async {
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
+
+    if (_selectedIceTypeId == null) {
+      showAppSnackBar(
+        context,
+        message: 'Pilih jenis es terlebih dahulu.',
+        type: AppSnackBarType.warning,
+      );
+      return;
+    }
+
+    setState(() => _isSubmitting = true);
+
+    try {
+      final itemsDescription = _buildItemsDescription();
+      
+      // Geocode the address to get latitude and longitude
+      final coordinates = await _geocodeAddress(_addressController.text.trim());
+      
+      final response = await http.post(
+        Uri.parse('$apiBaseUrl/driver/customers'),
+        headers: {
+          'Authorization': 'Bearer ${widget.authToken}',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          'customer_name': _customerNameController.text.trim(),
+          'customer_address': _addressController.text.trim(),
+          'items': itemsDescription,
+          'quantity': int.tryParse(_quantityController.text.trim()) ?? 1,
+          'customer_phone': _phoneController.text.trim(),
+          'existing_customer_id': _selectedExistingCustomerId,
+          'ice_type_id': _selectedIceTypeId, // Kirim ice type yang dipilih user
+          'latitude': coordinates['latitude'] ?? 0.0,
+          'longitude': coordinates['longitude'] ?? 0.0,
+        }),
+      );
+
+      if (!mounted) return;
+
+      final responseBody = response.body;
+
+      if (response.statusCode == 201) {
+        final responseData = jsonDecode(responseBody);
+        showAppSnackBar(
+          context,
+          message: responseData['message'] ?? 'Customer berhasil ditambahkan!',
+          type: AppSnackBarType.success,
+        );
+
+        // Panggil callback untuk refresh orders
+        widget.onCustomerAdded();
+
+        // Kembali ke home screen
+        Navigator.of(context).pop();
+      } else if (response.statusCode == 401) {
+        showAppSnackBar(
+          context,
+          message: 'Sesi Anda telah kadaluarsa. Silakan login kembali.',
+          type: AppSnackBarType.error,
+        );
+      } else if (response.statusCode == 422) {
+        try {
+          final responseData = jsonDecode(responseBody);
+          showAppSnackBar(
+            context,
+            message: responseData['message'] ?? 'Data tidak valid. Periksa kembali form Anda.',
+            type: AppSnackBarType.error,
+          );
+        } catch (e) {
+          showAppSnackBar(
+            context,
+            message: 'Validasi gagal. Periksa kembali data Anda.',
+            type: AppSnackBarType.error,
+          );
+        }
+      } else {
+        try {
+          final responseData = jsonDecode(responseBody);
+          showAppSnackBar(
+            context,
+            message: responseData['message'] ?? 'Gagal menambahkan customer. Status: ${response.statusCode}',
+            type: AppSnackBarType.error,
+          );
+        } catch (e) {
+          showAppSnackBar(
+            context,
+            message: 'Gagal menambahkan customer. Status: ${response.statusCode}',
+            type: AppSnackBarType.error,
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        showAppSnackBar(
+          context,
+          message: 'Terjadi kesalahan: ${e.toString()}',
+          type: AppSnackBarType.error,
+        );
+      }
+      print('Error: $e');
+    } finally {
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text(
+          'Tambah Customer Baru',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.w800,
+            letterSpacing: -0.5,
+          ),
+        ),
+        elevation: 0,
+        backgroundColor: Colors.white,
+        foregroundColor: const Color(0xFF1F2937),
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(16, 20, 16, 32),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Info Card
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEFF6FF),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFFBFDBFE)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Informasi Supir',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF1E3A8A),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        const Icon(Icons.person_rounded, size: 18, color: Color(0xFF2563EB)),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            widget.driverName,
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF1F2937),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        const Icon(Icons.location_on_rounded, size: 18, color: Color(0xFF2563EB)),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Zona: ${widget.driverZone}',
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF1F2937),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              // Existing Customer Dropdown
+              Text(
+                'Customer Lama (Opsional)',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFF1F2937),
+                ),
+              ),
+              const SizedBox(height: 8),
+              if (_isLoadingExistingCustomers)
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                  ),
+                  child: const Center(
+                    child: SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  ),
+                )
+              else if (_existingCustomers.isEmpty)
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                  ),
+                  child: const Text(
+                    'Belum ada customer lama di zona ini. Isi manual untuk customer baru.',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Color(0xFF64748B),
+                    ),
+                  ),
+                )
+              else
+                Container(
+                  decoration: BoxDecoration(
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: DropdownButtonFormField<String>(
+                    value: _selectedCustomerValue,
+                    items: [
+                      const DropdownMenuItem<String>(
+                        value: 'new',
+                        child: Text('Customer baru'),
+                      ),
+                      ..._existingCustomers.map((customer) {
+                        final name = customer['name']?.toString().trim().isNotEmpty == true
+                            ? customer['name'].toString().trim()
+                            : 'Customer tanpa nama';
+                        final phone = customer['phone']?.toString().trim() ?? '-';
+                        final address = customer['address']?.toString().trim() ?? '';
+                        final subtitle = address.isNotEmpty ? ' • $address' : '';
+
+                        return DropdownMenuItem<String>(
+                          value: customer['id'].toString(),
+                          child: Text('$name • $phone$subtitle'),
+                        );
+                      }),
+                    ],
+                    onChanged: (value) {
+                      if (value == null) return;
+                      _selectCustomerPreset(value);
+                    },
+                    decoration: const InputDecoration(
+                      contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      border: InputBorder.none,
+                      enabledBorder: InputBorder.none,
+                      focusedBorder: InputBorder.none,
+                    ),
+                    isExpanded: true,
+                    isDense: true,
+                  ),
+                ),
+              const SizedBox(height: 20),
+
+              // Customer Name Field
+              Text(
+                'Nama Customer',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFF1F2937),
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: _customerNameController,
+                readOnly: _selectedExistingCustomerId != null,
+                decoration: InputDecoration(
+                  hintText: 'Contoh: Toko Es Segar',
+                  hintStyle: const TextStyle(color: Color(0xFF94A3B8)),
+                  filled: _selectedExistingCustomerId != null,
+                  fillColor: const Color(0xFFF8FAFC),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Color(0xFF2563EB), width: 2),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                ),
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return 'Nama customer tidak boleh kosong';
+                  }
+                  if (value.trim().length < 3) {
+                    return 'Nama customer minimal 3 karakter';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 20),
+
+              // Address Field
+              Text(
+                'Alamat Customer',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFF1F2937),
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: _addressController,
+                maxLines: 3,
+                readOnly: _selectedExistingCustomerId != null,
+                decoration: InputDecoration(
+                  hintText: 'Contoh: Jl. Merdeka No. 123, Kelurahan X, Kecamatan Y',
+                  hintStyle: const TextStyle(color: Color(0xFF94A3B8)),
+                  filled: _selectedExistingCustomerId != null,
+                  fillColor: const Color(0xFFF8FAFC),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Color(0xFF2563EB), width: 2),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                ),
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return 'Alamat tidak boleh kosong';
+                  }
+                  if (value.trim().length < 5) {
+                    return 'Alamat minimal 5 karakter';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 20),
+
+              // Phone Field
+              Text(
+                'No. Telepon Customer',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFF1F2937),
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: _phoneController,
+                keyboardType: TextInputType.phone,
+                readOnly: _selectedExistingCustomerId != null,
+                decoration: InputDecoration(
+                  hintText: 'Contoh: 081234567890 atau 0812-3456-7890',
+                  hintStyle: const TextStyle(color: Color(0xFF94A3B8)),
+                  filled: _selectedExistingCustomerId != null,
+                  fillColor: const Color(0xFFF8FAFC),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Color(0xFF2563EB), width: 2),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                ),
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return 'Nomor telepon tidak boleh kosong';
+                  }
+                  if (value.trim().length < 10) {
+                    return 'Nomor telepon minimal 10 karakter';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 20),
+
+              // Ice Type Selection (Dropdown)
+              Text(
+                'Jenis Es',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFF1F2937),
+                ),
+              ),
+              const SizedBox(height: 8),
+              if (_isLoadingIceTypes)
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                  ),
+                  child: const Center(
+                    child: SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  ),
+                )
+              else if (_iceTypes.isEmpty)
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                  ),
+                  child: const Center(
+                    child: Text(
+                      'Belum ada jenis es yang tersedia',
+                      style: TextStyle(
+                        color: Color(0xFF64748B),
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
+                )
+              else
+                Container(
+                  decoration: BoxDecoration(
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: DropdownButtonFormField<int>(
+                    value: _selectedIceTypeId,
+                    items: _iceTypes.map((iceType) {
+                      final name = iceType['name'] as String;
+                      final weight = iceType['weight'] as dynamic;
+                      final weightStr = weight is int
+                          ? '$weight kg'
+                          : '${(weight as double?)?.toStringAsFixed(1) ?? '?'} kg';
+                      return DropdownMenuItem<int>(
+                        value: iceType['id'] as int,
+                        child: Text('$weightStr'),
+                      );
+                    }).toList(),
+                    onChanged: (value) {
+                      setState(() => _selectedIceTypeId = value);
+                    },
+                    decoration: InputDecoration(
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      border: InputBorder.none,
+                      enabledBorder: InputBorder.none,
+                      focusedBorder: InputBorder.none,
+                    ),
+                    isExpanded: true,
+                    isDense: true,
+                  ),
+                ),
+              const SizedBox(height: 20),
+
+              // Quantity Field
+              Text(
+                'Jumlah (pcs)',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFF1F2937),
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: _quantityController,
+                keyboardType: TextInputType.number,
+                decoration: InputDecoration(
+                  hintText: 'Contoh: 2, 5, 10',
+                  hintStyle: const TextStyle(color: Color(0xFF94A3B8)),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Color(0xFF2563EB), width: 2),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                ),
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return 'Jumlah tidak boleh kosong';
+                  }
+                  final qty = int.tryParse(value.trim());
+                  if (qty == null || qty <= 0) {
+                    return 'Jumlah harus lebih dari 0';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 20),
+
+              // Zone Field (Disabled, auto-filled)
+              Text(
+                'Zona (Otomatis)',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFF1F2937),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                ),
+                child: Text(
+                  widget.driverZone,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF64748B),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              // Preview Card
+              if (_selectedIceTypeId != null)
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF0FDF4),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: const Color(0xFFBBF7D0)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.check_circle_rounded, size: 18, color: Color(0xFF16A34A)),
+                          const SizedBox(width: 8),
+                          const Text(
+                            'Ringkasan Pesanan',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF15803D),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Nama: ${_customerNameController.text.isNotEmpty ? _customerNameController.text : '-'}',
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                                color: Color(0xFF1F2937),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Telepon: ${_phoneController.text.isNotEmpty ? _phoneController.text : '-'}',
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                                color: Color(0xFF1F2937),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Alamat: ${_addressController.text.isNotEmpty ? _addressController.text : '-'}',
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                                color: Color(0xFF1F2937),
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Pesanan: ${_buildItemsDescription()}',
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                                color: Color(0xFF16A34A),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Zona: ${widget.driverZone}',
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                                color: Color(0xFF1F2937),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              else
+                const SizedBox.shrink(),
+              const SizedBox(height: 24),
+
+              // Submit Button
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: ElevatedButton(
+                  onPressed: _isSubmitting ? null : _submitForm,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF2563EB),
+                    disabledBackgroundColor: const Color(0xFFBFDBFE),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: _isSubmitting
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                            strokeWidth: 2.5,
+                          ),
+                        )
+                      : const Text(
+                          'Tambah Customer',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                ),
+              ),
+              const SizedBox(height: 12),
+
+              // Cancel Button
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: OutlinedButton(
+                  onPressed: _isSubmitting ? null : () => Navigator.of(context).pop(),
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: Color(0xFFE2E8F0), width: 1.5),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: const Text(
+                    'Batal',
+                    style: TextStyle(
+                      color: Color(0xFF475569),
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

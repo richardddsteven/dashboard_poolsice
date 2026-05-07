@@ -162,6 +162,7 @@ const diagrams = {
     WA["Pelanggan\\n(WhatsApp)"]
     FONNTE["Fonnte API\\n(WhatsApp Gateway)"]
     NOMINATIM["Nominatim API\\n(Geocoding)"]
+    FCM["Firebase Cloud Messaging\\n(FCM)"]
 
     BACKEND[("Backend\\nLaravel 11")]
 
@@ -194,6 +195,8 @@ const diagrams = {
     FONNTE -->|"POST /webhook/fonnte"| BACKEND
     BACKEND -->|"HTTPS send message"| FONNTE
     BACKEND -->|"HTTPS geocoding"| NOMINATIM
+    BACKEND -->|"HTTPS push notification"| FCM
+    FCM -->|"Push Delivery"| DRIVER
 
     BACKEND --> DB_USERS
     BACKEND --> DB_CUSTOMERS
@@ -212,6 +215,7 @@ const diagrams = {
     participant WA as WhatsApp
     participant FN as Fonnte API
     participant SRV as Laravel Server
+    participant FCM as Firebase (FCM)
     participant DB as MySQL Database
     participant DRV as Driver App Flutter
     Note over Pelanggan,DRV: Alur Pelanggan Baru
@@ -237,18 +241,24 @@ const diagrams = {
     SRV->>SRV: Deteksi zona + Nominatim Geocoding
     SRV->>DB: Update alamat dan zona
     SRV->>DB: Buat Order status pending
+    SRV->>FCM: POST push notification (Hybrid Payload)
+    FCM->>DRV: Kirim FCM Push Notification
     SRV-->>FN: Response OK
     Note over Pelanggan,DRV: Alur Supir Menerima Order
-    loop Setiap 10 detik
-        DRV->>SRV: GET /api/driver/orders/notifications
-        SRV->>DB: Ambil order pending sesuai zona
-        DB-->>SRV: Daftar order
-        SRV-->>DRV: JSON orders
-    end
-    DRV->>DRV: Tampilkan notifikasi order baru
+    DRV->>DRV: Tampilkan Heads-up Notification
+    DRV->>SRV: Buka aplikasi & GET /api/driver/orders/notifications
+    SRV->>DB: Ambil order pending sesuai zona
+    DB-->>SRV: Daftar order
+    SRV-->>DRV: JSON orders
     DRV->>SRV: PATCH /api/driver/orders/id/status approved
-    SRV->>DB: Cek dan kurangi stok bawaan supir
-    SRV->>DB: Update order status approved
+    SRV->>DB: Cek ketersediaan stok supir
+    SRV->>DB: Update order status approved (Stok belum dikurangi)
+    SRV-->>DRV: JSON message OK
+    Note over DRV,DB: Alur Supir Selesai Antar
+    DRV->>SRV: POST /api/driver/orders/id/complete (Kirim Koordinat GPS)
+    SRV->>DB: Validasi jarak supir dengan pelanggan
+    SRV->>DB: Kurangi stok bawaan supir
+    SRV->>DB: Update order status completed
     SRV-->>DRV: JSON message dan stock_today`
     },
     diagram3: {
@@ -302,6 +312,7 @@ const diagrams = {
         string username
         string password
         string api_token
+        string fcm_token
         timestamp created_at
         timestamp updated_at
     }
@@ -373,6 +384,7 @@ const diagrams = {
     subgraph CLOUD["Cloud Services"]
         FONNTE_SRV["Fonnte Server\\napi.fonnte.com"]
         OSM["OpenStreetMap\\nnominatim.openstreetmap.org"]
+        FCM_SRV["Firebase Cloud Messaging\\nfcm.googleapis.com"]
     end
     subgraph SERVER["Application Server"]
         direction TB
@@ -391,6 +403,8 @@ const diagrams = {
     LARAVEL_APP --> FS
     LARAVEL_APP -->|"HTTPS"| FONNTE_SRV
     LARAVEL_APP -->|"HTTPS"| OSM
+    LARAVEL_APP -->|"HTTPS"| FCM_SRV
+    FCM_SRV -->|"Push Delivery"| FLUTTER
     style PERANGKAT_PELANGGAN fill:#FFF9C4,stroke:#F57F17
     style PERANGKAT_SUPIR fill:#E8F5E9,stroke:#2E7D32
     style PERANGKAT_ADMIN fill:#E3F2FD,stroke:#1565C0

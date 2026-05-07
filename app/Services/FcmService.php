@@ -44,7 +44,7 @@ class FcmService
         $items = $order['items'] ?? '-';
 
         return $this->send($fcmToken, [
-            'title' => "🛵 Order Baru #$orderId",
+            'title' => "Order Baru #$orderId",
             'body'  => "Pelanggan: $customerName | Zona: $zone",
         ], [
             'order_id'      => (string) $orderId,
@@ -75,19 +75,13 @@ class FcmService
             $payload = [
                 'message' => [
                     'token' => $token,
-                    'notification' => [
+                    'android' => [
+                        'priority' => 'HIGH',
+                    ],
+                    'data' => array_map('strval', array_merge($data, [
                         'title' => $notification['title'] ?? 'Pools Ice',
                         'body'  => $notification['body']  ?? '',
-                    ],
-                    'android' => [
-                        'priority' => 'high',
-                        'notification' => [
-                            'channel_id'    => 'driver_orders',
-                            'sound'         => 'default',
-                            'click_action'  => 'FLUTTER_NOTIFICATION_CLICK',
-                        ],
-                    ],
-                    'data' => array_map('strval', $data),
+                    ])),
                 ],
             ];
 

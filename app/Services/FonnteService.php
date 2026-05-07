@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\IceType;
+use App\Models\Order;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -91,6 +92,49 @@ class FonnteService
     public function sendIceTypesMenu(string $phone): bool
     {
         $message = $this->buildIceTypesMenu();
+        return $this->sendMessage($phone, $message);
+    }
+
+    /**
+     * Build pesan status order untuk pelanggan.
+     */
+    public function buildOrderStatusMessage(Order $order, string $status, ?string $note = null): string
+    {
+        $customerName = trim((string) ($order->customer?->name ?? 'Pelanggan'));
+        $orderLabel = '#' . $order->id;
+        $iceTypeLabel = trim((string) ($order->iceType?->name ?? ''));
+        $quantityLabel = max(1, (int) ($order->effective_quantity ?? $order->quantity ?? 1));
+
+        $message = "Halo {$customerName},\n\n";
+
+        if ($status === 'approved') {
+            $message .= "Pesanan sudah diterima driver dan akan segera diantarkan.";
+        } elseif ($status === 'completed') {
+            $message .= "Pesanan sudah selesai diantarkan. Terima kasih sudah memesan.";
+        } elseif ($status === 'rejected') {
+            $message .= "Maaf, pesanan anda tidak dapat diproses dan sudah ditolak.";
+        } else {
+            $message .= "Status pesanan {$orderLabel} telah diperbarui menjadi {$status}.";
+        }
+
+        if ($iceTypeLabel !== '') {
+            $message .= "\nItem: {$iceTypeLabel} - {$quantityLabel} pcs";
+        }
+
+        if ($note) {
+            $message .= "\nCatatan: {$note}";
+        }
+
+        return $message;
+    }
+
+    /**
+     * Kirim notifikasi status order ke pelanggan.
+     */
+    public function sendOrderStatusUpdate(string $phone, Order $order, string $status, ?string $note = null): bool
+    {
+        $message = $this->buildOrderStatusMessage($order, $status, $note);
+
         return $this->sendMessage($phone, $message);
     }
 
