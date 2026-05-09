@@ -64,15 +64,15 @@ class FonnteService
         
         foreach ($iceTypes as $index => $type) {
             $no = $index + 1;
-            $message .= "$no. *{$type->name}* ({$type->weight}kg)";
+            $message .= "$no. *{$type->name}*";
             
             if ($type->price > 0) {
                 $message .= " - Rp " . number_format($type->price, 0, ',', '.');
             }
             
-            if ($type->description) {
-                $message .= "\n   _{$type->description}_";
-            }
+            // if ($type->description) {
+            //     $message .= "\n   _{$type->description}_";
+            // }
             
             $message .= "\n";
         }
@@ -93,6 +93,30 @@ class FonnteService
     {
         $message = $this->buildIceTypesMenu();
         return $this->sendMessage($phone, $message);
+    }
+
+    /**
+     * Build pesan fallback saat customer meminta jenis es yang tidak tersedia.
+     */
+    public function buildUnavailableIceTypeMessage(): string
+    {
+        $availableWeights = IceType::getActiveTypes()
+            ->pluck('weight')
+            ->map(fn ($weight) => rtrim(rtrim(number_format((float) $weight, 2, '.', ''), '0'), '.'))
+            ->unique()
+            ->sort(fn ($a, $b) => (float) $a <=> (float) $b)
+            ->values();
+
+        if ($availableWeights->isEmpty()) {
+            return "Maaf kak, jenis es yang Anda minta tidak ada.
+\nSaat ini kami belum memiliki jenis es yang aktif.";
+        }
+
+        $message = "Maaf kak, jenis es yang Anda minta tidak ada.\n\n";
+        // $message .= 'Kami hanya tersedia: ' . $availableWeights->map(fn ($weight) => $weight . 'kg')->join(', ') . ".\n\n";
+        $message .= $this->buildIceTypesMenu();
+
+        return $message;
     }
 
     /**

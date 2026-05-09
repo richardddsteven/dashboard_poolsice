@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\Order;
+use App\Models\Driver;
+use App\Services\FcmService;
 use App\Services\FonnteService;
 use Illuminate\Http\Request;
 
@@ -25,6 +27,35 @@ class OrderController extends Controller
 
         $order->loadMissing('customer:id,name,phone');
         app(FonnteService::class)->sendOrderStatusUpdate($phone, $order, $status, $note);
+    }
+
+    private function notifyDriverStatusUpdate(Order $order, string $status, ?string $note = null): void
+    {
+        $driverId = (int) ($order->driver_id ?? 0);
+        if ($driverId <= 0) {
+            return;
+        }
+
+        $driver = Driver::query()->find($driverId);
+        if (!$driver || empty($driver->fcm_token)) {
+            return;
+        }
+
+        app(FcmService::class)->send(
+            $driver->fcm_token,
+            [
+                'title' => 'Status Order Diperbarui',
+                'body' => $note
+                    ? "Order #{$order->id} sekarang {$status}. {$note}"
+                    : "Order #{$order->id} sekarang {$status}.",
+            ],
+            [
+                'type' => 'order_status_update',
+                'order_id' => (string) $order->id,
+                'status' => $status,
+                'note' => $note ?? '',
+            ]
+        );
     }
 
     private function buildFilteredOrdersQuery(Request $request)
@@ -143,7 +174,15 @@ class OrderController extends Controller
             $validated['status'],
             $validated['status'] === 'approved'
                 ? 'Pesanan Anda diterima dan sedang diproses.'
-                : 'Pesanan Anda ditolak oleh admin.'
+                : 'Pesanan Anda ditolak oleh sistem.'
+        );
+
+        $this->notifyDriverStatusUpdate(
+            $order,
+            $validated['status'],
+            $validated['status'] === 'approved'
+                ? 'Pesanan telah disetujui oleh sistem.'
+                : 'Pesanan telah ditolak oleh sistem.'
         );
 
         $message = $validated['status'] === 'approved'

@@ -224,6 +224,40 @@ $checkDriverHasEnoughStock = function (int $driverId, Order $order, $resolveDriv
     return false;
 };
 
+$reduceDriverStockForOrder = function (int $driverId, Order $order, $resolveOrderStockDemand): void {
+    $today = now()->toDateString();
+
+    $iceTypeDriverStock = IceTypeDriverStock::query()
+        ->forDate($today)
+        ->where('driver_id', $driverId)
+        ->where('ice_type_id', (int) ($order->ice_type_id ?? 0))
+        ->lockForUpdate()
+        ->first();
+
+    if ($iceTypeDriverStock) {
+        $quantity = (int) ($order->effective_quantity ?? $order->quantity ?? 1);
+
+        $iceTypeDriverStock->update([
+            'quantity' => max(0, $iceTypeDriverStock->quantity - $quantity),
+        ]);
+
+        return;
+    }
+
+    $requiredStock = $resolveOrderStockDemand($order);
+    $driverStock = DriverStock::query()
+        ->where('driver_id', $driverId)
+        ->lockForUpdate()
+        ->first();
+
+    if ($driverStock && ((int) $requiredStock['stock_5kg'] > 0 || (int) $requiredStock['stock_20kg'] > 0)) {
+        $driverStock->update([
+            'stock_5kg' => max(0, ((int) $driverStock->stock_5kg) - (int) $requiredStock['stock_5kg']),
+            'stock_20kg' => max(0, ((int) $driverStock->stock_20kg) - (int) $requiredStock['stock_20kg']),
+        ]);
+    }
+};
+
 $haversineDistanceMeters = function (float $lat1, float $lon1, float $lat2, float $lon2): float {
     $earthRadiusMeters = 6371000.0;
 
@@ -329,7 +363,7 @@ Route::post('/driver/fcm-token', function (Request $request) use ($resolveDriver
     return response()->json(['message' => 'FCM token berhasil disimpan.']);
 });
 
-Route::get('/driver/orders/notifications', function (Request $request) use ($resolveDriverFromToken, $resolveOrderStockDemand, $checkDriverHasEnoughStock, $resolveDriverTodayStock, $sendOrderStatusReply) {
+Route::get('/driver/orders/notifications', function (Request $request) use ($resolveDriverFromToken, $resolveOrderStockDemand, $checkDriverHasEnoughStock, $resolveDriverTodayStock, $reduceDriverStockForOrder, $sendOrderStatusReply) {
     $driver = $resolveDriverFromToken($request);
     if (!$driver) {
         return response()->json([
@@ -370,7 +404,7 @@ Route::get('/driver/orders/notifications', function (Request $request) use ($res
             continue;
         }
 
-        DB::transaction(function () use ($pendingOrder, $driver, $resolveOrderStockDemand, $checkDriverHasEnoughStock, $resolveDriverTodayStock) {
+        DB::transaction(function () use ($pendingOrder, $driver, $resolveOrderStockDemand, $checkDriverHasEnoughStock, $resolveDriverTodayStock, $reduceDriverStockForOrder) {
             $freshOrder = Order::query()
                 ->with('iceType:id,name,weight')
                 ->lockForUpdate()
@@ -391,6 +425,10 @@ Route::get('/driver/orders/notifications', function (Request $request) use ($res
                 'driver_id' => (int) $driver->id,
                 'status' => $hasEnoughStock ? 'approved' : 'rejected',
             ]);
+
+            if ($hasEnoughStock) {
+                $reduceDriverStockForOrder((int) $driver->id, $freshOrder, $resolveOrderStockDemand);
+            }
         });
 
         $updatedOrder = Order::query()
@@ -442,7 +480,7 @@ Route::get('/driver/orders/notifications', function (Request $request) use ($res
     return response()->json(['data' => $orders]);
 });
 
-Route::patch('/driver/orders/{order}/status', function (Request $request, Order $order) use ($resolveDriverFromToken, $resolveOrderStockDemand, $checkDriverHasEnoughStock, $resolveDriverTodayStock, $sendOrderStatusReply) {
+Route::patch('/driver/orders/{order}/status', function (Request $request, Order $order) use ($resolveDriverFromToken, $resolveOrderStockDemand, $checkDriverHasEnoughStock, $resolveDriverTodayStock, $reduceDriverStockForOrder, $sendOrderStatusReply) {
     $driver = $resolveDriverFromToken($request);
     if (!$driver) {
         return response()->json([
@@ -493,8 +531,18 @@ Route::patch('/driver/orders/{order}/status', function (Request $request, Order 
                 ];
             }
 
-            // Stok hanya dicek kecukupannya di sini, tapi belum dikurangi.
-            // Pengurangan stok akan dilakukan saat order selesai (complete).
+            $freshOrder->update([
+                'driver_id' => (int) $driver->id,
+                'status' => $validated['status'],
+            ]);
+
+            $reduceDriverStockForOrder((int) $driver->id, $freshOrder, $resolveOrderStockDemand);
+
+            return [
+                'ok' => true,
+                'order' => $freshOrder->fresh(),
+                'message' => 'Order berhasil diterima.',
+            ];
         }
 
         $freshOrder->update([
@@ -546,7 +594,7 @@ Route::patch('/driver/orders/{order}/status', function (Request $request, Order 
     ]);
 });
 
-Route::patch('/driver/orders/{order}/complete', function (Request $request, Order $order) use ($resolveDriverFromToken, $haversineDistanceMeters, $resolveOrderStockDemand, $sendOrderStatusReply) {
+Route::patch('/driver/orders/{order}/complete', function (Request $request, Order $order) use ($resolveDriverFromToken, $haversineDistanceMeters, $sendOrderStatusReply) {
     $driver = $resolveDriverFromToken($request);
     if (!$driver) {
         return response()->json([
@@ -559,7 +607,7 @@ Route::patch('/driver/orders/{order}/complete', function (Request $request, Orde
         'longitude' => ['required', 'numeric', 'between:-180,180'],
     ]);
 
-    $result = DB::transaction(function () use ($order, $driver, $validated, $haversineDistanceMeters, $resolveOrderStockDemand) {
+    $result = DB::transaction(function () use ($order, $driver, $validated, $haversineDistanceMeters) {
         $freshOrder = Order::query()
             ->with('customer:id,zone,latitude,longitude')
             ->lockForUpdate()
@@ -611,43 +659,12 @@ Route::patch('/driver/orders/{order}/complete', function (Request $request, Orde
             'status' => 'completed',
         ]);
 
-        $today = now()->toDateString();
-        
-        // Coba kurangi dari format baru (IceTypeDriverStock) dulu
-        $iceTypeDriverStock = IceTypeDriverStock::query()
-            ->forDate($today)
-            ->where('driver_id', (int) $driver->id)
-            ->where('ice_type_id', (int) ($freshOrder->ice_type_id ?? 0))
-            ->lockForUpdate()
-            ->first();
-
-        if ($iceTypeDriverStock) {
-            $quantity = (int) ($freshOrder->effective_quantity ?? $freshOrder->quantity ?? 1);
-            $iceTypeDriverStock->update([
-                'quantity' => max(0, $iceTypeDriverStock->quantity - $quantity),
-            ]);
-        } else {
-            // Fallback ke format lama (DriverStock)
-            $requiredStock = $resolveOrderStockDemand($freshOrder);
-            $driverStock = DriverStock::query()
-                ->where('driver_id', (int) $driver->id)
-                ->lockForUpdate()
-                ->first();
-
-            if ($driverStock && ((int) $requiredStock['stock_5kg'] > 0 || (int) $requiredStock['stock_20kg'] > 0)) {
-                $driverStock->update([
-                    'stock_5kg' => max(0, ((int) $driverStock->stock_5kg) - (int) $requiredStock['stock_5kg']),
-                    'stock_20kg' => max(0, ((int) $driverStock->stock_20kg) - (int) $requiredStock['stock_20kg']),
-                ]);
-            }
-        }
-
         return [
             'ok' => true,
             'order' => $freshOrder->fresh(),
             'distance_m' => (int) round($distanceMeters),
             'max_distance_m' => (int) $maxDistanceMeters,
-            'message' => 'Pesanan berhasil diselesaikan dan stok sudah dikurangi. Terima kasih sudah mengantar.',
+            'message' => 'Pesanan berhasil diselesaikan. Terima kasih sudah mengantar.',
         ];
     });
 
@@ -927,7 +944,7 @@ Route::post('/driver/customers', function (Request $request) use ($resolveDriver
         });
 
         return response()->json([
-            'message' => 'Customer dan order berhasil dibuat. Menunggu untuk diproses di dashboard admin.',
+            'message' => 'Customer dan order berhasil dibuat.',
             'data' => [
                 'customer_id' => $result['customer']->id,
                 'customer_name' => $result['customer']->name,

@@ -68,6 +68,18 @@ class WebhookController extends Controller
                 $hasOrderKw  = $this->hasOrderKeyword($message);
                 $hasInquiry  = $this->hasInquiryKeyword($message);
 
+                if ($hasOrderKw && $this->shouldReplyUnavailableIceType($message, false)) {
+                    $this->fonnte->sendMessage(
+                        $phone,
+                        $this->fonnte->buildUnavailableIceTypeMessage()
+                    );
+
+                    return response()->json([
+                        'status' => 'ok',
+                        'message' => 'Unavailable ice type reply sent',
+                    ]);
+                }
+
                 // Abaikan jika tidak ada keyword order maupun inquiry
                 if (!$hasOrderKw && !$hasInquiry) {
                     Log::info('New number, no relevant keyword - ignored', ['phone' => $phone, 'message' => $message]);
@@ -229,6 +241,18 @@ class WebhookController extends Controller
             'skip_validation' => $skipValidation,
         ]);
 
+        if ($this->shouldReplyUnavailableIceType($message, $skipValidation)) {
+            $this->fonnte->sendMessage(
+                $phone,
+                $this->fonnte->buildUnavailableIceTypeMessage()
+            );
+
+            return response()->json([
+                'status'  => 'ok',
+                'message' => 'Unavailable ice type reply sent',
+            ]);
+        }
+
         if (!$skipValidation) {
             $isValidOrder = $this->validateOrderMessage($message);
 
@@ -375,7 +399,26 @@ class WebhookController extends Controller
             }
         }
         if (!$hasOrderKeyword) {
-            return ['is_valid' => false, 'reason' => 'No order keywords found'];
+            $hasIceTypeWithoutKeyword = false;
+            $iceTypes = IceType::getActiveTypes();
+
+            foreach ($iceTypes as $iceType) {
+                $weightLabel = preg_quote((string) $iceType->weight, '/');
+                $nameLabel = preg_quote((string) $iceType->name, '/');
+
+                if (
+                    preg_match('/\b' . $nameLabel . '\b/i', $message) ||
+                    preg_match('/\b' . $weightLabel . '\s?kg\b/i', $message) ||
+                    preg_match('/\b' . $weightLabel . '\s?kilo\b/i', $message)
+                ) {
+                    $hasIceTypeWithoutKeyword = true;
+                    break;
+                }
+            }
+
+            if (!$hasIceTypeWithoutKeyword) {
+                return ['is_valid' => false, 'reason' => 'No order keywords found'];
+            }
         }
 
         $iceTypePatterns = [];
@@ -523,6 +566,54 @@ class WebhookController extends Controller
         ]);
 
         return $result;
+    }
+
+    private function shouldReplyUnavailableIceType(string $message, bool $skipValidation): bool
+    {
+        $messageLower = strtolower($message);
+
+        if (!$skipValidation && !$this->hasOrderKeyword($message)) {
+            return false;
+        }
+
+        $activeWeights = IceType::getActiveTypes()
+            ->pluck('weight')
+            ->map(fn ($weight) => (float) $weight)
+            ->unique()
+            ->values()
+            ->all();
+
+        if (empty($activeWeights)) {
+            return false;
+        }
+
+        if (preg_match_all('/\b(\d{1,3})\s?(?:kg|kilo)\b/i', $message, $matches)) {
+            foreach ($matches[1] ?? [] as $weightValue) {
+                $weight = (float) $weightValue;
+
+                $isAvailable = false;
+                foreach ($activeWeights as $activeWeight) {
+                    if (abs($activeWeight - $weight) < 0.01) {
+                        $isAvailable = true;
+                        break;
+                    }
+                }
+
+                if (!$isAvailable) {
+                    return true;
+                }
+            }
+        }
+
+        if (preg_match('/\bjenis\s+es\b/i', $message)) {
+            return true;
+        }
+
+        if (preg_match('/\bes\b/i', $message) && preg_match('/\b(?:pesan|order|beli|mau|minta|kirim)\b/i', $messageLower)) {
+            return true;
+        }
+
+        return false;
     }
 
     private function cleanPhone($phone)

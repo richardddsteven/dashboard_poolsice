@@ -659,10 +659,6 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
       _startPolling();
       return;
     }
-
-    if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
-      _timer?.cancel();
-    }
   }
 
   /// Ambil FCM token dari Firebase dan kirim ke server untuk disimpan.
@@ -1153,6 +1149,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
     _fetchTodayStock();
     _timer = Timer.periodic(const Duration(seconds: 10), (_) {
       _fetchOrders();
+      _fetchTodayStock();
     });
   }
 
