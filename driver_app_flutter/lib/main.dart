@@ -602,12 +602,15 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
   with WidgetsBindingObserver {
   final List<Map<String, dynamic>> _orders = [];
   Timer? _timer;
+  Timer? _routeStopTimer; // Timer khusus lapor posisi jalur setiap 5 menit
   bool _isLoading = false;
   bool _isLoadingTodayStock = false;
   bool _isSubmittingStock = false;
   bool _isLoggingOut = false;
   bool _isSessionExpiredHandled = false;
   bool _isLoadingIceTypes = false;
+  bool _isReportingRouteStop = false;
+  String? _currentRouteStopName; // Nama jalur supir saat ini
   final Set<int> _isUpdatingOrderIds = <int>{};
   int _todayStock5Kg = 0;
   int _todayStock20Kg = 0;
@@ -635,12 +638,14 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
     _fetchTodayStock();
     _registerFcmToken();
     _setupForegroundFcmListener();
+    _startRouteStopReporting(); // Mulai lapor posisi jalur setiap 5 menit
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _timer?.cancel();
+    _routeStopTimer?.cancel();
     _fcmSubscription?.cancel();
     _stock5KgController.dispose();
     _stock20KgController.dispose();
@@ -657,7 +662,11 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
       _fetchOrders();
       _fetchTodayStock();
       _startPolling();
+      _startRouteStopReporting(); // Resume laporan posisi saat app kembali aktif
       return;
+    }
+    if (state == AppLifecycleState.paused) {
+      _routeStopTimer?.cancel(); // Hemat baterai saat app diminimize
     }
   }
 
@@ -1153,6 +1162,72 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
     });
   }
 
+  /// Mulai timer laporan posisi jalur supir setiap 5 menit.
+  /// Langsung kirim sekali saat dipanggil, lalu jadwalkan ulang.
+  void _startRouteStopReporting() {
+    _routeStopTimer?.cancel();
+    _reportRouteStop(); // Kirim langsung pertama kali
+    _routeStopTimer = Timer.periodic(const Duration(minutes: 5), (_) {
+      _reportRouteStop();
+    });
+  }
+
+  /// Ambil GPS supir dan kirim ke endpoint POST /api/driver/route-stop.
+  /// Server akan mendeteksi jalur terdekat dan otomatis menolak order yang sudah terlewat.
+  Future<void> _reportRouteStop() async {
+    if (_isReportingRouteStop) return;
+    _isReportingRouteStop = true;
+
+    try {
+      // Cek izin & dapatkan posisi GPS
+      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) return;
+
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) return;
+
+      final position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+        timeLimit: const Duration(seconds: 10),
+      );
+
+      if (!mounted) return;
+
+      final uri = Uri.parse('$apiBaseUrl/driver/route-stop');
+      final response = await http.post(
+        uri,
+        headers: _authHeaders(json: true),
+        body: jsonEncode({
+          'latitude':  position.latitude,
+          'longitude': position.longitude,
+        }),
+      );
+
+      if (response.statusCode == 401) {
+        _handleUnauthorized();
+        return;
+      }
+
+      if (response.statusCode == 200) {
+        final payload = jsonDecode(response.body) as Map<String, dynamic>;
+        final stopData = payload['route_stop'] as Map<String, dynamic>?;
+        final stopName = (stopData?['name'] as String?) ?? '';
+
+        if (mounted && stopName.isNotEmpty && stopName != _currentRouteStopName) {
+          setState(() => _currentRouteStopName = stopName);
+        }
+      }
+    } catch (_) {
+      // Gagal diam-diam — tidak mengganggu flow utama
+    } finally {
+      _isReportingRouteStop = false;
+    }
+  }
+
   Future<void> _fetchOrders() async {
     if (_isLoading) {
       return;
@@ -1395,6 +1470,9 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
   }
 
   Future<void> _refreshAll() async {
+    // Jalankan reporting GPS manual saat pull-to-refresh
+    _reportRouteStop();
+    
     await Future.wait([
       _loadIceTypes(),
       _fetchOrders(),
@@ -1697,6 +1775,15 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
                   'Zona ${widget.zone}',
                   style: const TextStyle(fontSize: 13, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
                 ),
+                if (_currentRouteStopName != null) ...[
+                  const Text(' • ', style: TextStyle(fontSize: 13, color: Color(0xFF94A3B8))),
+                  const Icon(Icons.directions_car_rounded, size: 12, color: Color(0xFF2563EB)),
+                  const SizedBox(width: 2),
+                  Text(
+                    _currentRouteStopName!,
+                    style: const TextStyle(fontSize: 13, color: Color(0xFF2563EB), fontWeight: FontWeight.w700),
+                  ),
+                ],
               ],
             ),
           ],

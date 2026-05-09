@@ -17,4 +17,9 @@ class Zone extends Model
     {
         return $this->hasMany(\App\Models\Customer::class, 'zone', 'name');
     }
+
+    public function routeStops()
+    {
+        return $this->hasMany(\App\Models\RouteStop::class)->orderBy('order_index');
+    }
 }

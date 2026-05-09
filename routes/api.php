@@ -5,6 +5,7 @@ use App\Models\DriverStock;
 use App\Models\IceType;
 use App\Models\IceTypeDriverStock;
 use App\Models\Order;
+use App\Models\RouteStop;
 use App\Models\Zone;
 use App\Services\FcmService;
 use App\Services\FonnteService;
@@ -12,6 +13,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 
 $resolveDriverFromToken = function (Request $request): ?Driver {
     $authorization = trim((string) $request->header('Authorization'));
@@ -277,6 +279,8 @@ $haversineDistanceMeters = function (float $lat1, float $lon1, float $lat2, floa
 
 
 
+
+
 // ============================================
 // PUBLIC ENDPOINTS
 // ============================================
@@ -363,6 +367,111 @@ Route::post('/driver/fcm-token', function (Request $request) use ($resolveDriver
     return response()->json(['message' => 'FCM token berhasil disimpan.']);
 });
 
+/**
+ * POST /api/driver/route-stop
+ * Supir melaporkan posisi GPS — sistem otomatis mendeteksi jalur (route_stop)
+ * yang paling dekat dan memperbarui current_route_stop_id supir.
+ * Dipanggil Flutter setiap 5 menit.
+ */
+Route::post('/driver/route-stop', function (Request $request) use ($resolveDriverFromToken, $sendOrderStatusReply) {
+    $driver = $resolveDriverFromToken($request);
+    if (!$driver) {
+        return response()->json(['message' => 'Unauthorized.'], 401);
+    }
+
+    $validated = $request->validate([
+        'latitude'  => 'required|numeric|between:-90,90',
+        'longitude' => 'required|numeric|between:-180,180',
+    ]);
+
+    $driver->loadMissing('zone:id,name');
+    $zoneId = (int) ($driver->zone_id ?? 0);
+
+    if ($zoneId === 0) {
+        return response()->json([
+            'message'    => 'Supir belum terdaftar di zona manapun.',
+            'route_stop' => null,
+        ], 422);
+    }
+
+    // Deteksi jalur terdekat berdasarkan GPS supir
+    $currentStop = RouteStop::detectForCoordinates(
+        (float) $validated['latitude'],
+        (float) $validated['longitude'],
+        $zoneId
+    );
+
+    $driver->update([
+        'current_route_stop_id' => $currentStop?->id,
+        'route_stop_updated_at' => now(),
+    ]);
+
+    // Auto-reject order pending yang jalurnya sudah terlalu jauh
+    if ($currentStop) {
+        $driverIndex  = (int) $currentStop->order_index;
+        $zoneName     = strtolower(trim((string) ($driver->zone?->name ?? '')));
+
+        // Ambil semua order pending di zona supir yang tidak valid:
+        // 1. > 1 jalur di belakang (order_index < driverIndex - 1)
+        // 2. Tepat 1 jalur di belakang (order_index == driverIndex - 1) TAPI sudah > 15 menit
+        $overdueOrders = Order::query()
+            ->with(['customer.routeStop:id,order_index,name'])
+            ->where('status', 'pending')
+            ->whereNull('driver_id')
+            ->whereHas('customer', fn ($q) => $q->whereRaw('LOWER(zone) = ?', [$zoneName]))
+            ->whereHas('customer.routeStop', function ($q) use ($driverIndex) {
+                $q->where('order_index', '<', $driverIndex - 1)
+                  ->orWhere(function ($q2) use ($driverIndex) {
+                      $q2->where('order_index', '=', $driverIndex - 1)
+                         // Pakai exists/where raw karena created_at ada di table orders
+                         ->whereRaw('orders.created_at <= ?', [now()->subMinutes(15)]);
+                  });
+            })
+            ->get();
+
+        foreach ($overdueOrders as $overdueOrder) {
+            DB::transaction(function () use ($overdueOrder, $driver, $sendOrderStatusReply) {
+                $freshOD = Order::lockForUpdate()->find($overdueOrder->id);
+                if (!$freshOD || $freshOD->status !== 'pending') return;
+
+                $freshOD->update([
+                    'status'    => 'rejected',
+                    'driver_id' => $driver->id,
+                ]);
+
+                Log::info('[RouteStop] Order otomatis ditolak karena jalur sudah terlewat.', [
+                    'order_id'  => $freshOD->id,
+                    'driver_id' => $driver->id,
+                ]);
+
+                $freshOD->loadMissing('customer:id,name,phone');
+                $sendOrderStatusReply(
+                    $freshOD,
+                    'rejected',
+                    'Maaf, supir sudah melewati jalur Anda hari ini. Silakan pesan kembali besok.'
+                );
+            });
+        }
+
+        Log::info('[RouteStop] Posisi supir diperbarui.', [
+            'driver_id'    => $driver->id,
+            'route_stop'   => $currentStop->name,
+            'order_index'  => $currentStop->order_index,
+            'auto_rejected'=> $overdueOrders->count(),
+        ]);
+    }
+
+    return response()->json([
+        'message'     => 'Posisi jalur berhasil diperbarui.',
+        'route_stop'  => $currentStop ? [
+            'id'          => $currentStop->id,
+            'name'        => $currentStop->name,
+            'order_index' => $currentStop->order_index,
+        ] : null,
+    ]);
+});
+
+
 Route::get('/driver/orders/notifications', function (Request $request) use ($resolveDriverFromToken, $resolveOrderStockDemand, $checkDriverHasEnoughStock, $resolveDriverTodayStock, $reduceDriverStockForOrder, $sendOrderStatusReply) {
     $driver = $resolveDriverFromToken($request);
     if (!$driver) {
@@ -371,6 +480,8 @@ Route::get('/driver/orders/notifications', function (Request $request) use ($res
             'data' => [],
         ], 401);
     }
+
+    $driver->loadMissing(['zone:id,name', 'currentRouteStop']);
 
     $zone = strtolower(trim((string) ($driver->zone?->name ?? '')));
     if ($zone === '') {
@@ -381,7 +492,7 @@ Route::get('/driver/orders/notifications', function (Request $request) use ($res
     }
 
     $pendingOrdersInZone = Order::query()
-        ->with(['customer:id,name,address,zone', 'iceType:id,name,weight'])
+        ->with(['customer:id,name,address,zone,route_stop_id', 'customer.routeStop:id,name,order_index', 'iceType:id,name,weight'])
         ->where('status', 'pending')
         ->where(function ($query) use ($driver) {
             $query->whereNull('driver_id')
@@ -395,6 +506,24 @@ Route::get('/driver/orders/notifications', function (Request $request) use ($res
         ->get();
 
     foreach ($pendingOrdersInZone as $pendingOrder) {
+        // Cek kelayakan berdasarkan posisi jalur supir
+        if (!Order::isEligibleForDriver($pendingOrder, $driver)) {
+            // Order sudah terlewat jauh dan lebih dari 15 menit
+            DB::transaction(function () use ($pendingOrder, $driver, $sendOrderStatusReply) {
+                $freshOD = Order::lockForUpdate()->find($pendingOrder->id);
+                if (!$freshOD || $freshOD->status !== 'pending') return;
+
+                $freshOD->update(['status' => 'rejected', 'driver_id' => $driver->id]);
+                $freshOD->loadMissing('customer:id,name,phone');
+                $sendOrderStatusReply(
+                    $freshOD,
+                    'rejected',
+                    'Maaf, supir sudah melewati jalur Anda hari ini.'
+                );
+            });
+            continue;
+        }
+
         $requiredStock = $resolveOrderStockDemand($pendingOrder);
         if (
             (int) $requiredStock['stock_5kg'] === 0 &&
@@ -418,7 +547,6 @@ Route::get('/driver/orders/notifications', function (Request $request) use ($res
                 return;
             }
 
-            // Check stock dari kedua format (baru dan lama)
             $hasEnoughStock = $checkDriverHasEnoughStock((int) $driver->id, $freshOrder, $resolveDriverTodayStock);
 
             $freshOrder->update([
@@ -449,7 +577,7 @@ Route::get('/driver/orders/notifications', function (Request $request) use ($res
     }
 
     $orders = Order::query()
-        ->with(['customer:id,name,address,zone', 'iceType:id,name,weight'])
+        ->with(['customer:id,name,address,zone,route_stop_id', 'customer.routeStop:id,name,order_index', 'iceType:id,name,weight'])
         ->whereHas('customer', function ($query) use ($zone) {
             $query->whereRaw('LOWER(zone) = ?', [$zone]);
         })
@@ -457,28 +585,38 @@ Route::get('/driver/orders/notifications', function (Request $request) use ($res
         ->limit(150)
         ->get()
         ->map(function (Order $order) {
-            $iceTypeLabel = $order->iceType?->name ?? '-';
+            $iceTypeLabel  = $order->iceType?->name ?? '-';
             $quantityLabel = max(1, (int) ($order->effective_quantity ?? $order->quantity ?? 1));
 
             return [
-                'id' => $order->id,
-                'driver_id' => $order->driver_id,
-                'customer_name' => $order->customer?->name,
+                'id'               => $order->id,
+                'driver_id'        => $order->driver_id,
+                'customer_name'    => $order->customer?->name,
                 'customer_address' => $order->customer?->address,
-                'zone' => $order->customer?->zone,
-                'items' => $order->items,
-                'items_display' => $iceTypeLabel !== '-' ? $iceTypeLabel . ' - ' . $quantityLabel . ' pcs' : '',
-                'ice_type_name' => $iceTypeLabel,
-                'ice_type_weight' => $order->iceType?->weight,
-                'quantity' => $quantityLabel,
-                'status' => $order->status,
-                'created_at' => $order->created_at,
+                'zone'             => $order->customer?->zone,
+                'route_stop'       => $order->customer?->routeStop?->name,
+                'route_stop_index' => $order->customer?->routeStop?->order_index,
+                'items'            => $order->items,
+                'items_display'    => $iceTypeLabel !== '-' ? $iceTypeLabel . ' - ' . $quantityLabel . ' pcs' : '',
+                'ice_type_name'    => $iceTypeLabel,
+                'ice_type_weight'  => $order->iceType?->weight,
+                'quantity'         => $quantityLabel,
+                'status'           => $order->status,
+                'created_at'       => $order->created_at,
             ];
         })
         ->values();
 
-    return response()->json(['data' => $orders]);
+    return response()->json([
+        'data'            => $orders,
+        'driver_stop'     => $driver->currentRouteStop ? [
+            'id'          => $driver->currentRouteStop->id,
+            'name'        => $driver->currentRouteStop->name,
+            'order_index' => $driver->currentRouteStop->order_index,
+        ] : null,
+    ]);
 });
+
 
 Route::patch('/driver/orders/{order}/status', function (Request $request, Order $order) use ($resolveDriverFromToken, $resolveOrderStockDemand, $checkDriverHasEnoughStock, $resolveDriverTodayStock, $reduceDriverStockForOrder, $sendOrderStatusReply) {
     $driver = $resolveDriverFromToken($request);

@@ -38,10 +38,16 @@
         <h1 class="page-title">Edit Zona</h1>
         <p class="page-subtitle">Perbarui nama zona wilayah</p>
     </div>
-    <a href="{{ route('customers.index') }}" class="btn btn-secondary">
-        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5"/><path d="M12 19L5 12L12 5"/></svg>
-        Kembali
-    </a>
+    <div style="display: flex; gap: 10px;">
+        <a href="{{ route('route-stops.index', $zone) }}" class="btn btn-primary" style="font-size: 13px;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18"/><path d="M8 8l-5 4 5 4"/><path d="M16 8l5 4-5 4"/></svg>
+            Kelola Jalur
+        </a>
+        <a href="{{ route('customers.index') }}" class="btn btn-secondary">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5"/><path d="M12 19L5 12L12 5"/></svg>
+            Kembali
+        </a>
+    </div>
 </div>
 
 <div class="card">

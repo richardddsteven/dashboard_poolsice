@@ -5,6 +5,7 @@ use App\Models\Driver;
 use App\Models\Order;
 use App\Models\IceType;
 use App\Models\Zone;
+use App\Models\RouteStop;
 use App\Services\FcmService;
 use App\Services\FonnteService;
 use Illuminate\Http\Request;
@@ -145,11 +146,19 @@ class WebhookController extends Controller
 
                 // Jika pending_message adalah order yang valid → proses langsung
                 if ($pendingMessage && $pendingMessage !== '__INQUIRY__') {
+                    // Deteksi jalur (route_stop) berdasarkan koordinat
+                    $routeStopId = $this->detectRouteStopId(
+                        $addressCoordinates['latitude'] ?? null,
+                        $addressCoordinates['longitude'] ?? null,
+                        $detectedZone
+                    );
+
                     $customer->update([
                         'address'            => $address,
                         'zone'               => $detectedZone,
                         'latitude'           => $addressCoordinates['latitude'] ?? null,
                         'longitude'          => $addressCoordinates['longitude'] ?? null,
+                        'route_stop_id'      => $routeStopId,
                         'conversation_state' => null,
                         'pending_message'    => null,
                     ]);
@@ -157,11 +166,19 @@ class WebhookController extends Controller
                 }
 
                 // Inquiry / tidak ada order → tanya mau pesan apa
+                // Deteksi jalur berdasarkan koordinat
+                $routeStopId = $this->detectRouteStopId(
+                    $addressCoordinates['latitude'] ?? null,
+                    $addressCoordinates['longitude'] ?? null,
+                    $detectedZone
+                );
+
                 $customer->update([
                     'address'            => $address,
                     'zone'               => $detectedZone,
                     'latitude'           => $addressCoordinates['latitude'] ?? null,
                     'longitude'          => $addressCoordinates['longitude'] ?? null,
+                    'route_stop_id'      => $routeStopId,
                     'conversation_state' => 'awaiting_order',
                     'pending_message'    => null,
                 ]);
@@ -345,7 +362,7 @@ class WebhookController extends Controller
 
         try {
             // Cari semua supir di zona yang sama yang memiliki FCM token
-            $drivers = Driver::with('zone:id,name')
+            $drivers = Driver::with(['zone:id,name', 'currentRouteStop'])
                 ->whereNotNull('fcm_token')
                 ->whereNotNull('api_token') // hanya supir yang sedang login
                 ->whereHas('zone', function ($query) use ($customerZone) {
@@ -367,7 +384,18 @@ class WebhookController extends Controller
                 'items'         => $order->items ?? '',
             ];
 
+            $eligibleDriversCount = 0;
+
             foreach ($drivers as $driver) {
+                if (!Order::isEligibleForDriver($order, $driver)) {
+                    Log::info('[FCM] Notifikasi dilewati, supir sudah terlalu jauh.', [
+                        'driver_id' => $driver->id,
+                        'order_id'  => $order->id,
+                    ]);
+                    continue;
+                }
+
+                $eligibleDriversCount++;
                 $fcm->sendOrderNotification($driver->fcm_token, $orderData);
 
                 Log::info('[FCM] Notifikasi order terkirim ke supir.', [
@@ -376,6 +404,22 @@ class WebhookController extends Controller
                     'order_id'    => $order->id,
                     'zone'        => $customerZone,
                 ]);
+            }
+
+            // Jika ada supir online di zona tersebut, TETAPI tidak ada satupun yang memenuhi syarat
+            // (semua sudah terlewat terlalu jauh), maka otomatis tolak pesanannya.
+            if ($eligibleDriversCount === 0 && $drivers->isNotEmpty()) {
+                Log::info('[Webhook] Auto-reject order, semua supir di zona sudah terlewat', [
+                    'order_id' => $order->id,
+                    'zone'     => $customerZone,
+                ]);
+
+                $order->update(['status' => 'rejected']);
+                
+                $this->fonnte->sendMessage(
+                    $customer->phone,
+                    "Mohon maaf {$customer->name}, pesanan Anda kami tolak karena saat ini semua supir kami sudah melewati jalur pengiriman ke alamat Anda 🙏."
+                );
             }
         } catch (\Throwable $e) {
             // Jangan gagalkan webhook karena error FCM
@@ -587,7 +631,9 @@ class WebhookController extends Controller
             return false;
         }
 
+        $hasWeightMatched = false;
         if (preg_match_all('/\b(\d{1,3})\s?(?:kg|kilo)\b/i', $message, $matches)) {
+            $hasWeightMatched = true;
             foreach ($matches[1] ?? [] as $weightValue) {
                 $weight = (float) $weightValue;
 
@@ -605,8 +651,28 @@ class WebhookController extends Controller
             }
         }
 
+        // Jika mereka menyebutkan 'jenis es', langsung tampilkan menu
         if (preg_match('/\bjenis\s+es\b/i', $message)) {
             return true;
+        }
+
+        // Jika sudah menyebutkan berat yang valid (seperti 5kg), jangan teruskan ke fallback 'mau es'
+        if ($hasWeightMatched) {
+            return false;
+        }
+
+        // Cek juga apakah mereka menyebutkan nama es (misal: "Es Kristal")
+        $hasNameMatched = false;
+        $activeNames = IceType::getActiveTypes()->pluck('name')->map(fn($n) => strtolower(trim($n)))->all();
+        foreach ($activeNames as $activeName) {
+            if (str_contains($messageLower, $activeName)) {
+                $hasNameMatched = true;
+                break;
+            }
+        }
+
+        if ($hasNameMatched) {
+            return false;
         }
 
         if (preg_match('/\bes\b/i', $message) && preg_match('/\b(?:pesan|order|beli|mau|minta|kirim)\b/i', $messageLower)) {
@@ -648,7 +714,7 @@ class WebhookController extends Controller
         $messageLower = strtolower($message);
         $keywords = [
             'bagaimana', 'gimana', 'cara', 'info', 'bisa pesen', 'mau pesen', 'ingin pesen',
-            'nanya', 'tanya', 'mau tau', 'mau tahu', 'boleh tau',
+            'mau tau', 'mau tahu', 'boleh tau',
             'boleh tahu', 'bisa pesan', 'ingin pesan', 'mau order',
         ];
 
@@ -707,6 +773,41 @@ class WebhookController extends Controller
         }
 
         return null;
+    }
+
+    /**
+     * Deteksi route_stop_id terbaik berdasarkan koordinat dan nama zona.
+     * Kombinasi: otomatis dari GPS + fallback null jika belum ada jalur di zona.
+     */
+    private function detectRouteStopId(?float $lat, ?float $lng, ?string $zoneName): ?int
+    {
+        if (is_null($lat) || is_null($lng) || is_null($zoneName)) {
+            return null;
+        }
+
+        if (abs($lat) < 0.0001 && abs($lng) < 0.0001) {
+            return null;
+        }
+
+        $zone = Zone::whereRaw('LOWER(name) = ?', [strtolower(trim($zoneName))])->first();
+        if (!$zone) {
+            return null;
+        }
+
+        $stop = RouteStop::detectForCoordinates($lat, $lng, $zone->id);
+
+        if ($stop) {
+            Log::info('[RouteStop] Auto-detected jalur untuk customer.', [
+                'lat'           => $lat,
+                'lng'           => $lng,
+                'zone'          => $zoneName,
+                'route_stop_id' => $stop->id,
+                'stop_name'     => $stop->name,
+                'order_index'   => $stop->order_index,
+            ]);
+        }
+
+        return $stop?->id;
     }
 
     private function normalizeText(string $text): string

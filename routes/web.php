@@ -6,6 +6,7 @@ use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\WebhookController;
 use App\Http\Controllers\ZoneController;
+use App\Http\Controllers\RouteStopController;
 use App\Http\Controllers\FinanceController;
 use App\Http\Controllers\ExpenseController;
 use App\Http\Controllers\DriverController;
@@ -33,6 +34,17 @@ Route::middleware('auth')->group(function () {
 
     // Zone routes
     Route::resource('zones', ZoneController::class)->only(['create', 'store', 'edit', 'update', 'destroy']);
+
+    // Route Stop routes (jalur per zona) — nested under zones
+    Route::prefix('zones/{zone}/route-stops')->name('route-stops.')->group(function () {
+        Route::get('/',         [RouteStopController::class, 'index'])->name('index');
+        Route::get('/create',   [RouteStopController::class, 'create'])->name('create');
+        Route::post('/',        [RouteStopController::class, 'store'])->name('store');
+        Route::get('/{routeStop}/edit', [RouteStopController::class, 'edit'])->name('edit');
+        Route::put('/{routeStop}',      [RouteStopController::class, 'update'])->name('update');
+        Route::delete('/{routeStop}',   [RouteStopController::class, 'destroy'])->name('destroy');
+        Route::patch('/assign-customer',[RouteStopController::class, 'assignCustomer'])->name('assign-customer');
+    });
     
     // Customer routes
     Route::resource('customers', CustomerController::class);
