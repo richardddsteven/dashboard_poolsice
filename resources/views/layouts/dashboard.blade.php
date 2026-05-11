@@ -361,6 +361,85 @@
             border-color: #CBD5E1;
         }
 
+        /* ========== Loading Overlay ========== */
+        .loading-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.42);
+            backdrop-filter: blur(6px);
+            -webkit-backdrop-filter: blur(6px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+            transition: opacity 0.2s ease, visibility 0.2s ease;
+            z-index: 10000;
+            overflow: hidden;
+        }
+        .loading-overlay.show {
+            opacity: 1;
+            visibility: visible;
+            pointer-events: all;
+        }
+        .loading-panel {
+            position: relative;
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            justify-content: center;
+            gap: 14px;
+            overflow: hidden;
+            transform: translateY(0);
+        }
+        .loading-bars {
+            display: flex;
+            align-items: flex-end;
+            gap: 5px;
+            height: 58px;
+            margin-bottom: 0;
+            z-index: 1;
+        }
+        .loading-bars span {
+            width: 5px;
+            height: var(--bar-height);
+            border-radius: 999px;
+            background: linear-gradient(180deg, #2563eb 100%, #2563eb 100%);
+            box-shadow: 0 0 18px rgba(37, 99, 235, 0.45);
+            transform-origin: center bottom;
+            animation: loadingBarPulse 1.05s ease-in-out infinite;
+            animation-delay: var(--bar-delay);
+        }
+        .loading-subtitle {
+            z-index: 1;
+            color: rgba(255, 255, 255, 0.82);
+            font-size: 14px;
+            font-weight: 500;
+            letter-spacing: 0.01em;
+            line-height: 1.2;
+        }
+        @keyframes loadingBarPulse {
+            0%, 100% {
+                transform: scaleY(0.72);
+                opacity: 0.74;
+            }
+            50% {
+                transform: scaleY(1.1);
+                opacity: 1;
+            }
+        }
+        @media (max-width: 640px) {
+            .loading-panel { gap: 10px; }
+            .loading-subtitle { font-size: 13px; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .loading-panel,
+            .loading-bars span {
+                animation: none;
+            }
+        }
+
         /* ========== Forms ========== */
         .form-control, .form-select, .search-input {
             padding: 11px 16px;
@@ -793,6 +872,20 @@
         </main>
     </div>
 
+    <div id="globalLoadingOverlay" class="loading-overlay" aria-hidden="true">
+        <div class="loading-panel" role="status" aria-live="polite">
+            <div class="loading-bars" aria-hidden="true">
+                <span style="--bar-height: 26px; --bar-delay: 0ms;"></span>
+                <span style="--bar-height: 36px; --bar-delay: 90ms;"></span>
+                <span style="--bar-height: 22px; --bar-delay: 180ms;"></span>
+                <span style="--bar-height: 42px; --bar-delay: 270ms;"></span>
+                <span style="--bar-height: 28px; --bar-delay: 360ms;"></span>
+                <span style="--bar-height: 20px; --bar-delay: 450ms;"></span>
+            </div>
+            <div class="loading-subtitle">Memuat...</div>
+        </div>
+    </div>
+
     <script>
         function toggleSidebar() {
             const sidebar = document.getElementById('sidebar');
@@ -875,6 +968,111 @@
             pollNewOrdersOnly();
             setInterval(pollNewOrdersOnly, 5000);
         });
+    </script>
+
+    <script>
+        (function() {
+            const loadingOverlay = document.getElementById('globalLoadingOverlay');
+
+            if (!loadingOverlay) {
+                return;
+            }
+
+            let autoHideTimer = null;
+
+            function showLoadingOverlay() {
+                if (autoHideTimer) {
+                    clearTimeout(autoHideTimer);
+                    autoHideTimer = null;
+                }
+                loadingOverlay.classList.add('show');
+                loadingOverlay.setAttribute('aria-hidden', 'false');
+            }
+
+            function hideLoadingOverlay() {
+                loadingOverlay.classList.remove('show');
+                loadingOverlay.setAttribute('aria-hidden', 'true');
+            }
+
+            function shouldSkipLoading(target) {
+                if (!target) {
+                    return true;
+                }
+
+                if (target.closest('[data-no-loading]')) {
+                    return true;
+                }
+
+                if (target.matches('.toast-close, .hamburger, [onclick*="toggleSidebar"], [onclick*="toggleSubmenu"]')) {
+                    return true;
+                }
+
+                const onclick = String(target.getAttribute('onclick') || '').toLowerCase();
+                if (onclick.includes('window.print') || onclick.includes('confirm') || onclick.includes('deletemodal') || onclick.includes('opendeletemodal') || onclick.includes('showdeletemodal') || onclick.includes('hapus')) {
+                    return true;
+                }
+
+                const form = target.closest('form');
+                if (!form) {
+                    return false;
+                }
+
+                const onsubmit = String(form.getAttribute('onsubmit') || '').toLowerCase();
+                const hasDeleteMethod = form.querySelector('input[name="_method"][value="DELETE"]') !== null;
+                const hasDeferredConfirmFlow = onsubmit.includes('preventdefault') || onsubmit.includes('deletemodal') || onsubmit.includes('modal');
+                const hasNativeConfirmFlow = onsubmit.includes('confirm');
+
+                return hasDeleteMethod && (hasDeferredConfirmFlow || hasNativeConfirmFlow);
+            }
+
+            document.addEventListener('click', function(event) {
+                const target = event.target.closest('button, a, input[type="submit"], input[type="button"]');
+
+                if (!target || shouldSkipLoading(target)) {
+                    return;
+                }
+
+                if (target.tagName === 'A' && (!target.getAttribute('href') || target.getAttribute('href').startsWith('#'))) {
+                    return;
+                }
+
+                if (target.disabled) {
+                    return;
+                }
+
+                const shouldShow = target.matches('button:not([type="button"]), input[type="submit"], a.btn, button.btn');
+
+                if (shouldShow) {
+                    showLoadingOverlay();
+                    autoHideTimer = setTimeout(function() {
+                        hideLoadingOverlay();
+                    }, 1000);
+                }
+            }, true);
+
+            document.addEventListener('submit', function(event) {
+                const form = event.target;
+
+                if (!form) {
+                    return;
+                }
+
+                const onsubmit = String(form.getAttribute('onsubmit') || '').toLowerCase();
+                const hasDeleteMethod = form.querySelector('input[name="_method"][value="DELETE"]') !== null;
+                const hasDeferredConfirmFlow = onsubmit.includes('preventdefault') || onsubmit.includes('deletemodal') || onsubmit.includes('modal');
+
+                if (form.closest('[data-no-loading]') || (hasDeleteMethod && hasDeferredConfirmFlow)) {
+                    return;
+                }
+
+                showLoadingOverlay();
+            }, true);
+
+            window.addEventListener('beforeunload', showLoadingOverlay);
+            window.addEventListener('beforeprint', hideLoadingOverlay);
+            window.addEventListener('afterprint', hideLoadingOverlay);
+            window.addEventListener('pageshow', hideLoadingOverlay);
+        })();
     </script>
     
     <!-- Toast Notification -->

@@ -50,7 +50,7 @@
             <label style="display:block; font-size:0.75rem; font-weight:600; color:var(--text-muted); margin-bottom:8px; text-transform: uppercase;">Bulan</label>
             <div class="custom-select-wrapper" id="monthFilterSelectWrapper" style="width: 100%;">
                 <div class="custom-select-trigger form-control" onclick="toggleMonthFilterSelect()" style="display: flex; justify-content: space-between; align-items: center; border-radius: 8px;">
-                    <span id="monthFilterSelectText">{{ \Carbon\Carbon::createFromDate(null, $filterMonth, 1)->format('F') }}</span>
+                    <span id="monthFilterSelectText">{{ $filterMonth ? \Carbon\Carbon::createFromDate(null, $filterMonth, 1)->format('F') : 'Pilih bulan' }}</span>
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="select-icon"><path d="M6 9l6 6 6-6"/></svg>
                 </div>
                 <div class="custom-options">
@@ -66,7 +66,7 @@
             <label style="display:block; font-size:0.75rem; font-weight:600; color:var(--text-muted); margin-bottom:8px; text-transform: uppercase;">Tahun</label>
             <div class="custom-select-wrapper" id="yearFilterSelectWrapper" style="width: 100%;">
                 <div class="custom-select-trigger form-control" onclick="toggleYearFilterSelect()" style="display: flex; justify-content: space-between; align-items: center; border-radius: 8px;">
-                    <span id="yearFilterSelectText">{{ $filterYear }}</span>
+                    <span id="yearFilterSelectText">{{ $filterYear ?: date('Y') }}</span>
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="select-icon"><path d="M6 9l6 6 6-6"/></svg>
                 </div>
                 <div class="custom-options">
@@ -74,7 +74,7 @@
                         <div class="custom-option {{ $filterYear == $y ? 'selected' : '' }}" data-value="{{ $y }}" onclick="selectYearFilterOption(this)">{{ $y }}</div>
                     @endforeach
                 </div>
-                <input type="hidden" name="filter_year" id="filter_year" value="{{ $filterYear }}">
+                <input type="hidden" name="filter_year" id="filter_year" value="{{ $filterYear ?: date('Y') }}">
             </div>
         </div>
 

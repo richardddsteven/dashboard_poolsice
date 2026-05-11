@@ -19,6 +19,10 @@ class FinanceController extends Controller
         $filterMonth = $request->input('filter_month');   // 1-12
         $filterYear  = $request->input('filter_year');    // YYYY
 
+        if ($filterType === 'month' && $filterMonth && ! $filterYear) {
+            $filterYear = date('Y');
+        }
+
         // Helper closure untuk menerapkan filter tanggal pada query
         $applyFilter = function ($query) use ($filterType, $filterDate, $filterStart, $filterEnd, $filterMonth, $filterYear) {
             if ($filterType === 'date' && $filterDate) {
@@ -138,6 +142,10 @@ class FinanceController extends Controller
         $filterEnd   = $request->input('filter_end');
         $filterMonth = $request->input('filter_month');
         $filterYear  = $request->input('filter_year');
+
+        if ($filterType === 'month' && $filterMonth && ! $filterYear) {
+            $filterYear = date('Y');
+        }
 
         $applyFilter = function ($query) use ($filterType, $filterDate, $filterStart, $filterEnd, $filterMonth, $filterYear) {
             if ($filterType === 'date' && $filterDate) {

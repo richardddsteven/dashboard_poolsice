@@ -13,7 +13,7 @@
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="me-2"><path d="M19 12H5"/><path d="M12 19L5 12L12 5"/></svg>
             Kembali
         </a>
-        <button class="btn btn-primary" onclick="window.print()">
+        <button type="button" class="btn btn-primary" data-no-loading onclick="window.print();">
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="me-2"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
             Cetak PDF
         </button>
@@ -89,7 +89,7 @@
                             <div class="custom-option {{ ($filterYear ?? '') == $y ? 'selected' : '' }}" data-value="{{ $y }}" onclick="selectYearFilterOption(this)">{{ $y }}</div>
                         @endforeach
                     </div>
-                    <input type="hidden" name="filter_year" id="filter_year" value="{{ $filterYear }}">
+                    <input type="hidden" name="filter_year" id="filter_year" value="{{ $filterYear ?: date('Y') }}">
                 </div>
             </div>
             
@@ -240,6 +240,7 @@
 @media print {
     @page { size: landscape; margin: 15mm; }
     body { background: white !important; margin: 0; padding: 0; }
+    .loading-overlay { display: none !important; }
     
     .topbar, .sidebar, .page-header, .no-print { 
         display: none !important; 
