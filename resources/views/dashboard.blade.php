@@ -215,7 +215,7 @@
                             <span class="dash-status-pill dash-status-neutral">{{ ucfirst($order->status) }}</span>
                             @endif
                         </td>
-                        <td style="font-size: 14px; color: #94A3B8;">{{ $order->created_at->diffForHumans() }}</td>
+                        <td style="font-size: 14px; color: #94A3B8;">{{ $order->created_at->locale('id')->diffForHumans() }}</td>
                     </tr>
                     @empty
                     <tr>

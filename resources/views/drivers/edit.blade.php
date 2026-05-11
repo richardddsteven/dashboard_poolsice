@@ -34,10 +34,6 @@
                 <input type="text" id="phone" name="phone" class="form-control" value="{{ old('phone', $driver->phone) }}" required>
             </div>
             <div>
-                <label for="password" style="display: block; margin-bottom: 6px; font-weight: 600; font-size: 14px; color: var(--text-main);">Password <span style="color: var(--text-muted);">(kosongkan jika tidak ingin mengubah)</span></label>
-                <input type="password" id="password" name="password" class="form-control" placeholder="Masukkan password baru">
-            </div>
-            <div>
                 <label for="zone_id" style="display: block; margin-bottom: 6px; font-weight: 600; font-size: 14px; color: var(--text-main);">Zona <span style="color: #EF4444;">*</span></label>
                 <div class="custom-select-wrapper" id="zoneSelectWrapper">
                     <div class="custom-select-trigger" onclick="document.getElementById('zoneSelectWrapper').classList.toggle('open')">
@@ -51,6 +47,10 @@
                     </div>
                     <input type="hidden" name="zone_id" id="zoneInput" value="{{ old('zone_id', $driver->zone_id) }}">
                 </div>
+            </div>
+            <div>
+                <label for="password" style="display: block; margin-bottom: 6px; font-weight: 600; font-size: 14px; color: var(--text-main);">Password <span style="color: var(--text-muted);">(kosongkan jika tidak ingin mengubah)</span></label>
+                <input type="password" id="password" name="password" class="form-control" placeholder="Masukkan password baru">
             </div>
             <div style="padding-top: 8px;">
                 <button type="submit" class="btn btn-primary">Simpan Perubahan</button>

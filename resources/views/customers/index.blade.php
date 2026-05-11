@@ -243,11 +243,16 @@
                                 </div>
                             </td>
                             <td><span style="font-size: 14px; color: var(--text-secondary); font-weight: 500;">{{ ucfirst($customer->zone ?? '-') }}</span></td>
-                            <td style="color: var(--text-muted); font-size: 14px;">{{ $customer->created_at ? $customer->created_at->diffForHumans() : '-' }}</td>
+                            <td style="color: var(--text-muted); font-size: 14px;">{{ $customer->created_at ? $customer->created_at->locale('id')->diffForHumans() : '-' }}</td>
                             <td style="text-align: right;">
                                 <a href="{{ route('customers.edit', $customer) }}" class="btn btn-secondary" style="padding: 4px 10px; font-size: 13px;" title="Edit">
                                     Edit
                                 </a>
+                                <form action="{{ route('customers.destroy', $customer) }}" method="POST" data-customer-name="{{ $customer->name }}" onsubmit="event.preventDefault(); showCustomerDeleteModal(this);" style="display:inline-block; margin-left:8px;">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button type="submit" class="btn" style="padding:4px 10px; font-size:13px; background:#fff; border:1px solid #FEE2E2; color:#DC2626; border-radius:8px;">Delete</button>
+                                </form>
                             </td>
                         </tr>
                         @endforeach
