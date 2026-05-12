@@ -11,7 +11,7 @@ class DriverController extends Controller
 {
     public function index(Request $request)
     {
-        $query = Driver::with('zone')->withCount(['orders as completed_orders_count' => function ($q) {
+        $query = Driver::with(['zone', 'currentRouteStop'])->withCount(['orders as completed_orders_count' => function ($q) {
             $q->where('status', 'completed');
         }]);
 

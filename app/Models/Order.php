@@ -3,9 +3,19 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use App\Services\RouteRoutingService;
+use Illuminate\Support\Facades\Log;
 
 class Order extends Model
 {
+    /**
+     * Cache hasil hitung jarak per request agar pasangan order-driver
+     * tidak dihitung/log dua kali dalam satu siklus proses.
+     *
+     * @var array<string, array{route_distance_meters: float|null, straight_distance_meters: float|null}>
+     */
+    private static array $distanceInfoCache = [];
+
     protected $fillable = [
         'customer_id',
         'driver_id',
@@ -136,24 +146,173 @@ class Order extends Model
 
         // Jalur customer >= jalur supir saat ini → di depan/sama → TERIMA
         if ($customerIndex >= $driverIndex) {
+            Log::info('[Routing] Jarak supir-customer diterima karena customer berada di depan/sama jalur.', [
+                'order_id' => $order->id,
+                'driver_id' => $driver->id,
+                'driver_stop_id' => $driverStop->id,
+                'customer_stop_id' => $customerStop->id,
+                'driver_index' => $driverIndex,
+                'customer_index' => $customerIndex,
+                'distance_meters' => null,
+                'reason' => 'customer_ahead_or_same',
+            ]);
+
             return true;
         }
 
-        // Jalur customer lebih dari 1 langkah di belakang supir → TOLAK LANGSUNG
-        if ($customerIndex < $driverIndex - 1) {
-            return false;
+        $distanceInfo = self::driverCustomerDistanceInfo($order, $driver);
+
+        // Jalur customer berada di belakang supir.
+        // Gunakan jarak jalan nyata antar jalur sebagai proxy apakah masih layak
+        // untuk putar balik atau ambil order balik arah.
+        $routeDistanceMeters = $distanceInfo['route_distance_meters'];
+
+        if ($routeDistanceMeters !== null) {
+            $eligible = $routeDistanceMeters <= self::maxBacktrackDistanceMeters();
+
+            Log::info('[Routing] Jarak supir-customer dihitung lewat Google Maps.', [
+                'order_id' => $order->id,
+                'driver_id' => $driver->id,
+                'driver_stop_id' => $driverStop->id,
+                'customer_stop_id' => $customerStop->id,
+                'driver_index' => $driverIndex,
+                'customer_index' => $customerIndex,
+                'distance_meters' => $routeDistanceMeters,
+                'fallback_straight_distance_meters' => $distanceInfo['straight_distance_meters'],
+                'max_backtrack_distance_meters' => self::maxBacktrackDistanceMeters(),
+                'eligible' => $eligible,
+                'source' => 'google_maps_directions',
+            ]);
+
+            return $eligible;
         }
 
-        // Jalur customer tepat 1 langkah di belakang supir:
-        // TERIMA HANYA JIKA order dibuat dalam 15 menit terakhir
-        if ($customerIndex == $driverIndex - 1) {
-            if ($order->created_at && $order->created_at->diffInMinutes(now()) <= 15) {
-                return true;
-            } else {
-                return false;
-            }
+        // Fallback jika routing API gagal: pakai jarak lurus agar sistem tetap berjalan.
+        $straightDistanceMeters = $distanceInfo['straight_distance_meters'];
+
+        Log::info('[Routing] Jarak supir-customer dihitung lewat fallback jarak lurus.', [
+            'order_id' => $order->id,
+            'driver_id' => $driver->id,
+            'driver_stop_id' => $driverStop->id,
+            'customer_stop_id' => $customerStop->id,
+            'driver_index' => $driverIndex,
+            'customer_index' => $customerIndex,
+            'distance_meters' => $straightDistanceMeters,
+            'route_distance_meters' => null,
+            'max_backtrack_distance_meters' => self::maxBacktrackDistanceMeters(),
+            'eligible' => $straightDistanceMeters <= self::maxBacktrackDistanceMeters(),
+            'source' => 'straight_line_fallback',
+        ]);
+
+        return $straightDistanceMeters <= self::maxBacktrackDistanceMeters();
+    }
+
+    public static function driverCustomerDistanceInfo(self $order, \App\Models\Driver $driver): array
+    {
+        $cacheKey = $order->id . ':' . $driver->id;
+        if (array_key_exists($cacheKey, self::$distanceInfoCache)) {
+            return self::$distanceInfoCache[$cacheKey];
         }
 
-        return false;
+        $result = [
+            'route_distance_meters' => null,
+            'straight_distance_meters' => null,
+        ];
+
+        $freshDriver = $driver->fresh(['currentRouteStop']);
+        $freshOrder = $order->fresh(['customer.routeStop']);
+
+        if (!$freshDriver || !$freshOrder) {
+            Log::info('[Routing] Distance info skipped because order/driver could not be refreshed.', [
+                'order_id' => $order->id,
+                'driver_id' => $driver->id,
+            ]);
+            self::$distanceInfoCache[$cacheKey] = $result;
+
+            return $result;
+        }
+
+        $driver = $freshDriver;
+        $order = $freshOrder;
+
+        $driverStop = $driver->currentRouteStop;
+        $customerStop = $order->customer?->routeStop;
+
+        if (!$driverStop || !$customerStop) {
+            Log::info('[Routing] Distance info skipped because driver/customer route stop is missing.', [
+                'order_id' => $order->id,
+                'driver_id' => $driver->id,
+                'driver_stop_id' => $driverStop?->id,
+                'customer_stop_id' => $customerStop?->id,
+                'driver_has_stop' => (bool) $driverStop,
+                'customer_has_stop' => (bool) $customerStop,
+            ]);
+            self::$distanceInfoCache[$cacheKey] = $result;
+
+            return $result;
+        }
+
+        if (
+            abs((float) $driverStop->latitude) < 0.0001 ||
+            abs((float) $driverStop->longitude) < 0.0001 ||
+            abs((float) $customerStop->latitude) < 0.0001 ||
+            abs((float) $customerStop->longitude) < 0.0001
+        ) {
+            Log::warning('[Routing] Invalid route stop coordinates detected, skipping distance calculation.', [
+                'order_id' => $order->id,
+                'driver_id' => $driver->id,
+                'driver_stop_id' => $driverStop->id,
+                'driver_latitude' => (float) $driverStop->latitude,
+                'driver_longitude' => (float) $driverStop->longitude,
+                'customer_stop_id' => $customerStop->id,
+                'customer_latitude' => (float) $customerStop->latitude,
+                'customer_longitude' => (float) $customerStop->longitude,
+            ]);
+
+            self::$distanceInfoCache[$cacheKey] = $result;
+
+            return $result;
+        }
+
+        Log::info('[Routing] Calculating driver-customer distance using route stops.', [
+            'order_id' => $order->id,
+            'driver_id' => $driver->id,
+            'driver_stop_id' => $driverStop->id,
+            'driver_stop_name' => $driverStop->name,
+            'driver_stop_index' => $driverStop->order_index,
+            'driver_latitude' => (float) $driverStop->latitude,
+            'driver_longitude' => (float) $driverStop->longitude,
+            'customer_stop_id' => $customerStop->id,
+            'customer_stop_name' => $customerStop->name,
+            'customer_stop_index' => $customerStop->order_index,
+            'customer_latitude' => (float) $customerStop->latitude,
+            'customer_longitude' => (float) $customerStop->longitude,
+        ]);
+
+        $routeDistanceMeters = app(RouteRoutingService::class)->roadDistanceMeters(
+            (float) $driverStop->latitude,
+            (float) $driverStop->longitude,
+            (float) $customerStop->latitude,
+            (float) $customerStop->longitude
+        );
+
+        $straightDistanceMeters = $driverStop->distanceMetersFrom(
+            (float) $customerStop->latitude,
+            (float) $customerStop->longitude
+        );
+
+        $result = [
+            'route_distance_meters' => $routeDistanceMeters,
+            'straight_distance_meters' => $straightDistanceMeters,
+        ];
+
+        self::$distanceInfoCache[$cacheKey] = $result;
+
+        return $result;
+    }
+
+    public static function maxBacktrackDistanceMeters(): int
+    {
+        return (int) config('services.routing.max_backtrack_distance_meters', env('ROUTING_MAX_BACKTRACK_DISTANCE_METERS', 1000));
     }
 }

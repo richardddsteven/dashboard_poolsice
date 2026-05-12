@@ -51,4 +51,16 @@ return [
         'credentials' => env('FIREBASE_CREDENTIALS', 'storage/app/firebase-service-account.json'),
     ],
 
+    'routing' => [
+        'max_backtrack_distance_meters' => env('ROUTING_MAX_BACKTRACK_DISTANCE_METERS', 1000),
+        'timeout' => env('ROUTING_API_TIMEOUT', 8),
+        'google_maps' => [
+            'api_key'  => env('GOOGLE_MAPS_API_KEY'),
+            'endpoint' => env('GOOGLE_MAPS_DIRECTIONS_ENDPOINT', 'https://maps.googleapis.com/maps/api/directions/json'),
+            'mode'     => env('GOOGLE_MAPS_DIRECTIONS_MODE', 'driving'),
+            'language' => env('GOOGLE_MAPS_DIRECTIONS_LANGUAGE', 'id'),
+            'region'   => env('GOOGLE_MAPS_DIRECTIONS_REGION', 'id'),
+        ],
+    ],
+
 ];
