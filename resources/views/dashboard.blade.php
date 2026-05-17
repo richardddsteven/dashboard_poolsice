@@ -12,6 +12,22 @@
         <span>{{ \Carbon\Carbon::now()->locale('id')->translatedFormat('l, d F Y') }}</span>
     </div>
 </form>
+<div id="routeUpdateBanner"
+    class="alert route-update-banner"
+    style="{{ !empty($routeUpdateNotice) ? '' : 'display: none;' }}">
+    <div style="min-width: 0;">
+        <div style="font-weight: 700; margin-bottom: 4px;">Perlu update alur jalur</div>
+        <div id="routeUpdateBannerText" style="line-height: 1.5;">
+            {{ $routeUpdateNotice['message'] ?? '' }}
+        </div>
+    </div>
+    <a id="routeUpdateBannerLink"
+       href="{{ $routeUpdateNotice['action_url'] ?? '#' }}"
+       style="display: inline-flex; align-items: center; gap: 8px; padding: 10px 14px; border-radius: 10px; background: #92400E; color: #fff; text-decoration: none; font-weight: 600; white-space: nowrap;">
+        Buka Jalur
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"></path><path d="M13 5l7 7-7 7"></path></svg>
+    </a>
+</div>
 
 <!-- Stat Cards Row (3 cards like reference) -->
 <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 24px;">
@@ -54,23 +70,20 @@
         </div>
     </div>
 
-    <!-- Pesanan Pending -->
+    <!-- Total Supir -->
     <div class="dash-stat-card">
         <div class="dash-stat-header">
             <div class="dash-stat-icon" style="color: #3B82F6;">
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/></svg>
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
             </div>
-            <span class="dash-stat-label">Pesanan Pending</span>
-            <!-- <div style="margin-left: auto; cursor: pointer; color: #CBD5E1;">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
-            </div> -->
+            <span class="dash-stat-label">Total Supir</span>
         </div>
         <div class="dash-stat-body">
-            <span class="dash-stat-value" id="dashboard-pending-count">{{ number_format($pendingOrders) }}</span>
-            @if($pendingOrders > 0)
-            <span class="dash-stat-badge badge-warning">perlu ditinjau</span>
+            <span class="dash-stat-value" id="dashboard-driver-count">{{ number_format($totalDrivers) }}</span>
+            @if($totalDrivers > 0)
+            <span class="dash-stat-badge badge-up">aktif</span>
             @else
-            <span class="dash-stat-badge badge-up">semua selesai</span>
+            <span class="dash-stat-badge badge-neutral">belum ada supir</span>
             @endif
         </div>
     </div>
@@ -192,7 +205,7 @@
                     <tr>
                         <td>
                             <div style="display: flex; align-items: center; gap: 10px;">
-                                <div class="dash-avatar" style="background: {{ ['#EDE9FE','#DBEAFE','#D1FAE5','#FEF3C7','#FCE7F3'][($loop->index % 5)] }}; color: {{ ['#7C3AED','#3B82F6','#10B981','#F59E0B','#EC4899'][($loop->index % 5)] }};">
+                                <div class="dash-avatar" style="background: var(--bg-body);color: var(--text-muted);">
                                     {{ $order->customer ? strtoupper(substr($order->customer->name, 0, 1)) : 'U' }}
                                 </div>
                                 <div>
@@ -266,7 +279,7 @@
             @foreach($topCustomers as $customer)
             <div class="dash-customer-row">
                 <div style="display: flex; align-items: center; gap: 12px;">
-                    <div class="dash-avatar" style="background: {{ ['#EDE9FE','#DBEAFE','#D1FAE5','#FEF3C7','#FCE7F3'][($loop->index % 5)] }}; color: {{ ['#7C3AED','#3B82F6','#10B981','#F59E0B','#EC4899'][($loop->index % 5)] }};">
+                    <div class="dash-avatar" style="background: var(--bg-body);color: var(--text-muted);">
                         {{ strtoupper(substr($customer->name, 0, 1)) }}
                     </div>
                     <div>
@@ -332,6 +345,17 @@
     .badge-down { background: #FEE2E2; color: #DC2626; }
     .badge-warning { background: #FEF3C7; color: #D97706; }
     .badge-neutral { background: #F1F5F9; color: #64748B; }
+    .route-update-banner {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 16px;
+        flex-wrap: wrap;
+        background: #FFFBEB;
+        color: #92400E;
+        border: 1px solid #FDE68A;
+        margin-bottom: 24px;
+    }
 
     .dash-card {
         background: #fff;
@@ -343,6 +367,7 @@
     .dash-card-header {
         display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;
     }
+
     .dash-card-title { font-size: 16px; font-weight: 600; color: #1E293B; }
 
     .dash-table { width: 100%; border-collapse: collapse; }
@@ -659,4 +684,35 @@ document.addEventListener('DOMContentLoaded', function() {
     @endif
 });
 </script>
+
+    @push('scripts')
+    <script>
+        (function() {
+            const banner = document.getElementById('routeUpdateBanner');
+            const bannerText = document.getElementById('routeUpdateBannerText');
+            const bannerLink = document.getElementById('routeUpdateBannerLink');
+
+            function renderRouteUpdateBanner(notice) {
+                if (!banner || !bannerText || !bannerLink || !notice) {
+                    return;
+                }
+
+                bannerText.textContent = notice.message || '';
+                bannerLink.href = notice.action_url || '#';
+                banner.style.display = 'flex';
+            }
+
+            window.addEventListener('realtime:new-order', (event) => {
+                const detail = event.detail || {};
+                if (detail.routeUpdateNotice) {
+                    renderRouteUpdateBanner(detail.routeUpdateNotice);
+                }
+            });
+
+            if (banner && bannerText && bannerLink && bannerText.textContent.trim() !== '') {
+                banner.style.display = 'flex';
+            }
+        })();
+    </script>
+    @endpush
 @endsection

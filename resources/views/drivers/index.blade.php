@@ -88,9 +88,32 @@
                             @endif
                         </td>
                         <td>
-                            <span style="background: #ECFDF5; color: #059669; border: 1px solid #A7F3D0; padding: 4px 8px; border-radius: 6px; font-weight: 600; font-size: 13px; display: inline-block;">
+                            @php
+                                $completedOrdersTimelinePayload = [
+                                    'driver_name' => $driver->name,
+                                    'zone_name' => $driver->zone?->name,
+                                    'orders' => $driver->orders->map(function ($order) {
+                                        $createdAt = $order->created_at;
+                                        return [
+                                            'customer_name' => $order->customer?->name ?? 'Unknown',
+                                            'created_at' => $createdAt ? $createdAt->locale('id')->translatedFormat('d M Y, H:i') : '-',
+                                            'time_human' => $createdAt ? $createdAt->diffForHumans() : '-',
+                                            'date_key' => $createdAt ? $createdAt->format('Y-m-d') : '-',
+                                            'date_label' => $createdAt ? $createdAt->locale('id')->translatedFormat('l, d F Y') : '-',
+                                            'time_label' => $createdAt ? $createdAt->format('H:i') : '-',
+                                            'product_name' => $order->iceType?->name ?? 'Es Batu',
+                                            'quantity' => $order->effective_quantity,
+                                            'status' => $order->status,
+                                        ];
+                                    })->values(),
+                                ];
+                            @endphp
+                            <button type="button"
+                                class="completed-orders-pill"
+                                data-timeline='@json($completedOrdersTimelinePayload)'
+                                onclick="openCompletedOrdersTimeline(JSON.parse(this.dataset.timeline))">
                                 {{ $driver->completed_orders_count }} Order
-                            </span>
+                            </button>
                         </td>
                         <td>
                             <div style="display: flex; justify-content: center; gap: 6px;">
@@ -109,6 +132,26 @@
             </table>
         </div>
     @endif
+</div>
+
+<!-- Completed Orders Timeline Modal -->
+<div id="completedOrdersTimelineModal" style="display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.55); z-index: 1100; align-items: center; justify-content: center; padding: 16px;">
+    <div style="width: 100%; max-width: 720px; background: #fff; border-radius: 20px; box-shadow: 0 30px 60px rgba(15, 23, 42, 0.18); overflow: hidden; animation: modalFadeIn 0.25s ease;">
+        <div style="padding: 22px 24px; border-bottom: 1px solid #E2E8F0; display: flex; justify-content: space-between; gap: 16px; align-items: flex-start;">
+            <div>
+                <div style="font-size: 13px; color: #64748B; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em;">Timeline Order Selesai</div>
+                <h3 id="timelineDriverName" style="margin: 6px 0 0; font-size: 22px; color: #0F172A;">-</h3>
+                <p id="timelineDriverMeta" style="margin: 6px 0 0; color: #64748B; font-size: 14px;">-</p>
+            </div>
+            <button type="button" onclick="closeCompletedOrdersTimeline()" style="width: 38px; height: 38px; border-radius: 12px; border: 1px solid #E2E8F0; background: #fff; color: #475569; cursor: pointer;">✕</button>
+        </div>
+        <div style="padding: 24px; max-height: 70vh; overflow-y: auto;">
+            <div id="timelineEmptyState" style="display: none; text-align: center; padding: 28px 12px; color: #94A3B8;">
+                Belum ada order selesai untuk supir ini.
+            </div>
+            <div id="completedOrdersTimelineList" class="completed-orders-timeline"></div>
+        </div>
+    </div>
 </div>
 
 <!-- Delete Modal -->
@@ -155,11 +198,167 @@
         color: var(--text-muted);
         line-height: 1.4;
     }
+    .completed-orders-pill {
+        background: #ECFDF5;
+        color: #059669;
+        border: 1px solid #A7F3D0;
+        padding: 4px 10px;
+        border-radius: 999px;
+        font-weight: 600;
+        font-size: 13px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+    .completed-orders-pill:hover {
+        background: #D1FAE5;
+        transform: translateY(-1px);
+    }
+    .completed-orders-timeline {
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+        position: relative;
+    }
+    .timeline-group {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+        padding-left: 6px;
+    }
+    .timeline-date-separator {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        color: #64748B;
+        font-size: 12px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        margin: 4px 0;
+    }
+    .timeline-date-separator::before,
+    .timeline-date-separator::after {
+        content: '';
+        height: 1px;
+        background: #E2E8F0;
+        flex: 1;
+    }
+    .timeline-item {
+        display: grid;
+        grid-template-columns: 38px 1fr;
+        gap: 12px;
+        align-items: flex-start;
+    }
+    .timeline-group::before {
+        content: '';
+        position: absolute;
+        left: 24px;
+        top: 50px;
+        bottom: 12px;
+        width: 2px;
+        background: linear-gradient(180deg, #D7E4FF 0%, #BFDBFE 55%, #E2E8F0 100%);
+        border-radius: 999px;
+        z-index: 0;
+    }
+    .timeline-rail {
+        position: relative;
+        display: flex;
+        justify-content: center;
+        align-items: flex-start;
+        z-index: 1;
+    }
+    .timeline-marker {
+        width: 20px;
+        height: 20px;
+        border-radius: 999px;
+        background: linear-gradient(135deg, #3B82F6, #2563EB);
+        border: 3px solid #fff;
+        box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.18), 0 6px 14px rgba(37, 99, 235, 0.16);
+        margin-top: 2px;
+        position: relative;
+        z-index: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #fff;
+    }
+    .timeline-marker svg {
+        width: 11px;
+        height: 11px;
+    }
+    .timeline-card {
+        background: linear-gradient(180deg, #FFFFFF 0%, #F8FAFC 100%);
+        border: 1px solid #E2E8F0;
+        border-radius: 16px;
+        padding: 16px 18px;
+        box-shadow: 0 6px 18px rgba(15, 23, 42, 0.035);
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .timeline-card:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 12px 28px rgba(15, 23, 42, 0.06);
+    }
+    .timeline-card-top {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        align-items: flex-start;
+        flex-wrap: wrap;
+        margin-bottom: 8px;
+    }
+    .timeline-customer {
+        font-size: 16px;
+        font-weight: 700;
+        color: #0F172A;
+        margin: 0;
+    }
+    .timeline-meta {
+        font-size: 13px;
+        color: #64748B;
+        margin: 0;
+    }
+    .timeline-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 5px 10px;
+        border-radius: 999px;
+        background: #EFF6FF;
+        color: #1D4ED8;
+        font-size: 12px;
+        font-weight: 700;
+        white-space: nowrap;
+    }
+    .timeline-subline {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        align-items: center;
+        margin-top: 10px;
+        color: #64748B;
+        font-size: 13px;
+    }
+    .timeline-status-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 10px;
+        border-radius: 999px;
+        background: #ECFDF5;
+        color: #059669;
+        font-size: 12px;
+        font-weight: 700;
+    }
 </style>
 
 @push('scripts')
 <script>
     let driverIdToDelete = null;
+    let completedOrdersTimelinePayload = null;
 
     function confirmDelete(id) {
         driverIdToDelete = id;
@@ -176,6 +375,99 @@
         if (e.target === this) closeDeleteModal();
     });
 
+    function openCompletedOrdersTimeline(payload) {
+        completedOrdersTimelinePayload = payload || { orders: [] };
+        const modal = document.getElementById('completedOrdersTimelineModal');
+        const nameEl = document.getElementById('timelineDriverName');
+        const metaEl = document.getElementById('timelineDriverMeta');
+        const listEl = document.getElementById('completedOrdersTimelineList');
+        const emptyEl = document.getElementById('timelineEmptyState');
+
+        if (!modal || !nameEl || !metaEl || !listEl || !emptyEl) {
+            return;
+        }
+
+        nameEl.textContent = completedOrdersTimelinePayload.driver_name || 'Supir';
+        metaEl.textContent = completedOrdersTimelinePayload.zone_name
+            ? `Zona ${completedOrdersTimelinePayload.zone_name}`
+            : 'Data order selesai supir';
+
+        const orders = completedOrdersTimelinePayload.orders || [];
+        if (!orders.length) {
+            listEl.innerHTML = '';
+            emptyEl.style.display = 'block';
+        } else {
+            emptyEl.style.display = 'none';
+            const groupedOrders = orders.reduce((groups, order) => {
+                const key = order.date_key || 'unknown';
+                if (!groups[key]) {
+                    groups[key] = {
+                        label: order.date_label || 'Tanggal tidak diketahui',
+                        items: [],
+                    };
+                }
+                groups[key].items.push(order);
+                return groups;
+            }, {});
+
+            listEl.innerHTML = Object.entries(groupedOrders).map(([dateKey, group]) => `
+                <div class="timeline-group">
+                    <div class="timeline-date-separator">${escapeHtml(group.label)}</div>
+                    <div style="display: flex; flex-direction: column; gap: 14px;">
+                        ${group.items.map((order, index) => `
+                            <div class="timeline-item">
+                                <div class="timeline-rail">
+                                    <div class="timeline-marker" aria-hidden="true">
+                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                            <path d="M20 6 9 17l-5-5"></path>
+                                        </svg>
+                                    </div>
+                                </div>
+                                <div class="timeline-card">
+                                    <div class="timeline-card-top">
+                                        <div>
+                                            <p class="timeline-customer">${escapeHtml(order.customer_name || 'Unknown')}</p>
+                                            <p class="timeline-meta">${escapeHtml(order.created_at || '-')}</p>
+                                        </div>
+                                        <span class="timeline-badge">${escapeHtml(order.product_name || 'Pesanan')} • ${Number(order.quantity || 1)} item</span>
+                                    </div>
+                                    <div class="timeline-subline">
+                                        <span class="timeline-status-chip">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                                <path d="M20 6 9 17l-5-5"></path>
+                                            </svg>
+                                            Selesai antar
+                                        </span>
+                                        <span>${escapeHtml(order.time_human || '-')}${order.time_label ? ' • ' + escapeHtml(order.time_label) : ''}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        modal.style.display = 'flex';
+    }
+
+    function closeCompletedOrdersTimeline() {
+        const modal = document.getElementById('completedOrdersTimelineModal');
+        if (modal) {
+            modal.style.display = 'none';
+        }
+        completedOrdersTimelinePayload = null;
+    }
+
+    function escapeHtml(value) {
+        return String(value)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
     function toggleZoneFilterSelect() { document.getElementById('zoneFilterSelectWrapper').classList.toggle('open'); }
     function selectZoneFilterOption(el) {
         document.getElementById('zoneFilterInput').value = el.dataset.value;
@@ -189,6 +481,12 @@
     document.addEventListener('click', function(e) {
         const w = document.getElementById('zoneFilterSelectWrapper');
         if (w && !w.contains(e.target)) w.classList.remove('open');
+    });
+
+    document.getElementById('completedOrdersTimelineModal').addEventListener('click', function(e) {
+        if (e.target === this) {
+            closeCompletedOrdersTimeline();
+        }
     });
 </script>
 @endpush

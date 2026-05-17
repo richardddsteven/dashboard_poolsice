@@ -39,9 +39,11 @@ class RouteStopController extends Controller
      */
     public function store(Request $request, Zone $zone)
     {
+        $maxIndex = ($zone->routeStops()->max('order_index') ?? 0) + 1;
+
         $validated = $request->validate([
             'name'          => 'required|string|max:100',
-            'order_index'   => 'required|integer|min:1',
+            'order_index'   => "required|integer|min:1|max:{$maxIndex}",
             'latitude'      => 'required|numeric|between:-90,90',
             'longitude'     => 'required|numeric|between:-180,180',
             'radius_meters' => 'required|integer|min:50|max:10000',
@@ -49,7 +51,20 @@ class RouteStopController extends Controller
 
         $validated['zone_id'] = $zone->id;
 
-        RouteStop::create($validated);
+        DB::transaction(function () use ($validated, $zone) {
+            $newIndex = (int) $validated['order_index'];
+
+            // Geser semua jalur yang urutan >= posisi baru ke atas (+1) dulu
+            // ORDER BY DESC agar tidak ada unique constraint conflict (5→6, 4→5, 3→4)
+            DB::statement(
+                'UPDATE route_stops SET order_index = order_index + 1
+                 WHERE zone_id = ? AND order_index >= ?
+                 ORDER BY order_index DESC',
+                [$zone->id, $newIndex]
+            );
+
+            RouteStop::create($validated);
+        });
 
         return redirect()
             ->route('route-stops.index', $zone)
@@ -75,15 +90,47 @@ class RouteStopController extends Controller
     {
         abort_if($routeStop->zone_id !== $zone->id, 404);
 
+        $totalStops = $zone->routeStops()->count();
+
         $validated = $request->validate([
             'name'          => 'required|string|max:100',
-            'order_index'   => 'required|integer|min:1',
+            'order_index'   => "required|integer|min:1|max:{$totalStops}",
             'latitude'      => 'required|numeric|between:-90,90',
             'longitude'     => 'required|numeric|between:-180,180',
             'radius_meters' => 'required|integer|min:50|max:10000',
         ]);
 
         DB::transaction(function () use ($routeStop, $validated, $zone) {
+            $oldIndex = (int) $routeStop->order_index;
+            $newIndex = (int) $validated['order_index'];
+
+            if ($oldIndex !== $newIndex) {
+                // Langkah 1: Bebaskan slot lama dengan set order_index sementara ke 0
+                // agar tidak ada unique constraint conflict saat menggeser jalur lain
+                DB::statement('UPDATE route_stops SET order_index = 0 WHERE id = ?', [$routeStop->id]);
+
+                if ($newIndex < $oldIndex) {
+                    // Pindah maju (misal 3→1): geser jalur [newIndex..oldIndex-1] ke bawah (+1)
+                    // ORDER BY DESC agar tidak ada unique constraint conflict
+                    DB::statement(
+                        'UPDATE route_stops SET order_index = order_index + 1
+                         WHERE zone_id = ? AND id != ? AND order_index >= ? AND order_index <= ?
+                         ORDER BY order_index DESC',
+                        [$zone->id, $routeStop->id, $newIndex, $oldIndex - 1]
+                    );
+                } else {
+                    // Pindah mundur (misal 2→3): geser jalur [oldIndex+1..newIndex] ke atas (-1)
+                    // ORDER BY ASC agar tidak ada unique constraint conflict
+                    DB::statement(
+                        'UPDATE route_stops SET order_index = order_index - 1
+                         WHERE zone_id = ? AND id != ? AND order_index >= ? AND order_index <= ?
+                         ORDER BY order_index ASC',
+                        [$zone->id, $routeStop->id, $oldIndex + 1, $newIndex]
+                    );
+                }
+            }
+
+            // Langkah 2: Update jalur ini ke posisi tujuan (dan field lainnya)
             $routeStop->update($validated);
 
             // Re-assign semua customer di zona ini berdasarkan koordinat terbaru jalur
@@ -116,7 +163,7 @@ class RouteStopController extends Controller
 
         return redirect()
             ->route('route-stops.index', $zone)
-            ->with('success', 'Jalur berhasil dihapus dan urutan diperbaiki.');
+            ->with('success', 'Jalur berhasil dihapus!');
     }
 
     /**

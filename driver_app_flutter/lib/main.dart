@@ -1259,38 +1259,13 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
           .whereType<Map<String, dynamic>>()
           .toList();
 
-      if (data.isEmpty) {
-        return;
-      }
-
-      for (final order in data) {
-        final orderId = order['id'] as int? ?? 0;
-        final orderZone = (order['zone'] as String? ?? '').toLowerCase();
-
-        final sameZone = orderZone == widget.zone.toLowerCase();
-        
-        if (!sameZone || orderId == 0) {
-          continue;
-        }
-      }
-
       setState(() {
-        for (final incoming in data) {
-          final incomingId = incoming['id'] as int? ?? 0;
-          if (incomingId == 0) {
-            continue;
-          }
-
-          final existingIndex = _orders.indexWhere(
-            (existing) => (existing['id'] as int? ?? 0) == incomingId,
-          );
-
-          if (existingIndex >= 0) {
-            _orders[existingIndex] = incoming;
-          } else {
-            _orders.add(incoming);
-          }
-        }
+        _orders
+          ..clear()
+          ..addAll(data.where((incoming) {
+            final incomingId = incoming['id'] as int? ?? 0;
+            return incomingId > 0;
+          }));
 
         _orders.sort((a, b) {
           final idA = a['id'] as int? ?? 0;

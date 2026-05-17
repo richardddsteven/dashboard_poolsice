@@ -8,6 +8,7 @@ use App\Models\Expense;
 use App\Models\Order;
 use App\Models\IceType;
 use App\Models\Stock;
+use App\Services\RouteUpdateNotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
@@ -109,6 +110,12 @@ class DashboardController extends Controller
             ->take(8)
             ->get();
 
+        // Notifikasi update jalur terbaru untuk dashboard admin
+        $latestRouteUpdateOrder = Order::with(['customer.routeStop.zone'])
+            ->latest('id')
+            ->first();
+        $routeUpdateNotice = app(RouteUpdateNotificationService::class)->buildFromOrder($latestRouteUpdateOrder);
+
         // Get recent orders
         $recentOrders = Order::with(['customer', 'iceType'])
             ->latest()
@@ -172,7 +179,8 @@ class DashboardController extends Controller
             'topCustomers',
             'pendingOrdersCount',
             'iceTypeStats',
-            'latestOrderId'
+            'latestOrderId',
+            'routeUpdateNotice'
         ));
     }
     

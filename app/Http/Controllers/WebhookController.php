@@ -150,7 +150,8 @@ class WebhookController extends Controller
                     $routeStopId = $this->detectRouteStopId(
                         $addressCoordinates['latitude'] ?? null,
                         $addressCoordinates['longitude'] ?? null,
-                        $detectedZone
+                        $detectedZone,
+                        $address
                     );
 
                     $customer->update([
@@ -170,7 +171,8 @@ class WebhookController extends Controller
                 $routeStopId = $this->detectRouteStopId(
                     $addressCoordinates['latitude'] ?? null,
                     $addressCoordinates['longitude'] ?? null,
-                    $detectedZone
+                    $detectedZone,
+                    $address
                 );
 
                 $customer->update([
@@ -250,6 +252,8 @@ class WebhookController extends Controller
 
     private function processOrder(string $phone, string $message, Customer $customer, Request $request, bool $skipValidation = false)
     {
+        $this->syncCustomerRouteStop($customer);
+
         Log::info('processOrder called', [
             'phone' => $phone,
             'message' => $message,
@@ -675,8 +679,10 @@ class WebhookController extends Controller
             return false;
         }
 
+        // Pesan generik seperti "mau pesen es om" jangan dianggap sebagai
+        // permintaan jenis es yang tidak tersedia. Biarkan masuk ke alur normal.
         if (preg_match('/\bes\b/i', $message) && preg_match('/\b(?:pesan|order|beli|mau|minta|kirim)\b/i', $messageLower)) {
-            return true;
+            return false;
         }
 
         return false;
@@ -777,9 +783,9 @@ class WebhookController extends Controller
 
     /**
      * Deteksi route_stop_id terbaik berdasarkan koordinat dan nama zona.
-     * Kombinasi: otomatis dari GPS + fallback null jika belum ada jalur di zona.
+     * Kombinasi: match nama jalan/alur dulu, lalu koordinat hanya jika jalur sudah dikenali.
      */
-    private function detectRouteStopId(?float $lat, ?float $lng, ?string $zoneName): ?int
+    private function detectRouteStopId(?float $lat, ?float $lng, ?string $zoneName, ?string $address = null): ?int
     {
         if (is_null($lat) || is_null($lng) || is_null($zoneName)) {
             return null;
@@ -794,20 +800,77 @@ class WebhookController extends Controller
             return null;
         }
 
-        $stop = RouteStop::detectForCoordinates($lat, $lng, $zone->id);
+        $stop = $this->detectRouteStopFromAddressContext($zone, $address);
 
-        if ($stop) {
-            Log::info('[RouteStop] Auto-detected jalur untuk customer.', [
-                'lat'           => $lat,
-                'lng'           => $lng,
-                'zone'          => $zoneName,
-                'route_stop_id' => $stop->id,
-                'stop_name'     => $stop->name,
-                'order_index'   => $stop->order_index,
-            ]);
+        if (!$stop) {
+            return null;
         }
 
+        Log::info('[RouteStop] Auto-detected jalur untuk customer.', [
+            'lat'           => $lat,
+            'lng'           => $lng,
+            'zone'          => $zoneName,
+            'route_stop_id' => $stop->id,
+            'stop_name'     => $stop->name,
+            'order_index'   => $stop->order_index,
+        ]);
+
         return $stop?->id;
+    }
+
+    private function syncCustomerRouteStop(Customer $customer): void
+    {
+        if ($customer->route_stop_id) {
+            return;
+        }
+
+        $routeStopId = $this->detectRouteStopId(
+            $customer->latitude !== null ? (float) $customer->latitude : null,
+            $customer->longitude !== null ? (float) $customer->longitude : null,
+            $customer->zone,
+            $customer->address
+        );
+
+        if (!$routeStopId) {
+            return;
+        }
+
+        $customer->update(['route_stop_id' => $routeStopId]);
+        $customer->refresh();
+
+        Log::info('[RouteStop] Customer route stop disinkronkan sebelum proses order.', [
+            'customer_id' => $customer->id,
+            'route_stop_id' => $routeStopId,
+            'zone' => $customer->zone,
+        ]);
+    }
+
+    /**
+     * Cari jalur yang namanya paling cocok dengan konteks alamat customer.
+     * Kalau tidak ada kecocokan, anggap jalurnya belum diinput admin.
+     */
+    private function detectRouteStopFromAddressContext(Zone $zone, ?string $address = null): ?RouteStop
+    {
+        $customerAddress = trim((string) $address);
+        if ($customerAddress === '') {
+            return null;
+        }
+
+        $normalizedAddress = $this->normalizeText($customerAddress);
+        if ($normalizedAddress === '') {
+            return null;
+        }
+
+        $stops = RouteStop::where('zone_id', $zone->id)->get();
+
+        foreach ($stops as $stop) {
+            $normalizedStopName = $this->normalizeText((string) $stop->name);
+            if ($normalizedStopName !== '' && str_contains($normalizedAddress, $normalizedStopName)) {
+                return $stop;
+            }
+        }
+
+        return null;
     }
 
     private function normalizeText(string $text): string

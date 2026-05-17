@@ -916,6 +916,96 @@
 
         let globalRealtimeLastOrderId = Number(@json($latestOrderIdGlobal ?? 0));
         let globalRealtimeLastUpdateToken = String(@json($latestUpdateTokenGlobal ?? ''));
+        const isDashboardPage = @json(request()->routeIs('dashboard'));
+        const isOrdersPage = @json(request()->routeIs('orders.*'));
+
+        function ensureRealtimeToast() {
+            let toast = document.getElementById('realtimeAdminToast');
+            if (toast) {
+                return toast;
+            }
+
+            toast = document.createElement('div');
+            toast.id = 'realtimeAdminToast';
+            toast.className = 'toast-notification toast-info';
+            toast.style.display = 'none';
+            toast.innerHTML = `
+                <div class="toast-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 2v6"></path>
+                        <path d="M12 16v6"></path>
+                        <path d="M4.93 4.93l4.24 4.24"></path>
+                        <path d="M14.83 14.83l4.24 4.24"></path>
+                        <path d="M2 12h6"></path>
+                        <path d="M16 12h6"></path>
+                        <path d="M4.93 19.07l4.24-4.24"></path>
+                        <path d="M14.83 9.17l4.24-4.24"></path>
+                    </svg>
+                </div>
+                <div class="toast-content">
+                    <h4 id="realtimeAdminToastTitle">Notifikasi</h4>
+                    <p id="realtimeAdminToastMessage"></p>
+                </div>
+                <button class="toast-close" type="button" aria-label="Tutup notifikasi">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            `;
+
+            document.body.appendChild(toast);
+            toast.querySelector('.toast-close')?.addEventListener('click', () => {
+                hideRealtimeToast();
+            });
+
+            return toast;
+        }
+
+        let realtimeToastTimer = null;
+
+        function hideRealtimeToast() {
+            const toast = document.getElementById('realtimeAdminToast');
+            if (!toast) return;
+
+            toast.classList.remove('show');
+            if (realtimeToastTimer) {
+                clearTimeout(realtimeToastTimer);
+                realtimeToastTimer = null;
+            }
+
+            setTimeout(() => {
+                toast.style.display = 'none';
+            }, 250);
+        }
+
+        function showRealtimeToast(title, message) {
+            const toast = ensureRealtimeToast();
+            const titleEl = document.getElementById('realtimeAdminToastTitle');
+            const messageEl = document.getElementById('realtimeAdminToastMessage');
+
+            if (!toast || !titleEl || !messageEl) {
+                return;
+            }
+
+            titleEl.textContent = title || 'Notifikasi';
+            messageEl.textContent = message || '';
+            toast.style.display = 'flex';
+
+            requestAnimationFrame(() => {
+                toast.classList.add('show');
+            });
+
+            if (realtimeToastTimer) {
+                clearTimeout(realtimeToastTimer);
+            }
+
+            realtimeToastTimer = setTimeout(() => {
+                hideRealtimeToast();
+            }, 5000);
+        }
+
+        window.showRealtimeAdminToast = showRealtimeToast;
 
         function renderPendingBadge(pendingCount) {
             const badge = document.getElementById('sidebarPendingBadge');
@@ -955,6 +1045,29 @@
 
                 if (result.newOrder) {
                     window.dispatchEvent(new CustomEvent('realtime:new-order', { detail: result }));
+                    if (!isDashboardPage && !isOrdersPage) {
+                        const customerName = result.newOrder.customer || 'Pelanggan baru';
+                        const productName = result.newOrder.product || result.newOrder.iceType || 'Pesanan baru';
+                        const zoneName = result.newOrder.zone ? `Zona ${result.newOrder.zone}` : '';
+                        const routeName = result.routeUpdateNotice?.route_name ? `Jalan ${result.routeUpdateNotice.route_name}` : (result.newOrder.route ? `Jalan ${result.newOrder.route}` : '');
+                        const details = [zoneName, routeName].filter(Boolean).join(' • ');
+
+                        if (result.routeUpdateNotice?.route_name) {
+                            showRealtimeToast(
+                                'Update Alur Jalur Baru',
+                                details
+                                    ? `Jalan ${result.routeUpdateNotice.route_name} di ${details} perlu diupdate.`
+                                    : `Jalan ${result.routeUpdateNotice.route_name} perlu diupdate.`
+                            );
+                        } else {
+                            showRealtimeToast(
+                                'Order Baru Masuk',
+                                details
+                                    ? `${customerName} - ${productName} (${details})`
+                                    : `${customerName} - ${productName}`
+                            );
+                        }
+                    }
                 }
                 if (hasStatusUpdate || hasOrderIdReset) {
                     window.dispatchEvent(new CustomEvent('realtime:orders-changed', { detail: result }));
@@ -1128,6 +1241,7 @@
             opacity: 0;
             transition: all 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
+        .toast-info .toast-icon { background: #EFF6FF; color: #2563EB; }
         .toast-notification.show { transform: translateX(0); opacity: 1; }
         .toast-icon { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
         .toast-success .toast-icon { background: #F0FDF4; color: #22c55e; }

@@ -47,7 +47,11 @@
                         Urutan Perjalanan <span style="color: #EF4444;">*</span>
                     </label>
                     <input type="number" id="order_index" name="order_index" class="form-control"
-                        value="{{ old('order_index', $routeStop->order_index) }}" min="1" required>
+                        value="{{ old('order_index', $routeStop->order_index) }}" min="1" max="{{ $zone->routeStops()->count() }}" required>
+                    <p style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">
+                        Urutan saat ini: <strong>{{ $routeStop->order_index }}</strong>.<br>
+                        <span style="color: #F59E0B;">Mengubah urutan akan <strong>menggeser otomatis</strong> jalur-jalur lain yang terdampak.</span>
+                    </p>
                 </div>
             </div>
 

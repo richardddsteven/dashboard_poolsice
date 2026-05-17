@@ -6,6 +6,7 @@ use App\Models\Order;
 use App\Models\Driver;
 use App\Services\FcmService;
 use App\Services\FonnteService;
+use App\Services\RouteUpdateNotificationService;
 use Illuminate\Http\Request;
 
 class OrderController extends Controller
@@ -130,13 +131,14 @@ class OrderController extends Controller
 
     public function realtimeStatus(Request $request)
     {
-        $latestOrder = Order::with(['customer', 'iceType'])->latest('id')->first();
+        $latestOrder = Order::with(['customer.routeStop.zone', 'iceType'])->latest('id')->first();
         $latestOrderId = $latestOrder?->id ?? 0;
         $latestUpdatedOrder = Order::query()->latest('updated_at')->latest('id')->first();
         $latestUpdateToken = $latestUpdatedOrder
             ? ($latestUpdatedOrder->id . '-' . $latestUpdatedOrder->updated_at->format('YmdHisu'))
             : '';
         $lastSeenId = $request->integer('last_id', 0);
+        $routeUpdateNotice = app(RouteUpdateNotificationService::class)->buildFromOrder($latestOrder);
 
         $newOrder = null;
         if ($latestOrder && $latestOrderId > $lastSeenId) {
@@ -148,6 +150,8 @@ class OrderController extends Controller
                 'quantity' => $latestOrder->effective_quantity ?? 1,
                 'iceType' => $productName,
                 'product' => $productName,
+                'zone' => $latestOrder->customer?->routeStop?->zone?->name ?? $latestOrder->customer?->zone ?? '',
+                'route' => $latestOrder->customer?->routeStop?->name ?? '',
                 'time' => $latestOrder->created_at->diffForHumans(),
             ];
         }
@@ -157,6 +161,7 @@ class OrderController extends Controller
             'latestUpdateToken' => $latestUpdateToken,
             'pendingCount' => Order::where('status', 'pending')->count(),
             'newOrder' => $newOrder,
+            'routeUpdateNotice' => $routeUpdateNotice,
         ]));
     }
 

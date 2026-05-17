@@ -135,35 +135,34 @@ class Order extends Model
             return true;
         }
 
-        // Jika customer tidak punya route_stop → terima (belum ter-assign)
+        // Jika customer tidak punya route_stop, pakai koordinat customer agar
+        // jalan baru yang belum dipetakan tidak otomatis diterima.
         $customerStop = $order->customer?->routeStop;
-        if (!$customerStop) {
-            return true;
-        }
-
         $driverIndex   = (int) $driverStop->order_index;
-        $customerIndex = (int) $customerStop->order_index;
+        if ($customerStop) {
+            $customerIndex = (int) $customerStop->order_index;
 
-        // Jalur customer >= jalur supir saat ini → di depan/sama → TERIMA
-        if ($customerIndex >= $driverIndex) {
-            Log::info('[Routing] Jarak supir-customer diterima karena customer berada di depan/sama jalur.', [
-                'order_id' => $order->id,
-                'driver_id' => $driver->id,
-                'driver_stop_id' => $driverStop->id,
-                'customer_stop_id' => $customerStop->id,
-                'driver_index' => $driverIndex,
-                'customer_index' => $customerIndex,
-                'distance_meters' => null,
-                'reason' => 'customer_ahead_or_same',
-            ]);
+            // Jalur customer >= jalur supir saat ini → di depan/sama → TERIMA
+            if ($customerIndex >= $driverIndex) {
+                Log::info('[Routing] Jarak supir-customer diterima karena customer berada di depan/sama jalur.', [
+                    'order_id' => $order->id,
+                    'driver_id' => $driver->id,
+                    'driver_stop_id' => $driverStop->id,
+                    'customer_stop_id' => $customerStop->id,
+                    'driver_index' => $driverIndex,
+                    'customer_index' => $customerIndex,
+                    'distance_meters' => null,
+                    'reason' => 'customer_ahead_or_same',
+                ]);
 
-            return true;
+                return true;
+            }
         }
 
         $distanceInfo = self::driverCustomerDistanceInfo($order, $driver);
 
-        // Jalur customer berada di belakang supir.
-        // Gunakan jarak jalan nyata antar jalur sebagai proxy apakah masih layak
+        // Jalur customer berada di belakang supir, atau belum terpetakan.
+        // Gunakan jarak jalan nyata antar posisi sebagai proxy apakah masih layak
         // untuk putar balik atau ambil order balik arah.
         $routeDistanceMeters = $distanceInfo['route_distance_meters'];
 
@@ -174,14 +173,14 @@ class Order extends Model
                 'order_id' => $order->id,
                 'driver_id' => $driver->id,
                 'driver_stop_id' => $driverStop->id,
-                'customer_stop_id' => $customerStop->id,
+                'customer_stop_id' => $customerStop?->id,
                 'driver_index' => $driverIndex,
-                'customer_index' => $customerIndex,
+                'customer_index' => $customerStop ? (int) $customerStop->order_index : null,
                 'distance_meters' => $routeDistanceMeters,
                 'fallback_straight_distance_meters' => $distanceInfo['straight_distance_meters'],
                 'max_backtrack_distance_meters' => self::maxBacktrackDistanceMeters(),
                 'eligible' => $eligible,
-                'source' => 'google_maps_directions',
+                'source' => $customerStop ? 'google_maps_directions' : 'google_maps_directions_customer_unmapped',
             ]);
 
             return $eligible;
@@ -194,14 +193,14 @@ class Order extends Model
             'order_id' => $order->id,
             'driver_id' => $driver->id,
             'driver_stop_id' => $driverStop->id,
-            'customer_stop_id' => $customerStop->id,
+            'customer_stop_id' => $customerStop?->id,
             'driver_index' => $driverIndex,
-            'customer_index' => $customerIndex,
+            'customer_index' => $customerStop ? (int) $customerStop->order_index : null,
             'distance_meters' => $straightDistanceMeters,
             'route_distance_meters' => null,
             'max_backtrack_distance_meters' => self::maxBacktrackDistanceMeters(),
             'eligible' => $straightDistanceMeters <= self::maxBacktrackDistanceMeters(),
-            'source' => 'straight_line_fallback',
+            'source' => $customerStop ? 'straight_line_fallback' : 'straight_line_fallback_customer_unmapped',
         ]);
 
         return $straightDistanceMeters <= self::maxBacktrackDistanceMeters();
@@ -237,8 +236,14 @@ class Order extends Model
 
         $driverStop = $driver->currentRouteStop;
         $customerStop = $order->customer?->routeStop;
+        $customerLatitude = $order->customer?->latitude;
+        $customerLongitude = $order->customer?->longitude;
 
-        if (!$driverStop || !$customerStop) {
+        $hasCustomerCoordinates = is_numeric($customerLatitude) && is_numeric($customerLongitude)
+            && abs((float) $customerLatitude) >= 0.0001
+            && abs((float) $customerLongitude) >= 0.0001;
+
+        if (!$driverStop || (!$customerStop && !$hasCustomerCoordinates)) {
             Log::info('[Routing] Distance info skipped because driver/customer route stop is missing.', [
                 'order_id' => $order->id,
                 'driver_id' => $driver->id,
@@ -246,17 +251,21 @@ class Order extends Model
                 'customer_stop_id' => $customerStop?->id,
                 'driver_has_stop' => (bool) $driverStop,
                 'customer_has_stop' => (bool) $customerStop,
+                'customer_has_coordinates' => $hasCustomerCoordinates,
             ]);
             self::$distanceInfoCache[$cacheKey] = $result;
 
             return $result;
         }
 
+        $targetLatitude = $customerStop ? (float) $customerStop->latitude : (float) $customerLatitude;
+        $targetLongitude = $customerStop ? (float) $customerStop->longitude : (float) $customerLongitude;
+
         if (
             abs((float) $driverStop->latitude) < 0.0001 ||
             abs((float) $driverStop->longitude) < 0.0001 ||
-            abs((float) $customerStop->latitude) < 0.0001 ||
-            abs((float) $customerStop->longitude) < 0.0001
+            abs($targetLatitude) < 0.0001 ||
+            abs($targetLongitude) < 0.0001
         ) {
             Log::warning('[Routing] Invalid route stop coordinates detected, skipping distance calculation.', [
                 'order_id' => $order->id,
@@ -264,9 +273,9 @@ class Order extends Model
                 'driver_stop_id' => $driverStop->id,
                 'driver_latitude' => (float) $driverStop->latitude,
                 'driver_longitude' => (float) $driverStop->longitude,
-                'customer_stop_id' => $customerStop->id,
-                'customer_latitude' => (float) $customerStop->latitude,
-                'customer_longitude' => (float) $customerStop->longitude,
+                'customer_stop_id' => $customerStop?->id,
+                'customer_latitude' => $targetLatitude,
+                'customer_longitude' => $targetLongitude,
             ]);
 
             self::$distanceInfoCache[$cacheKey] = $result;
@@ -282,23 +291,24 @@ class Order extends Model
             'driver_stop_index' => $driverStop->order_index,
             'driver_latitude' => (float) $driverStop->latitude,
             'driver_longitude' => (float) $driverStop->longitude,
-            'customer_stop_id' => $customerStop->id,
-            'customer_stop_name' => $customerStop->name,
-            'customer_stop_index' => $customerStop->order_index,
-            'customer_latitude' => (float) $customerStop->latitude,
-            'customer_longitude' => (float) $customerStop->longitude,
+            'customer_stop_id' => $customerStop?->id,
+            'customer_stop_name' => $customerStop?->name,
+            'customer_stop_index' => $customerStop?->order_index,
+            'customer_latitude' => $targetLatitude,
+            'customer_longitude' => $targetLongitude,
+            'customer_source' => $customerStop ? 'route_stop' : 'customer_coordinates',
         ]);
 
         $routeDistanceMeters = app(RouteRoutingService::class)->roadDistanceMeters(
             (float) $driverStop->latitude,
             (float) $driverStop->longitude,
-            (float) $customerStop->latitude,
-            (float) $customerStop->longitude
+            $targetLatitude,
+            $targetLongitude
         );
 
         $straightDistanceMeters = $driverStop->distanceMetersFrom(
-            (float) $customerStop->latitude,
-            (float) $customerStop->longitude
+            $targetLatitude,
+            $targetLongitude
         );
 
         $result = [
