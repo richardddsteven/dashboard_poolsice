@@ -6,141 +6,25 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Activity Diagram (Swimlane) - Bab 3</title>
   <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-
-    body {
-      font-family: 'Segoe UI', system-ui, sans-serif;
-      background: #f0f2f5;
-      color: #1a1a2e;
-      padding: 32px;
-    }
-
-    h1 {
-      text-align: center;
-      margin-bottom: 8px;
-      font-size: 26px;
-      color: #1565C0;
-    }
-
-    .subtitle {
-      text-align: center;
-      color: #666;
-      margin-bottom: 32px;
-      font-size: 14px;
-    }
-
-    .diagram-section {
-      background: #fff;
-      border-radius: 16px;
-      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
-      padding: 28px;
-      margin-bottom: 28px;
-      max-width: 1200px;
-      margin-left: auto;
-      margin-right: auto;
-    }
-
-    .diagram-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 16px;
-      flex-wrap: wrap;
-      gap: 10px;
-    }
-
-    .diagram-header h2 {
-      font-size: 18px;
-      color: #333;
-    }
-
-    .btn-group {
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-    }
-
-    .btn {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      padding: 9px 18px;
-      color: #fff;
-      border: none;
-      border-radius: 8px;
-      font-size: 13px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-
-    .btn:hover {
-      filter: brightness(0.9);
-    }
-
-    .btn-png {
-      background: #1565C0;
-    }
-
-    .btn-svg {
-      background: #6A1B9A;
-    }
-
-    .btn-all {
-      display: block;
-      margin: 0 auto 24px;
-      padding: 13px 32px;
-      background: #2E7D32;
-      color: #fff;
-      border: none;
-      border-radius: 10px;
-      font-size: 15px;
-      font-weight: 700;
-      cursor: pointer;
-    }
-
-    .btn-all:hover {
-      background: #1B5E20;
-    }
-
-    .diagram-container {
-      display: flex;
-      justify-content: center;
-      padding: 12px 0;
-      min-height: 200px;
-      overflow-x: auto;
-    }
-
-    .diagram-container img {
-      max-width: 100%;
-      height: auto;
-      border: 1px solid #e0e0e0;
-      border-radius: 8px;
-    }
-
-    .loading-text {
-      color: #E65100;
-      font-weight: 600;
-      text-align: center;
-      padding: 40px;
-    }
-
-    .status {
-      text-align: center;
-      margin-bottom: 24px;
-      font-size: 14px;
-      color: #888;
-      min-height: 22px;
-    }
-
-    .success {
-      color: #2E7D32;
-      font-weight: 600;
-    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Segoe UI', system-ui, sans-serif; background: #f0f2f5; color: #1a1a2e; padding: 32px; }
+    h1 { text-align: center; margin-bottom: 8px; font-size: 26px; color: #1565C0; }
+    .subtitle { text-align: center; color: #666; margin-bottom: 32px; font-size: 14px; }
+    .diagram-section { background: #fff; border-radius: 16px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); padding: 28px; margin-bottom: 28px; max-width: 1200px; margin-left: auto; margin-right: auto; }
+    .diagram-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 10px; }
+    .diagram-header h2 { font-size: 18px; color: #333; }
+    .btn-group { display: flex; gap: 8px; flex-wrap: wrap; }
+    .btn { display: inline-flex; align-items: center; gap: 6px; padding: 9px 18px; color: #fff; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+    .btn:hover { filter: brightness(0.9); }
+    .btn-png { background: #1565C0; }
+    .btn-svg { background: #6A1B9A; }
+    .btn-all { display: block; margin: 0 auto 24px; padding: 13px 32px; background: #2E7D32; color: #fff; border: none; border-radius: 10px; font-size: 15px; font-weight: 700; cursor: pointer; }
+    .btn-all:hover { background: #1B5E20; }
+    .diagram-container { display: flex; justify-content: center; padding: 12px 0; min-height: 200px; overflow-x: auto; }
+    .diagram-container img { max-width: 100%; height: auto; border: 1px solid #e0e0e0; border-radius: 8px; }
+    .loading-text { color: #E65100; font-weight: 600; text-align: center; padding: 40px; }
+    .status { text-align: center; margin-bottom: 24px; font-size: 14px; color: #888; min-height: 22px; }
+    .success { color: #2E7D32; font-weight: 600; }
   </style>
 </head>
 
@@ -154,54 +38,46 @@
 
   <div class="diagram-section">
     <div class="diagram-header">
-      <h2>1. Activity Diagram — Pemesanan via WhatsApp (Conversation Flow)</h2>
+      <h2>1. Activity Diagram — Pemesanan via WhatsApp (Versi Sederhana)</h2>
       <div class="btn-group">
         <button class="btn btn-svg" onclick="downloadSVG(0)">⬇ SVG</button>
         <button class="btn btn-png" onclick="downloadPNG(0)">⬇ PNG</button>
       </div>
     </div>
-    <div class="diagram-container" id="container0">
-      <p class="loading-text">⏳ Rendering...</p>
-    </div>
+    <div class="diagram-container" id="container0"><p class="loading-text">⏳ Rendering...</p></div>
   </div>
 
   <div class="diagram-section">
     <div class="diagram-header">
-      <h2>2. Activity Diagram — Validasi & Parsing Pesan Pesanan</h2>
+      <h2>2. Activity Diagram — Validasi &amp; Parsing Pesan Pesanan</h2>
       <div class="btn-group">
         <button class="btn btn-svg" onclick="downloadSVG(1)">⬇ SVG</button>
         <button class="btn btn-png" onclick="downloadPNG(1)">⬇ PNG</button>
       </div>
     </div>
-    <div class="diagram-container" id="container1">
-      <p class="loading-text">⏳ Rendering...</p>
-    </div>
+    <div class="diagram-container" id="container1"><p class="loading-text">⏳ Rendering...</p></div>
   </div>
 
   <div class="diagram-section">
     <div class="diagram-header">
-      <h2>3. Activity Diagram — Geocoding Alamat & Deteksi Zona</h2>
+      <h2>3. Activity Diagram — Geocoding Alamat &amp; Deteksi Zona + Jalur</h2>
       <div class="btn-group">
         <button class="btn btn-svg" onclick="downloadSVG(2)">⬇ SVG</button>
         <button class="btn btn-png" onclick="downloadPNG(2)">⬇ PNG</button>
       </div>
     </div>
-    <div class="diagram-container" id="container2">
-      <p class="loading-text">⏳ Rendering...</p>
-    </div>
+    <div class="diagram-container" id="container2"><p class="loading-text">⏳ Rendering...</p></div>
   </div>
 
   <div class="diagram-section">
     <div class="diagram-header">
-      <h2>4. Activity Diagram — Proses Supir Approve/Reject Order</h2>
+      <h2>4. Activity Diagram — Proses Order Otomatis oleh Sistem (Cek Jalur &amp; Sisa Stok Supir)</h2>
       <div class="btn-group">
         <button class="btn btn-svg" onclick="downloadSVG(3)">⬇ SVG</button>
         <button class="btn btn-png" onclick="downloadPNG(3)">⬇ PNG</button>
       </div>
     </div>
-    <div class="diagram-container" id="container3">
-      <p class="loading-text">⏳ Rendering...</p>
-    </div>
+    <div class="diagram-container" id="container3"><p class="loading-text">⏳ Rendering...</p></div>
   </div>
 
   <div class="diagram-section">
@@ -212,47 +88,63 @@
         <button class="btn btn-png" onclick="downloadPNG(4)">⬇ PNG</button>
       </div>
     </div>
-    <div class="diagram-container" id="container4">
-      <p class="loading-text">⏳ Rendering...</p>
-    </div>
+    <div class="diagram-container" id="container4"><p class="loading-text">⏳ Rendering...</p></div>
   </div>
 
   <div class="diagram-section">
     <div class="diagram-header">
-      <h2>6. Activity Diagram — Real-time Polling Order (Admin Dashboard)</h2>
+      <h2>6. Activity Diagram — GPS Route Stop Tracking (Supir Lapor Posisi)</h2>
       <div class="btn-group">
         <button class="btn btn-svg" onclick="downloadSVG(5)">⬇ SVG</button>
         <button class="btn btn-png" onclick="downloadPNG(5)">⬇ PNG</button>
       </div>
     </div>
-    <div class="diagram-container" id="container5">
-      <p class="loading-text">⏳ Rendering...</p>
-    </div>
+    <div class="diagram-container" id="container5"><p class="loading-text">⏳ Rendering...</p></div>
   </div>
 
+  <div class="diagram-section">
+    <div class="diagram-header">
+      <h2>7. Activity Diagram — Real-time Polling Order (Admin Dashboard)</h2>
+      <div class="btn-group">
+        <button class="btn btn-svg" onclick="downloadSVG(6)">⬇ SVG</button>
+        <button class="btn btn-png" onclick="downloadPNG(6)">⬇ PNG</button>
+      </div>
+    </div>
+    <div class="diagram-container" id="container6"><p class="loading-text">⏳ Rendering...</p></div>
+  </div>
+  <div class="diagram-section">
+    <div class="diagram-header">
+      <h2>8. Activity Diagram ??? Flow Sistem Keseluruhan</h2>
+      <div class="btn-group">
+        <button class="btn btn-svg" onclick="downloadSVG(7)">??? SVG</button>
+        <button class="btn btn-png" onclick="downloadPNG(7)">??? PNG</button>
+      </div>
+    </div>
+    <div class="diagram-container" id="container7"><p class="loading-text">??? Rendering...</p></div>
+  </div>
   <script>
     const diagramDefs = [
       {
         name: 'AD_Pemesanan_WhatsApp',
         code: `@startuml
-  scale 2.1
+scale 2.1
 skinparam backgroundColor #FFFFFF
 skinparam shadowing false
-  skinparam ActivityFontSize 22
+skinparam ActivityFontSize 22
 skinparam ActivityFontStyle plain
-  skinparam PartitionFontSize 24
+skinparam PartitionFontSize 24
 skinparam PartitionFontStyle bold
-  skinparam ActivityDiamondFontSize 19
-  skinparam ArrowFontSize 18
-  skinparam ArrowThickness 2.2
-  skinparam ActivityBorderThickness 2.2
+skinparam ActivityDiamondFontSize 19
+skinparam ArrowFontSize 18
+skinparam ArrowThickness 2.2
+skinparam ActivityBorderThickness 2.2
 skinparam ActivityBorderColor #000000
 skinparam ActivityBackgroundColor #FFFFFF
 skinparam ActivityDiamondBackgroundColor #FFFFFF
 skinparam ActivityDiamondBorderColor #000000
 skinparam PartitionBackgroundColor #FFFFFF
 skinparam PartitionBorderColor #000000
-  skinparam Padding 16
+skinparam Padding 16
 skinparam RoundCorner 12
 skinparam ArrowColor #000000
 skinparam FontColor #000000
@@ -268,52 +160,23 @@ if (Customer terdaftar?) then (Tidak)
   :Cek apakah pesan relevan;
 
   if (Relevan?) then (Ya)
-    :Simpan customer baru\nstate = awaiting_name;
-    :Kirim pertanyaan nama toko;
-
-    |Pelanggan|
-    :Kirim nama toko;
-
-    |Sistem|
-    :Simpan nama toko;
-    :Kirim pertanyaan alamat toko;
-
-    |Pelanggan|
-    :Kirim alamat toko;
-
-    |Sistem|
-    :Deteksi zona otomatis;
-    :Geocoding alamat -> latitude/longitude;
-
-    if (Ada pending order valid?) then (Ya)
-      :Simpan address + zone + koordinat;
-      :Buat Order (pending);
-      :Kirim Push Notification ke Supir Zona;
-      :Reset conversation_state;
-    else (Tidak)
-      :Simpan address + zone + koordinat;
-      :state = awaiting_order;
-      :Kirim prompt format pesanan;
-
-      |Pelanggan|
-      :Kirim detail pesanan;
-
-      |Sistem|
-      :Proses order\n(skip validasi keyword);
-      :Buat Order (pending);
-      :Kirim Push Notification ke Supir Zona;
-      :Reset conversation_state;
-    endif
-
+    :Minta data toko dan alamat;
+    :Simpan customer baru;
+    :Deteksi zona dan jalur dari alamat;
+    :Buat order pending;
+    :Kirim notifikasi ke supir eligible;
+    :Kirim konfirmasi WA ke pelanggan;
   else (Tidak)
     :Pesan diabaikan;
     stop
   endif
 
 else (Ya)
-  :Validasi & parsing pesan;
-  :Simpan Order (pending);
-  :Kirim Push Notification ke Supir Zona;
+  :Sinkronisasi data customer;
+  :Validasi dan parsing pesan;
+  :Buat order pending;
+  :Kirim notifikasi ke supir eligible;
+  :Kirim konfirmasi WA ke pelanggan;
 endif
 
 stop
@@ -348,17 +211,17 @@ start
 :Kirim pesan pesanan;
 
 |Sistem|
-:Cek keyword order (pesan/order/beli/kirim);
+:Cek keyword order (pesan/order/beli/kirim/pesen);
 
 if (Ada keyword order?) then (Ya)
-  :Deteksi jenis es (5kg / 20kg) via regex;
+  :Deteksi jenis es via IceType aktif di database;
 
   if (Jenis es terdeteksi?) then (Ya)
-    :Ekstrak jumlah pesanan;
+    :Ekstrak jumlah pesanan (regex multi-pola);
     :Filter apakah pesan berupa pertanyaan;
 
     if (Bukan pertanyaan?) then (Ya)
-      :Simpan Order (ice_type + quantity);
+      :Buat Order (ice_type_id + quantity);
       :Kirim Push Notification ke Supir Zona;
       stop
     else (Tidak)
@@ -367,8 +230,14 @@ if (Ada keyword order?) then (Ya)
     endif
 
   else (Tidak)
-    :Pesan diabaikan;
-    stop
+    :Cek apakah minta jenis es tidak tersedia;
+    if (Jenis tidak tersedia?) then (Ya)
+      :Kirim daftar jenis es yang tersedia;
+      stop
+    else (Tidak)
+      :Pesan diabaikan;
+      stop
+    endif
   endif
 
 else (Tidak)
@@ -385,7 +254,7 @@ endif
 @enduml`
       },
       {
-        name: 'AD_Deteksi_Zona',
+        name: 'AD_Deteksi_Zona_Jalur',
         code: `@startuml
 skinparam backgroundColor #FFFFFF
 skinparam shadowing false
@@ -414,112 +283,113 @@ start
 
 |Sistem|
 :Normalisasi alamat;
-:Cek cache geocoding;
+:Cek cache geocoding (14 hari);
 
 if (Cache tersedia?) then (Ya)
-  :Gunakan hasil cache\n(lat/lng + context);
+  :Gunakan hasil cache (lat/lng + context);
 else (Tidak)
-  :Request geocoding ke layanan eksternal;
+  :Request geocoding ke Nominatim (OpenStreetMap);
 
   if (Geocoding berhasil?) then (Ya)
-    :Ekstrak latitude, longitude, context;
+    :Ekstrak latitude, longitude, address context;
     :Simpan ke cache (14 hari);
   else (Tidak)
     :Hasil geocoding = null;
   endif
 endif
 
-:Bangun search context;
-:Cocokkan nama zona di database;
+:Bangun search context (nama + geocoding context);
+:Cocokkan nama zona di database (exact match);
 
 if (Zona cocok?) then (Ya)
   :Zona berhasil terdeteksi;
 else (Tidak)
-  :Cocokkan dengan alias area;
+  :Cocokkan dengan alias area per zona;
 
   if (Alias cocok?) then (Ya)
     :Zona berhasil terdeteksi;
   else (Tidak)
-    :Zona = NULL;
+    :Fuzzy match dengan zona yang ada;
+    if (Fuzzy match >= 82%?) then (Ya)
+      :Zona berhasil terdeteksi;
+    else (Tidak)
+      :Zona = NULL;
+    endif
   endif
 endif
 
-:Simpan data customer:\naddress + zone + latitude + longitude;
+:Deteksi route_stop berdasarkan nama jalan di alamat;
+:Cocokkan nama jalur di zona (exact + fuzzy >= 84%);
+
+if (Jalur terdeteksi?) then (Ya)
+  :Simpan route_stop_id ke customer;
+else (Tidak)
+  :route_stop_id = NULL;
+endif
+
+:Simpan data customer:\\naddress + zone + lat/lng + route_stop_id;
 stop
 @enduml`
       },
       {
-        name: 'AD_Validasi_Stok',
+        name: 'AD_Validasi_Stok_Jalur',
         code: `@startuml
-  scale 2.6
+scale 2.6
 skinparam backgroundColor #FFFFFF
 skinparam shadowing false
-  skinparam nodesep 130
-  skinparam ranksep 130
-  skinparam ActivityFontSize 22
+skinparam nodesep 90
+skinparam ranksep 90
+skinparam ActivityFontSize 18
 skinparam ActivityFontStyle plain
-  skinparam PartitionFontSize 24
+skinparam PartitionFontSize 20
 skinparam PartitionFontStyle bold
-  skinparam ActivityDiamondFontSize 19
-  skinparam ArrowFontSize 18
-  skinparam ArrowThickness 2.2
-  skinparam ActivityBorderThickness 2.2
+skinparam ActivityDiamondFontSize 16
+skinparam ArrowFontSize 15
+skinparam ArrowThickness 1.8
+skinparam ActivityBorderThickness 1.8
 skinparam ActivityBorderColor #000000
 skinparam ActivityBackgroundColor #FFFFFF
 skinparam ActivityDiamondBackgroundColor #FFFFFF
 skinparam ActivityDiamondBorderColor #000000
 skinparam PartitionBackgroundColor #FFFFFF
 skinparam PartitionBorderColor #000000
-  skinparam Padding 20
+skinparam Padding 12
 skinparam RoundCorner 12
 skinparam ArrowColor #000000
 skinparam FontColor #000000
 
-|Supir|
-start
-:Buka daftar order zona;
-:Klik Approve / Reject;
-
 |Sistem|
-:Validasi sesi & token;
+start
+:Order baru masuk dari customer;
+:Periksa urutan jalur pelanggan \\nterhadap posisi supir saat ini;
 
-if (Token valid?) then (Ya)
-  :Cek status order pending;
-
-  if (Order pending?) then (Ya)
-
-    if (Approve?) then (Ya)
-      :Cek stok supir;
-
-      if (Stok cukup?) then (Ya)
-        :Set order = approved\n(stok belum dikurangi);
-
-        |Supir|
-        :Order diterima;
-      else (Tidak)
-        |Sistem|
-        :Order otomatis rejected;
-
-        |Supir|
-        :Stok tidak cukup;
-      endif
-
-    else (Reject)
-      |Sistem|
-      :Order = rejected;
-
-      |Supir|
-      :Order ditolak;
-    endif
-
-  else (Tidak)
-    |Supir|
-    :Order sudah diproses;
-  endif
-
+if (Pelanggan di urutan depan/sama \\natau supir belum punya jalur?) then (Ya)
+  :Status Jalur = Cocok;
 else (Tidak)
+  :Hitung jarak nyata rute supir ke pelanggan \\n(menggunakan Google Maps API);
+  if (Jarak rute <= Maksimal batas putar balik meter?) then (Ya)
+    :Status Jalur = Cocok;
+  else (Tidak)
+    :Status Jalur = Berlalu (Kejauhan);
+  endif
+endif
+
+:Hitung sisa stok supir untuk jenis es yang diminta;
+
+if (Status Jalur = Cocok DAN \\nsisa stok >= permintaan?) then (Ya)
+  :Set order = approved;
+  :Sisa stok berkurang setelah order approved;
+  :Kirim WA konfirmasi ke pelanggan;
+
   |Supir|
-  :Sesi tidak valid, login ulang;
+  :Order diterima otomatis;
+else (Tidak)
+  |Sistem|
+  :Set order = rejected;
+  :Kirim WA notifikasi maaf ke pelanggan;
+
+  |Supir|
+  :Order ditolak otomatis;
 endif
 
 stop
@@ -528,56 +398,136 @@ stop
       {
         name: 'AD_Selesai_Antar_GPS',
         code: `@startuml
-  scale 3.2
+scale 3.2
 skinparam backgroundColor #FFFFFF
 skinparam shadowing false
-  skinparam nodesep 150
-  skinparam ranksep 150
-  skinparam ActivityFontSize 24
+skinparam nodesep 150
+skinparam ranksep 150
+skinparam ActivityFontSize 24
 skinparam ActivityFontStyle plain
-  skinparam PartitionFontSize 26
+skinparam PartitionFontSize 26
 skinparam PartitionFontStyle bold
-  skinparam ActivityDiamondFontSize 20
-  skinparam ArrowFontSize 18
-  skinparam ArrowThickness 2.4
-  skinparam ActivityBorderThickness 2.4
+skinparam ActivityDiamondFontSize 20
+skinparam ArrowFontSize 18
+skinparam ArrowThickness 2.4
+skinparam ActivityBorderThickness 2.4
 skinparam ActivityBorderColor #000000
 skinparam ActivityBackgroundColor #FFFFFF
 skinparam ActivityDiamondBackgroundColor #FFFFFF
 skinparam ActivityDiamondBorderColor #000000
 skinparam PartitionBackgroundColor #FFFFFF
 skinparam PartitionBorderColor #000000
-  skinparam Padding 24
+skinparam Padding 24
 skinparam RoundCorner 12
 skinparam ArrowColor #000000
 skinparam FontColor #000000
 
 |Supir|
 start
-:Klik Selesai Antar\n(order approved);
+:Klik Selesai Antar\\n(order berstatus approved);
 
 |Sistem|
 :Validasi order milik supir & status approved;
-:Ambil GPS supir dari request;
+:Ambil koordinat GPS supir dari request;
 :Ambil koordinat customer (lat/lng);
 
 if (Koordinat customer tersedia?) then (Ya)
-  :Hitung jarak (haversine);
+  :Hitung jarak haversine GPS supir vs pelanggan;
 
-  if (Jarak <= 500m?) then (Ya)
+  if (Jarak <= 500 meter?) then (Ya)
     :Set order = completed;
-    :Kurangi stok supir sesuai item order;
+    :Kirim WA notifikasi selesai ke pelanggan;
 
     |Supir|
     :Selesai antar berhasil;
   else (Tidak)
     |Supir|
-    :Gagal selesai antar\n(lokasi terlalu jauh);
+    :Gagal selesai antar\\n(lokasi terlalu jauh dari pelanggan);
   endif
 else (Tidak)
   |Supir|
-  :Gagal selesai antar\n(koordinat customer belum ada);
+  :Gagal selesai antar\\n(koordinat pelanggan belum tersedia);
 endif
+
+stop
+@enduml`
+      },
+      {
+        name: 'AD_GPS_RouteStop_Tracking',
+        code: `@startuml
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam ActivityFontSize 15
+skinparam ActivityFontStyle plain
+skinparam PartitionFontSize 16
+skinparam PartitionFontStyle bold
+skinparam ActivityDiamondFontSize 14
+skinparam ArrowFontSize 13
+skinparam ArrowThickness 1.5
+skinparam ActivityBorderThickness 1.5
+skinparam ActivityBorderColor #000000
+skinparam ActivityBackgroundColor #FFFFFF
+skinparam ActivityDiamondBackgroundColor #FFFFFF
+skinparam ActivityDiamondBorderColor #000000
+skinparam PartitionBackgroundColor #FFFFFF
+skinparam PartitionBorderColor #000000
+skinparam Padding 10
+skinparam RoundCorner 12
+skinparam ArrowColor #000000
+skinparam FontColor #000000
+
+|Driver App Flutter|
+start
+:Aplikasi aktif dan supir sedang bertugas;
+
+repeat
+
+  :Ambil koordinat GPS perangkat;
+  :POST /api/driver/route-stop\\n(latitude, longitude);
+
+  |Sistem|
+  :Validasi token supir;
+
+  if (Token valid?) then (Ya)
+    :Cek zona supir;
+
+    if (Supir punya zona?) then (Ya)
+      :Ambil semua route_stop di zona;
+      :Hitung jarak haversine ke tiap jalur;
+      :Pilih jalur terdekat yang masuk radius;
+
+      if (Ada jalur dalam radius?) then (Ya)
+        :Gunakan jalur dalam radius;
+      else (Tidak)
+        :Fallback: jalur paling dekat (di luar radius);
+      endif
+
+      :Update current_route_stop_id & route_stop_updated_at supir;
+      :Cari order pending yang jalurnya sudah terlewat;
+
+      fork
+        :Order jalur > 1 langkah di belakang supir;
+        :Auto-reject + kirim WA maaf ke pelanggan;
+      fork again
+        :Order tepat 1 langkah di belakang\\n& sudah > 15 menit;
+        :Auto-reject + kirim WA maaf ke pelanggan;
+      end fork
+
+      :Response: route_stop saat ini;
+
+    else (Tidak)
+      :Response: error zona tidak ditemukan;
+    endif
+
+  else (Tidak)
+    :Response: 401 Unauthorized;
+  endif
+
+  |Driver App Flutter|
+  :Tampilkan posisi jalur saat ini;
+  :Tunggu 5 menit;
+
+repeat while (Aplikasi masih aktif?)
 
 stop
 @enduml`
@@ -613,7 +563,7 @@ start
 repeat
 
   |Sistem|
-  :Cek status & data order terbaru;
+  :GET /orders/realtime/status - Cek status & jumlah order;
 
   |Admin|
   if (Ada order baru?) then (Ya)
@@ -623,7 +573,7 @@ repeat
 
   if (Ada perubahan data?) then (Ya)
     |Sistem|
-    :Ambil data tabel terbaru;
+    :GET /orders/realtime/table - Ambil data tabel terbaru;
 
     |Admin|
     :Reload tabel order via AJAX;
@@ -637,10 +587,75 @@ repeat while (Halaman masih terbuka?)
 
 stop
 @enduml`
+      },
+      {
+        name: 'AD_Flow_Sistem_Keseluruhan',
+        code: `@startuml
+scale 2.8
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam nodesep 110
+skinparam ranksep 110
+skinparam ActivityFontSize 20
+skinparam ActivityFontStyle plain
+skinparam PartitionFontSize 22
+skinparam PartitionFontStyle bold
+skinparam ActivityDiamondFontSize 18
+skinparam ArrowFontSize 16
+skinparam ArrowThickness 2.0
+skinparam ActivityBorderThickness 2.0
+skinparam ActivityBorderColor #000000
+skinparam ActivityBackgroundColor #FFFFFF
+skinparam ActivityDiamondBackgroundColor #FFFFFF
+skinparam ActivityDiamondBorderColor #000000
+skinparam PartitionBackgroundColor #FFFFFF
+skinparam PartitionBorderColor #000000
+skinparam Padding 16
+skinparam RoundCorner 12
+skinparam ArrowColor #000000
+skinparam FontColor #000000
+
+|Admin|
+start
+:Login & Mengisi / Cek Master Data \\n(Supir, Zona, Jalur, Stok Es);
+
+|Supir|
+:Buka Aplikasi (Login) & Input Stok Harian;
+fork
+  :Aplikasi rutin membagikan \\nlokasi GPS (Tiap 5 Menit);
+fork again
+  |Pelanggan|
+  :Kirim pesan \\npemesanan via WhatsApp;
+end fork
+
+|Sistem (Bot & Webhook)|
+:Identifikasi identitas Pelanggan & Alamat;
+:Mendeteksi jalur & rute supir;
+
+if (Supir & Stok Tersedia\\n(Jarak Valid / Bisa Putar Balik)?) then (Ya)
+  :Order Disetujui (Approved) \\n& Stok supir dipotong;
+  :Kirim Pesan Konfirmasi;
+
+  |Supir|
+  :Pesanan masuk ke dalam tugas pengantaran;
+  :Menuju Lokasi Pelanggan & Lakukan Pengantaran;
+  :Tekan "Selesai Antar" \\n(Berhasil jika divalidasi oleh Radius GPS);
+
+  |Sistem (Bot & Webhook)|
+  :Mencatat Pesanan Menjadi Selesai;
+
+else (Tidak)
+  :Order Ditolak (Rejected)\\n(Supir sudah lewat rute / stok tidak cukup);
+  :Notifikasi Mohon Maaf ke Pelanggan;
+endif
+
+|Admin|
+:Catatan Laporan Keuangan \\n& Dashboard Otomatis Diperbarui;
+stop
+@enduml`
       }
     ];
 
-    // SVG cache for each diagram
     const svgCache = [];
 
     async function renderDiagram(index) {
@@ -651,88 +666,66 @@ stop
           headers: { 'Content-Type': 'text/plain' },
           body: diagramDefs[index].code
         });
-
         if (!response.ok) throw new Error('HTTP ' + response.status);
-
         const svgText = await response.text();
         svgCache[index] = svgText;
         container.innerHTML = svgText;
-
-        // Make SVG responsive
         const svg = container.querySelector('svg');
-        if (svg) {
-          svg.style.maxWidth = '100%';
-          svg.style.height = 'auto';
-        }
+        if (svg) { svg.style.maxWidth = '100%'; svg.style.height = 'auto'; }
       } catch (e) {
-        container.innerHTML = '<p style="color:red;text-align:center;padding:20px;">❌ Gagal render diagram: ' + e.message + '<br><small>Pastikan koneksi internet aktif (menggunakan Kroki.io API).</small></p>';
-        console.error('Render error for diagram ' + index, e);
+        container.innerHTML = '<p style="color:red;text-align:center;padding:20px;">❌ Gagal render: ' + e.message + '<br><small>Pastikan koneksi internet aktif.</small></p>';
       }
     }
 
     async function renderAll() {
       const status = document.getElementById('global-status');
       status.innerHTML = '<span style="color:#E65100;font-weight:600;">⏳ Rendering semua diagram via Kroki.io...</span>';
-
-      for (let i = 0; i < diagramDefs.length; i++) {
-        await renderDiagram(i);
-      }
-
+      for (let i = 0; i < diagramDefs.length; i++) { await renderDiagram(i); }
       status.innerHTML = '<span class="success">✅ Semua diagram berhasil di-render! Silakan download.</span>';
     }
 
     function downloadSVG(index) {
       const svg = svgCache[index];
       if (!svg) { alert('Diagram belum ter-render.'); return; }
-
       const blob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' });
       const link = document.createElement('a');
       link.href = URL.createObjectURL(blob);
       link.download = diagramDefs[index].name + '.svg';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      document.body.appendChild(link); link.click(); document.body.removeChild(link);
       URL.revokeObjectURL(link.href);
     }
 
     function downloadPNG(index) {
       const svgText = svgCache[index];
       if (!svgText) { alert('Diagram belum ter-render.'); return; }
-
-      // Parse SVG to get dimensions
       const parser = new DOMParser();
       const svgDoc = parser.parseFromString(svgText, 'image/svg+xml');
       const svgEl = svgDoc.querySelector('svg');
-
       let w = parseFloat(svgEl.getAttribute('width')) || 800;
       let h = parseFloat(svgEl.getAttribute('height')) || 600;
-
-      const scale = 5;
+      const scale = 1.5; // Skala diturunkan ke 1.5 agar ukuran wajar dan tidak blank
       const canvas = document.createElement('canvas');
-      canvas.width = w * scale;
-      canvas.height = h * scale;
+      canvas.width = w * scale; canvas.height = h * scale;
       const ctx = canvas.getContext('2d');
-
       const img = new Image();
       const encodedSvg = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgText);
-
       img.onload = function () {
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, canvas.width, canvas.height);
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-
-        const link = document.createElement('a');
-        link.href = canvas.toDataURL('image/png');
-        link.download = diagramDefs[index].name + '.png';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+        
+        // Menggunakan toBlob alih-alih toDataURL untuk mencegah limit string base64 / unduhan 0 bytes
+        canvas.toBlob(function(blob) {
+          if (!blob) { alert('Gagal mengonversi canvas ke Blob PNG.'); return; }
+          const link = document.createElement('a');
+          link.href = URL.createObjectURL(blob);
+          link.download = diagramDefs[index].name + '.png';
+          document.body.appendChild(link); 
+          link.click(); 
+          document.body.removeChild(link);
+          URL.revokeObjectURL(link.href);
+        }, 'image/png');
       };
-      img.onerror = function () {
-        // Fallback: download as SVG instead
-        alert('PNG export gagal. Mengunduh SVG sebagai alternatif.');
-        downloadSVG(index);
-      };
+      img.onerror = function () { alert('PNG export gagal. Mengunduh SVG sebagai alternatif.'); downloadSVG(index); };
       img.src = encodedSvg;
     }
 
@@ -747,7 +740,6 @@ stop
       setTimeout(() => { status.textContent = ''; }, 5000);
     }
 
-    // Start
     renderAll();
   </script>
 </body>

@@ -305,8 +305,8 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                   children: [
                     Image.asset(
                       'assets/images/poolsice.png',
-                      width: 140,
-                      height: 140,
+                      width: 240,
+                      height: 240,
                       fit: BoxFit.contain,
                       errorBuilder: (context, error, stackTrace) => const Icon(
                         Icons.image_not_supported_rounded,
@@ -510,7 +510,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                         const SizedBox(height: 24),
                         const Text(
-                          'Login\nAplikasi Supir Pools Ice',
+                          'Login Pools Ice',
                           style: TextStyle(
                             fontSize: 26,
                             fontWeight: FontWeight.w800,
@@ -1734,14 +1734,14 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              widget.driverName,
+              widget.driverName.toUpperCase(),
               style: const TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w800,
                 letterSpacing: -0.5,
               ),
             ),
-            const SizedBox(height: 2),
+            const SizedBox(height: 6),
             Row(
               children: [
                 const Icon(Icons.location_on, size: 12, color: Color(0xFF64748B)),
@@ -1764,28 +1764,6 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
           ],
         ),
         actions: [
-          Container(
-            margin: const EdgeInsets.only(right: 8),
-            padding: const EdgeInsets.fromLTRB(14, 6, 14, 6),
-            decoration: BoxDecoration(
-              color: const Color(0xFFEFF6FF),
-              borderRadius: BorderRadius.circular(999),
-            ),
-            child: Row(
-              children: const [
-                Icon(Icons.circle, size: 8, color: Color(0xFF2563EB)),
-                SizedBox(width: 6),
-                Text(
-                  'Online',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF1E3A8A),
-                  ),
-                ),
-              ],
-            ),
-          ),
           IconButton(
             tooltip: 'Logout',
             onPressed: _isLoggingOut ? null : _logout,

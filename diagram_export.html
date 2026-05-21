@@ -1,40 +1,50 @@
 <!DOCTYPE html>
 <html lang="id">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Export Diagram - Bab 3 Desain Sistem</title>
     <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
         body {
             font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
             background: #f0f2f5;
             color: #1a1a2e;
             padding: 32px;
         }
+
         h1 {
             text-align: center;
             margin-bottom: 12px;
             font-size: 28px;
             color: #1565C0;
         }
+
         .subtitle {
             text-align: center;
             color: #666;
             margin-bottom: 40px;
             font-size: 15px;
         }
+
         .diagram-section {
             background: #fff;
             border-radius: 16px;
-            box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
             padding: 32px;
             margin-bottom: 32px;
             max-width: 1400px;
             margin-left: auto;
             margin-right: auto;
         }
+
         .diagram-header {
             display: flex;
             justify-content: space-between;
@@ -43,11 +53,18 @@
             flex-wrap: wrap;
             gap: 12px;
         }
+
         .diagram-header h2 {
             font-size: 20px;
             color: #333;
         }
-        .btn-group { display: flex; gap: 8px; flex-wrap: wrap; }
+
+        .btn-group {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
         .btn-download {
             display: inline-flex;
             align-items: center;
@@ -62,10 +79,23 @@
             cursor: pointer;
             transition: background 0.2s;
         }
-        .btn-download:hover { background: #0D47A1; }
-        .btn-download.svg-btn { background: #6A1B9A; }
-        .btn-download.svg-btn:hover { background: #4A148C; }
-        .btn-download:active { transform: scale(0.97); }
+
+        .btn-download:hover {
+            background: #0D47A1;
+        }
+
+        .btn-download.svg-btn {
+            background: #6A1B9A;
+        }
+
+        .btn-download.svg-btn:hover {
+            background: #4A148C;
+        }
+
+        .btn-download:active {
+            transform: scale(0.97);
+        }
+
         .diagram-container {
             overflow-x: auto;
             display: flex;
@@ -73,6 +103,7 @@
             padding: 16px 0;
             min-height: 200px;
         }
+
         .btn-download-all {
             display: block;
             margin: 0 auto 20px;
@@ -86,7 +117,11 @@
             cursor: pointer;
             transition: background 0.2s;
         }
-        .btn-download-all:hover { background: #1B5E20; }
+
+        .btn-download-all:hover {
+            background: #1B5E20;
+        }
+
         .status {
             text-align: center;
             margin-bottom: 30px;
@@ -94,74 +129,129 @@
             color: #888;
             min-height: 24px;
         }
-        .loading { color: #E65100; font-weight: 600; }
-        .success { color: #2E7D32; font-weight: 600; }
+
+        .loading {
+            color: #E65100;
+            font-weight: 600;
+        }
+
+        .success {
+            color: #2E7D32;
+            font-weight: 600;
+        }
+
+        /* Interactive styles for Custom ERD */
+        .erd-svg {
+            user-select: none;
+            overflow: visible;
+        }
+        .erd-table {
+            transition: opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1), transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            cursor: pointer;
+        }
+        .erd-relation {
+            transition: opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .erd-relation path {
+            transition: stroke 0.25s ease, stroke-width 0.25s ease;
+        }
+        .erd-relation rect, .erd-relation text {
+            transition: fill 0.25s ease, stroke 0.25s ease, opacity 0.25s ease;
+        }
+        
+        /* Highlight modes */
+        .erd-svg.highlight-active .erd-table:not(.highlighted) {
+            opacity: 0.2;
+        }
+        .erd-svg.highlight-active .erd-relation:not(.highlighted) {
+            opacity: 0.1;
+        }
+        .erd-svg.highlight-active .erd-relation.highlighted path.relation-path {
+            stroke-width: 3px !important;
+            stroke: #D81B60 !important; /* Sleek highlighted pink */
+        }
+        .erd-svg.highlight-active .erd-relation.highlighted .relation-label rect {
+            stroke: #D81B60;
+            stroke-width: 1.5px;
+        }
+        .erd-svg.highlight-active .erd-relation.highlighted .relation-label text {
+            fill: #C2185B;
+            font-weight: 700;
+        }
     </style>
 </head>
+
 <body>
 
-<h1>📊 Export Diagram - Bab 3 Desain Sistem</h1>
-<p class="subtitle">Tunggu semua diagram ter-render, lalu klik tombol download.</p>
+    <h1>📊 Export Diagram - Bab 3 Desain Sistem</h1>
+    <p class="subtitle">Tunggu semua diagram ter-render, lalu klik tombol download.</p>
 
-<button class="btn-download-all" onclick="downloadAllPNG()">⬇️ Download Semua Diagram (PNG)</button>
-<div class="status" id="global-status"></div>
+    <button class="btn-download-all" onclick="downloadAllPNG()">⬇️ Download Semua Diagram (PNG)</button>
+    <div class="status" id="global-status"></div>
 
-<!-- Containers for each diagram -->
-<div class="diagram-section" id="section1">
-    <div class="diagram-header">
-        <h2>1. Diagram Arsitektur Sistem</h2>
-        <div class="btn-group">
-            <button class="btn-download svg-btn" onclick="downloadSVG('diagram1', 'Diagram_Arsitektur_Sistem')">⬇ SVG</button>
-            <button class="btn-download" onclick="downloadPNG('diagram1', 'Diagram_Arsitektur_Sistem')">⬇ PNG</button>
+    <!-- Containers for each diagram -->
+    <div class="diagram-section" id="section1">
+        <div class="diagram-header">
+            <h2>1. Diagram Arsitektur Sistem</h2>
+            <div class="btn-group">
+                <button class="btn-download svg-btn" onclick="downloadSVG('diagram1', 'Diagram_Arsitektur_Sistem')">⬇
+                    SVG</button>
+                <button class="btn-download" onclick="downloadPNG('diagram1', 'Diagram_Arsitektur_Sistem')">⬇
+                    PNG</button>
+            </div>
         </div>
+        <div class="diagram-container" id="diagram1"></div>
     </div>
-    <div class="diagram-container" id="diagram1"></div>
-</div>
 
-<div class="diagram-section" id="section2">
-    <div class="diagram-header">
-        <h2>2. Diagram Aliran Data Pemesanan via WhatsApp</h2>
-        <div class="btn-group">
-            <button class="btn-download svg-btn" onclick="downloadSVG('diagram2', 'Diagram_Sequence_Pemesanan')">⬇ SVG</button>
-            <button class="btn-download" onclick="downloadPNG('diagram2', 'Diagram_Sequence_Pemesanan')">⬇ PNG</button>
+    <div class="diagram-section" id="section2">
+        <div class="diagram-header">
+            <h2>2. Diagram Sequence Pemesanan via WhatsApp</h2>
+            <div class="btn-group">
+                <button class="btn-download svg-btn" onclick="downloadSVG('diagram2', 'Diagram_Sequence_Pemesanan')">⬇
+                    SVG</button>
+                <button class="btn-download" onclick="downloadPNG('diagram2', 'Diagram_Sequence_Pemesanan')">⬇
+                    PNG</button>
+            </div>
         </div>
+        <div class="diagram-container" id="diagram2"></div>
     </div>
-    <div class="diagram-container" id="diagram2"></div>
-</div>
 
-<div class="diagram-section" id="section3">
-    <div class="diagram-header">
-        <h2>3. Diagram Entity-Relationship Database</h2>
-        <div class="btn-group">
-            <button class="btn-download svg-btn" onclick="downloadSVG('diagram3', 'Diagram_ERD_Database')">⬇ SVG</button>
-            <button class="btn-download" onclick="downloadPNG('diagram3', 'Diagram_ERD_Database')">⬇ PNG</button>
+    <div class="diagram-section" id="section3">
+        <div class="diagram-header">
+            <h2>3. Diagram Entity-Relationship Database</h2>
+            <div class="btn-group">
+                <button class="btn-download svg-btn" onclick="downloadSVG('diagram3', 'Diagram_ERD_Database')">⬇
+                    SVG</button>
+                <button class="btn-download" onclick="downloadPNG('diagram3', 'Diagram_ERD_Database')">⬇ PNG</button>
+            </div>
         </div>
+        <div class="diagram-container" id="diagram3"></div>
     </div>
-    <div class="diagram-container" id="diagram3"></div>
-</div>
 
-<div class="diagram-section" id="section4">
-    <div class="diagram-header">
-        <h2>4. Diagram Deployment</h2>
-        <div class="btn-group">
-            <button class="btn-download svg-btn" onclick="downloadSVG('diagram4', 'Diagram_Deployment')">⬇ SVG</button>
-            <button class="btn-download" onclick="downloadPNG('diagram4', 'Diagram_Deployment')">⬇ PNG</button>
+    <div class="diagram-section" id="section4">
+        <div class="diagram-header">
+            <h2>4. Diagram Deployment</h2>
+            <div class="btn-group">
+                <button class="btn-download svg-btn" onclick="downloadSVG('diagram4', 'Diagram_Deployment')">⬇
+                    SVG</button>
+                <button class="btn-download" onclick="downloadPNG('diagram4', 'Diagram_Deployment')">⬇ PNG</button>
+            </div>
         </div>
+        <div class="diagram-container" id="diagram4"></div>
     </div>
-    <div class="diagram-container" id="diagram4"></div>
-</div>
 
-<script>
-// Diagram definitions
-const diagrams = {
-    diagram1: {
-        name: 'Diagram_Arsitektur_Sistem',
-        code: `graph LR
+    <script>
+        // Diagram definitions
+        const diagrams = {
+            diagram1: {
+                name: 'Diagram_Arsitektur_Sistem',
+                code: `graph LR
     ADMIN["Admin Dashboard\\n(Web Browser)"]
     DRIVER["Driver App\\n(Flutter Mobile)"]
     WA["Pelanggan\\n(WhatsApp)"]
     FONNTE["Fonnte API\\n(WhatsApp Gateway)"]
-    NOMINATIM["Nominatim API\\n(Geocoding)"]
+    NOMINATIM["Nominatim API\\n(OSM Geocoding)"]
+    GMAPS["Google Maps API\\n(Route Distance)"]
     FCM["Firebase Cloud Messaging\\n(FCM)"]
 
     BACKEND[("Backend\\nLaravel 11")]
@@ -172,10 +262,12 @@ const diagrams = {
         DB_CUSTOMERS[("customers")]
         DB_ORDERS[("orders")]
         DB_DRIVERS[("drivers")]
-        DB_DSTOCKS[("driver_stocks")]
-        DB_STOCKS[("stocks")]
         DB_ZONES[("zones")]
+        DB_ROUTE_STOPS[("route_stops")]
         DB_ICE[("ice_types")]
+        DB_DSTOCKS[("driver_stocks")]
+        DB_ICE_DSTOCKS[("ice_type_driver_stocks")]
+        DB_STOCKS[("stocks")]
         DB_EXP[("expenses &\\nexpense_categories")]
     end
 
@@ -184,17 +276,24 @@ const diagrams = {
     ADMIN -->|"HTTP /orders/..."| BACKEND
     ADMIN -->|"HTTP /customers/..."| BACKEND
     ADMIN -->|"HTTP /drivers/..."| BACKEND
-    ADMIN -->|"HTTP /stocks, /zones/..."| BACKEND
+    ADMIN -->|"HTTP /zones/.../route-stops/..."| BACKEND
+    ADMIN -->|"HTTP /stocks, /ice-types/..."| BACKEND
     ADMIN -->|"HTTP /finance, /expenses/..."| BACKEND
 
     DRIVER -->|"REST /api/driver/login"| BACKEND
-    DRIVER -->|"REST /api/driver/orders/..."| BACKEND
-    DRIVER -->|"REST /api/driver/stocks/..."| BACKEND
+    DRIVER -->|"REST /api/driver/fcm-token"| BACKEND
+    DRIVER -->|"REST /api/driver/route-stop (GPS tiap 5 menit)"| BACKEND
+    DRIVER -->|"REST /api/driver/orders/notifications"| BACKEND
+    DRIVER -->|"REST /api/driver/orders/.../status"| BACKEND
+    DRIVER -->|"REST /api/driver/orders/.../complete"| BACKEND
+    DRIVER -->|"REST /api/driver/stocks"| BACKEND
+    DRIVER -->|"REST /api/driver/customers"| BACKEND
 
     WA <-->|"Pesan WA"| FONNTE
     FONNTE -->|"POST /webhook/fonnte"| BACKEND
     BACKEND -->|"HTTPS send message"| FONNTE
     BACKEND -->|"HTTPS geocoding"| NOMINATIM
+    BACKEND -->|"HTTPS route distance"| GMAPS
     BACKEND -->|"HTTPS push notification"| FCM
     FCM -->|"Push Delivery"| DRIVER
 
@@ -202,15 +301,17 @@ const diagrams = {
     BACKEND --> DB_CUSTOMERS
     BACKEND --> DB_ORDERS
     BACKEND --> DB_DRIVERS
-    BACKEND --> DB_DSTOCKS
-    BACKEND --> DB_STOCKS
     BACKEND --> DB_ZONES
+    BACKEND --> DB_ROUTE_STOPS
     BACKEND --> DB_ICE
+    BACKEND --> DB_DSTOCKS
+    BACKEND --> DB_ICE_DSTOCKS
+    BACKEND --> DB_STOCKS
     BACKEND --> DB_EXP`
-    },
-    diagram2: {
-        name: 'Diagram_Sequence_Pemesanan',
-        code: `sequenceDiagram
+            },
+            diagram2: {
+                name: 'Diagram_Sequence_Pemesanan',
+                code: `sequenceDiagram
     actor Pelanggan
     participant WA as WhatsApp
     participant FN as Fonnte API
@@ -238,32 +339,45 @@ const diagrams = {
     Pelanggan->>WA: Jl Raya Canggu No 5
     WA->>FN: Forward
     FN->>SRV: POST /webhook/fonnte
-    SRV->>SRV: Deteksi zona + Nominatim Geocoding
-    SRV->>DB: Update alamat dan zona
+    SRV->>SRV: Deteksi zona via keyword/alias
+    SRV->>SRV: Nominatim Geocoding -> lat/lng
+    SRV->>SRV: Deteksi route_stop (jalur) berdasarkan nama jalan/alamat
+    SRV->>DB: Update address, zone, lat/lng, route_stop_id
     SRV->>DB: Buat Order status pending
-    SRV->>FCM: POST push notification (Hybrid Payload)
+    SRV->>SRV: Cek eligibility tiap supir (posisi jalur)
+    SRV->>FCM: POST push notification ke supir yang eligible
     FCM->>DRV: Kirim FCM Push Notification
-    SRV-->>FN: Response OK
+    SRV-->>FN: Response OK - Pesanan sedang dicek stok
+    Note over Pelanggan,DRV: Alur Supir Lapor Posisi GPS
+    DRV->>SRV: POST /api/driver/route-stop (lat/lng tiap 5 menit)
+    SRV->>DB: Deteksi route_stop terdekat berdasarkan GPS
+    SRV->>DB: Update current_route_stop_id & route_stop_updated_at
+    SRV->>DB: Auto-reject order pending yang jalurnya sudah terlewat
+    SRV-->>DRV: JSON route_stop saat ini
     Note over Pelanggan,DRV: Alur Supir Menerima Order
     DRV->>DRV: Tampilkan Heads-up Notification
-    DRV->>SRV: Buka aplikasi & GET /api/driver/orders/notifications
-    SRV->>DB: Ambil order pending sesuai zona
-    DB-->>SRV: Daftar order
-    SRV-->>DRV: JSON orders
+    DRV->>SRV: GET /api/driver/orders/notifications
+    SRV->>DB: Cek kelayakan order vs posisi jalur supir
+    SRV->>DB: Auto-reject order yang jalurnya sudah terlewat
+    SRV->>DB: Cek stok supir dan update status (approved/rejected)
+    DB-->>SRV: Daftar order terbaru
+    SRV-->>DRV: JSON orders + driver_stop saat ini
     DRV->>SRV: PATCH /api/driver/orders/id/status approved
-    SRV->>DB: Cek ketersediaan stok supir
-    SRV->>DB: Update order status approved (Stok belum dikurangi)
+    SRV->>DB: Cek stok supir cukup (IceTypeDriverStock)
+    SRV->>DB: Update order = approved & kurangi stok supir
+    SRV->>FN: Kirim WA konfirmasi ke pelanggan
     SRV-->>DRV: JSON message OK
     Note over DRV,DB: Alur Supir Selesai Antar
-    DRV->>SRV: POST /api/driver/orders/id/complete (Kirim Koordinat GPS)
-    SRV->>DB: Validasi jarak supir dengan pelanggan
-    SRV->>DB: Kurangi stok bawaan supir
-    SRV->>DB: Update order status completed
+    DRV->>SRV: PATCH /api/driver/orders/id/complete (Kirim Koordinat GPS)
+    SRV->>DB: Validasi order approved & milik supir ini
+    SRV->>SRV: Hitung jarak haversine GPS supir vs koordinat pelanggan
+    SRV->>DB: Update order status = completed
+    SRV->>FN: Kirim WA notifikasi selesai ke pelanggan
     SRV-->>DRV: JSON message dan stock_today`
-    },
-    diagram3: {
-        name: 'Diagram_ERD_Database',
-        code: `erDiagram
+            },
+            diagram3: {
+                name: 'Diagram_ERD_Database',
+                code: `erDiagram
     users {
         bigint id PK
         string name
@@ -281,6 +395,17 @@ const diagrams = {
         timestamp created_at
         timestamp updated_at
     }
+    route_stops {
+        bigint id PK
+        bigint zone_id FK
+        string name
+        smallint order_index
+        decimal latitude
+        decimal longitude
+        integer radius_meters
+        timestamp created_at
+        timestamp updated_at
+    }
     customers {
         bigint id PK
         string name
@@ -289,6 +414,7 @@ const diagrams = {
         string zone
         decimal latitude
         decimal longitude
+        bigint route_stop_id FK
         string conversation_state
         text pending_message
         timestamp created_at
@@ -309,6 +435,8 @@ const diagrams = {
         string name
         string phone
         bigint zone_id FK
+        bigint current_route_stop_id FK
+        timestamp route_stop_updated_at
         string username
         string password
         string api_token
@@ -346,6 +474,15 @@ const diagrams = {
         timestamp created_at
         timestamp updated_at
     }
+    ice_type_driver_stocks {
+        bigint id PK
+        bigint driver_id FK
+        bigint ice_type_id FK
+        date date
+        integer quantity
+        timestamp created_at
+        timestamp updated_at
+    }
     expenses {
         bigint id PK
         string name
@@ -362,16 +499,21 @@ const diagrams = {
         timestamp created_at
         timestamp updated_at
     }
+    zones ||--o{ route_stops : "memiliki"
     zones ||--o{ drivers : "memiliki"
+    route_stops ||--o{ customers : "dipetakan_ke"
+    route_stops ||--o{ drivers : "posisi_sekarang"
     customers ||--o{ orders : "membuat"
     drivers ||--o{ orders : "mengerjakan"
     ice_types ||--o{ orders : "tipe_es"
-    drivers ||--o{ driver_stocks : "memiliki"
+    drivers ||--o{ driver_stocks : "stok_lama"
+    drivers ||--o{ ice_type_driver_stocks : "stok_baru"
+    ice_types ||--o{ ice_type_driver_stocks : "jenis_es"
     expense_categories ||--o{ expenses : "kategori"`
-    },
-    diagram4: {
-        name: 'Diagram_Deployment',
-        code: `graph LR
+            },
+            diagram4: {
+                name: 'Diagram_Deployment',
+                code: `graph LR
     subgraph PERANGKAT_PELANGGAN["Perangkat Pelanggan"]
         WA_CLIENT["WhatsApp\\nSmartphone"]
     end
@@ -384,6 +526,7 @@ const diagrams = {
     subgraph CLOUD["Cloud Services"]
         FONNTE_SRV["Fonnte Server\\napi.fonnte.com"]
         OSM["OpenStreetMap\\nnominatim.openstreetmap.org"]
+        GMAPS_SRV["Google Maps API\\nmaps.googleapis.com"]
         FCM_SRV["Firebase Cloud Messaging\\nfcm.googleapis.com"]
     end
     subgraph SERVER["Application Server"]
@@ -395,174 +538,725 @@ const diagrams = {
         FS["Local Filesystem\\nstorage/"]
     end
     WA_CLIENT <-->|"Internet"| FONNTE_SRV
-    FONNTE_SRV <-->|"HTTPS"| APACHE
+    FONNTE_SRV <-->|"HTTPS Webhook"| APACHE
     FLUTTER <-->|"REST API\\nHTTPS"| APACHE
     BROWSER <-->|"HTTP/HTTPS"| APACHE
     APACHE --> PHP --> LARAVEL_APP
     LARAVEL_APP --> MYSQL_SRV
     LARAVEL_APP --> FS
     LARAVEL_APP -->|"HTTPS"| FONNTE_SRV
-    LARAVEL_APP -->|"HTTPS"| OSM
-    LARAVEL_APP -->|"HTTPS"| FCM_SRV
+    LARAVEL_APP -->|"HTTPS Geocoding"| OSM
+    LARAVEL_APP -->|"HTTPS Route Distance"| GMAPS_SRV
+    LARAVEL_APP -->|"HTTPS Push"| FCM_SRV
     FCM_SRV -->|"Push Delivery"| FLUTTER
     style PERANGKAT_PELANGGAN fill:#FFF9C4,stroke:#F57F17
     style PERANGKAT_SUPIR fill:#E8F5E9,stroke:#2E7D32
     style PERANGKAT_ADMIN fill:#E3F2FD,stroke:#1565C0
     style CLOUD fill:#FFF3E0,stroke:#E65100
     style SERVER fill:#F3E5F5,stroke:#6A1B9A`
-    }
-};
+            }
+        };
 
-// Initialize Mermaid with htmlLabels OFF to avoid foreignObject (critical for PNG export)
-mermaid.initialize({
-    startOnLoad: false,
-    theme: 'default',
-    securityLevel: 'loose',
-    flowchart: {
-        useMaxWidth: false,
-        htmlLabels: false,
-        curve: 'basis'
-    },
-    sequence: {
-        useMaxWidth: false,
-        wrap: true
-    },
-    er: {
-        useMaxWidth: false
-    }
-});
+        // Initialize Mermaid with htmlLabels OFF to avoid foreignObject (critical for PNG export)
+        mermaid.initialize({
+            startOnLoad: false,
+            theme: 'default',
+            securityLevel: 'loose',
+            flowchart: {
+                useMaxWidth: false,
+                htmlLabels: false,
+                curve: 'basis'
+            },
+            sequence: {
+                useMaxWidth: false,
+                wrap: true
+            },
+            er: {
+                useMaxWidth: false
+            }
+        });
 
-// Render all diagrams on load
-async function renderAll() {
-    const status = document.getElementById('global-status');
-    status.innerHTML = '<span class="loading">⏳ Rendering semua diagram...</span>';
+        // ==========================================
+        // CUSTOM BEAUTIFUL ERD RENDERER (DIAGRAM 3)
+        // ==========================================
 
-    for (const [id, diag] of Object.entries(diagrams)) {
-        try {
-            const { svg } = await mermaid.render(id + '_svg', diag.code);
-            document.getElementById(id).innerHTML = svg;
-        } catch (e) {
-            document.getElementById(id).innerHTML = '<p style="color:red;">Error rendering: ' + e.message + '</p>';
-            console.error('Error rendering ' + id, e);
+        const erdTables = [
+            {
+                id: "users",
+                name: "users",
+                color: "#4f46e5", // Indigo-600
+                x: 50,
+                y: 50,
+                columns: [
+                    { name: "id", type: "bigint", key: "PK" },
+                    { name: "name", type: "string" },
+                    { name: "email", type: "string" },
+                    { name: "password", type: "string" },
+                    { name: "remember_token", type: "string" },
+                    { name: "created_at", type: "timestamp" },
+                    { name: "updated_at", type: "timestamp" }
+                ]
+            },
+            {
+                id: "ice_types",
+                name: "ice_types",
+                color: "#4f46e5", // Indigo-600
+                x: 50,
+                y: 310,
+                columns: [
+                    { name: "id", type: "bigint", key: "PK" },
+                    { name: "name", type: "string" },
+                    { name: "description", type: "string" },
+                    { name: "weight", type: "decimal" },
+                    { name: "price", type: "decimal" },
+                    { name: "is_active", type: "boolean" },
+                    { name: "created_at", type: "timestamp" },
+                    { name: "updated_at", type: "timestamp" }
+                ]
+            },
+            {
+                id: "expense_categories",
+                name: "expense_categories",
+                color: "#4f46e5", // Indigo-600
+                x: 50,
+                y: 590,
+                columns: [
+                    { name: "id", type: "bigint", key: "PK" },
+                    { name: "name", type: "string" },
+                    { name: "created_at", type: "timestamp" },
+                    { name: "updated_at", type: "timestamp" }
+                ]
+            },
+            {
+                id: "zones",
+                name: "zones",
+                color: "#0d9488", // Teal-600
+                x: 420,
+                y: 100,
+                columns: [
+                    { name: "id", type: "bigint", key: "PK" },
+                    { name: "name", type: "string" },
+                    { name: "latitude", type: "decimal" },
+                    { name: "longitude", type: "decimal" },
+                    { name: "created_at", type: "timestamp" },
+                    { name: "updated_at", type: "timestamp" }
+                ]
+            },
+            {
+                id: "route_stops",
+                name: "route_stops",
+                color: "#0d9488", // Teal-600
+                x: 420,
+                y: 340,
+                columns: [
+                    { name: "id", type: "bigint", key: "PK" },
+                    { name: "zone_id", type: "bigint", key: "FK" },
+                    { name: "name", type: "string" },
+                    { name: "order_index", type: "smallint" },
+                    { name: "latitude", type: "decimal" },
+                    { name: "longitude", type: "decimal" },
+                    { name: "radius_meters", type: "integer" },
+                    { name: "created_at", type: "timestamp" },
+                    { name: "updated_at", type: "timestamp" }
+                ]
+            },
+            {
+                id: "customers",
+                name: "customers",
+                color: "#ea580c", // Orange-600
+                x: 790,
+                y: 50,
+                columns: [
+                    { name: "id", type: "bigint", key: "PK" },
+                    { name: "name", type: "string" },
+                    { name: "phone", type: "string" },
+                    { name: "address", type: "string" },
+                    { name: "zone", type: "string" },
+                    { name: "latitude", type: "decimal" },
+                    { name: "longitude", type: "decimal" },
+                    { name: "route_stop_id", type: "bigint", key: "FK" },
+                    { name: "conversation_state", type: "string" },
+                    { name: "pending_message", type: "text" },
+                    { name: "created_at", type: "timestamp" },
+                    { name: "updated_at", type: "timestamp" }
+                ]
+            },
+            {
+                id: "drivers",
+                name: "drivers",
+                color: "#ea580c", // Orange-600
+                x: 790,
+                y: 400,
+                columns: [
+                    { name: "id", type: "bigint", key: "PK" },
+                    { name: "name", type: "string" },
+                    { name: "phone", type: "string" },
+                    { name: "zone_id", type: "bigint", key: "FK" },
+                    { name: "current_route_stop_id", type: "bigint", key: "FK" },
+                    { name: "route_stop_updated_at", type: "timestamp" },
+                    { name: "username", type: "string" },
+                    { name: "password", type: "string" },
+                    { name: "api_token", type: "string" },
+                    { name: "fcm_token", type: "string" },
+                    { name: "created_at", type: "timestamp" },
+                    { name: "updated_at", type: "timestamp" }
+                ]
+            },
+            {
+                id: "orders",
+                name: "orders",
+                color: "#e11d48", // Rose-600
+                x: 790,
+                y: 750,
+                columns: [
+                    { name: "id", type: "bigint", key: "PK" },
+                    { name: "customer_id", type: "bigint", key: "FK" },
+                    { name: "driver_id", type: "bigint", key: "FK" },
+                    { name: "ice_type_id", type: "bigint", key: "FK" },
+                    { name: "quantity", type: "integer" },
+                    { name: "phone", type: "string" },
+                    { name: "items", type: "text" },
+                    { name: "status", type: "string" },
+                    { name: "raw_payload", type: "json" },
+                    { name: "created_at", type: "timestamp" },
+                    { name: "updated_at", type: "timestamp" }
+                ]
+            },
+            {
+                id: "stocks",
+                name: "stocks",
+                color: "#7c3aed", // Violet-600
+                x: 1180,
+                y: 50,
+                columns: [
+                    { name: "id", type: "bigint", key: "PK" },
+                    { name: "date", type: "date" },
+                    { name: "stock_5kg", type: "integer" },
+                    { name: "stock_20kg", type: "integer" },
+                    { name: "created_at", type: "timestamp" },
+                    { name: "updated_at", type: "timestamp" }
+                ]
+            },
+            {
+                id: "driver_stocks",
+                name: "driver_stocks",
+                color: "#7c3aed", // Violet-600
+                x: 1180,
+                y: 270,
+                columns: [
+                    { name: "id", type: "bigint", key: "PK" },
+                    { name: "driver_id", type: "bigint", key: "FK" },
+                    { name: "date", type: "date" },
+                    { name: "stock_5kg", type: "integer" },
+                    { name: "stock_20kg", type: "integer" },
+                    { name: "created_at", type: "timestamp" },
+                    { name: "updated_at", type: "timestamp" }
+                ]
+            },
+            {
+                id: "ice_type_driver_stocks",
+                name: "ice_type_driver_stocks",
+                color: "#7c3aed", // Violet-600
+                x: 1180,
+                y: 510,
+                columns: [
+                    { name: "id", type: "bigint", key: "PK" },
+                    { name: "driver_id", type: "bigint", key: "FK" },
+                    { name: "ice_type_id", type: "bigint", key: "FK" },
+                    { name: "date", type: "date" },
+                    { name: "quantity", type: "integer" },
+                    { name: "created_at", type: "timestamp" },
+                    { name: "updated_at", type: "timestamp" }
+                ]
+            },
+            {
+                id: "expenses",
+                name: "expenses",
+                color: "#7c3aed", // Violet-600
+                x: 1180,
+                y: 770,
+                columns: [
+                    { name: "id", type: "bigint", key: "PK" },
+                    { name: "name", type: "string" },
+                    { name: "amount", type: "decimal" },
+                    { name: "expense_category_id", type: "bigint", key: "FK" },
+                    { name: "notes", type: "text" },
+                    { name: "date", type: "date" },
+                    { name: "created_at", type: "timestamp" },
+                    { name: "updated_at", type: "timestamp" }
+                ]
+            }
+        ];
+
+        const erdRelations = [
+            { from: "zones", to: "route_stops", label: "memiliki", type: "1-N", fromField: "id", toField: "zone_id" },
+            { from: "zones", to: "drivers", label: "memiliki", type: "1-N", fromField: "id", toField: "zone_id" },
+            { from: "route_stops", to: "customers", label: "dipetakan_ke", type: "1-N", fromField: "id", toField: "route_stop_id" },
+            { from: "route_stops", to: "drivers", label: "posisi_sekarang", type: "1-N", fromField: "id", toField: "current_route_stop_id" },
+            { from: "customers", to: "orders", label: "membuat", type: "1-N", fromField: "id", toField: "customer_id" },
+            { from: "drivers", to: "orders", label: "mengerjakan", type: "1-N", fromField: "id", toField: "driver_id" },
+            { from: "ice_types", to: "orders", label: "tipe_es", type: "1-N", fromField: "id", toField: "ice_type_id" },
+            { from: "drivers", to: "driver_stocks", label: "stok_lama", type: "1-N", fromField: "id", toField: "driver_id" },
+            { from: "drivers", to: "ice_type_driver_stocks", label: "stok_baru", type: "1-N", fromField: "id", toField: "driver_id" },
+            { from: "ice_types", to: "ice_type_driver_stocks", label: "jenis_es", type: "1-N", fromField: "id", toField: "ice_type_id" },
+            { from: "expense_categories", to: "expenses", label: "kategori", type: "1-N", fromField: "id", toField: "expense_category_id" }
+        ];
+
+        const gaps = {
+            1: 350, // Between Col 1 and Col 2
+            2: 725, // Between Col 2 and Col 3
+            3: 1105 // Between Col 3 and Col 4
+        };
+
+        function getTableCol(tableId) {
+            if (["users", "ice_types", "expense_categories"].includes(tableId)) return 1;
+            if (["zones", "route_stops"].includes(tableId)) return 2;
+            if (["customers", "drivers", "orders"].includes(tableId)) return 3;
+            if (["stocks", "driver_stocks", "ice_type_driver_stocks", "expenses"].includes(tableId)) return 4;
+            return 1;
         }
-    }
 
-    status.innerHTML = '<span class="success">✅ Semua diagram berhasil di-render! Silakan download.</span>';
-}
-
-// Download as SVG
-function downloadSVG(containerId, filename) {
-    const container = document.getElementById(containerId);
-    const svgEl = container.querySelector('svg');
-    if (!svgEl) { alert('Diagram belum ter-render.'); return; }
-
-    const clone = svgEl.cloneNode(true);
-    clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
-
-    const serializer = new XMLSerializer();
-    const svgString = '<?xml version="1.0" encoding="UTF-8"?>\n' + serializer.serializeToString(clone);
-    const blob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
-
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = filename + '.svg';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(link.href);
-}
-
-// Download as PNG (reliable method)
-function downloadPNG(containerId, filename) {
-    const container = document.getElementById(containerId);
-    const svgEl = container.querySelector('svg');
-    if (!svgEl) { alert('Diagram belum ter-render.'); return; }
-
-    const scale = 3;
-    const clone = svgEl.cloneNode(true);
-
-    // Get actual size
-    const bbox = svgEl.getBBox();
-    const pad = 40;
-    const w = bbox.width + pad * 2;
-    const h = bbox.height + pad * 2;
-
-    // Set viewBox and dimensions
-    clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
-    clone.setAttribute('width', w);
-    clone.setAttribute('height', h);
-    clone.setAttribute('viewBox', `${bbox.x - pad} ${bbox.y - pad} ${w} ${h}`);
-
-    // Add white background rect as first child
-    const bg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-    bg.setAttribute('x', bbox.x - pad);
-    bg.setAttribute('y', bbox.y - pad);
-    bg.setAttribute('width', w);
-    bg.setAttribute('height', h);
-    bg.setAttribute('fill', '#ffffff');
-    clone.insertBefore(bg, clone.firstChild);
-
-    // Inline all computed styles for every element
-    const originalElements = svgEl.querySelectorAll('*');
-    const cloneElements = clone.querySelectorAll('*');
-    for (let i = 0; i < originalElements.length; i++) {
-        const computed = window.getComputedStyle(originalElements[i]);
-        let styleStr = '';
-        for (let j = 0; j < computed.length; j++) {
-            const prop = computed[j];
-            styleStr += `${prop}:${computed.getPropertyValue(prop)};`;
+        // Get safe orthogonal path routing
+        function getOrthogonalPath(x1, y1, x2, y2, fromTable, toTable) {
+            const col1 = getTableCol(fromTable);
+            const col2 = getTableCol(toTable);
+            
+            if (col1 === col2) {
+                const dy = Math.abs(y2 - y1);
+                const dx = Math.max(50, dy * 0.35);
+                return `M ${x1},${y1} C ${x1 + dx},${y1} ${x2 + dx},${y2} ${x2},${y2}`;
+            }
+            
+            const diff = Math.abs(col2 - col1);
+            
+            if (diff === 1) {
+                const gapCol = Math.min(col1, col2);
+                const gapX = gaps[gapCol];
+                return `M ${x1},${y1} H ${gapX} V ${y2} H ${x2}`;
+            }
+            
+            if (diff === 2) {
+                const gap1 = gaps[1];
+                const gap2 = gaps[2];
+                const bypassY = 660; 
+                return `M ${x1},${y1} H ${gap1} V ${bypassY} H ${gap2} V ${y2} H ${x2}`;
+            }
+            
+            if (diff === 3) {
+                const gap1 = gaps[1];
+                const gap3 = gaps[3];
+                const bypassY = y1 > 500 ? 1000 : 20;
+                return `M ${x1},${y1} H ${gap1} V ${bypassY} H ${gap3} V ${y2} H ${x2}`;
+            }
+            
+            return `M ${x1},${y1} H ${(x1 + x2)/2} V ${y2} H ${x2}`;
         }
-        cloneElements[i].setAttribute('style', styleStr);
-    }
 
-    // Serialize to data URL
-    const serializer = new XMLSerializer();
-    const svgString = serializer.serializeToString(clone);
-    const encodedSvg = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgString);
+        // Get label center coordinates
+        function getLabelCoords(x1, y1, x2, y2, fromTable, toTable) {
+            const col1 = getTableCol(fromTable);
+            const col2 = getTableCol(toTable);
+            
+            if (col1 === col2) {
+                const dy = Math.abs(y2 - y1);
+                const dx = Math.max(50, dy * 0.35);
+                return { x: x1 + dx, y: (y1 + y2) / 2 };
+            }
+            
+            const diff = Math.abs(col2 - col1);
+            
+            if (diff === 1) {
+                const gapCol = Math.min(col1, col2);
+                return { x: gaps[gapCol], y: (y1 + y2) / 2 };
+            }
+            
+            if (diff === 2) {
+                return { x: (gaps[1] + gaps[2]) / 2, y: 660 };
+            }
+            
+            if (diff === 3) {
+                const bypassY = y1 > 500 ? 1000 : 20;
+                return { x: (gaps[1] + gaps[3]) / 2, y: bypassY };
+            }
+            
+            return { x: (x1 + x2) / 2, y: (y1 + y2) / 2 };
+        }
 
-    // Draw to canvas
-    const canvas = document.createElement('canvas');
-    canvas.width = w * scale;
-    canvas.height = h * scale;
-    const ctx = canvas.getContext('2d');
+        // Main custom ERD rendering function
+        function renderCustomERD(containerId) {
+            const container = document.getElementById(containerId);
+            if (!container) return;
 
-    const img = new Image();
-    img.onload = function () {
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            const width = 240;
+            const rowHeight = 22;
+            const headerHeight = 36;
+            const svgWidth = 1520;
+            const svgHeight = 1050;
 
-        const link = document.createElement('a');
-        link.href = canvas.toDataURL('image/png');
-        link.download = filename + '.png';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-    };
-    img.onerror = function() {
-        alert('PNG export gagal untuk ' + filename + '. Gunakan tombol SVG sebagai alternatif.');
-    };
-    img.src = encodedSvg;
-}
+            let svgHtml = `
+            <svg class="erd-svg" viewBox="0 0 ${svgWidth} ${svgHeight}" width="1520" height="1050" xmlns="http://www.w3.org/2000/svg" style="background:#fcfcfd; border-radius:12px; box-shadow: inset 0 0 40px rgba(0,0,0,0.015);">
+                <defs>
+                    <!-- Grid Pattern -->
+                    <pattern id="erd-grid" width="40" height="40" patternUnits="userSpaceOnUse">
+                        <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#e2e8f0" stroke-width="0.5" opacity="0.6"/>
+                    </pattern>
+                    
+                    <!-- Markers for Relationships (1 to Many) -->
+                    <marker id="one-marker" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                        <circle cx="5" cy="5" r="3" fill="#475569" />
+                    </marker>
+                    <marker id="many-marker" viewBox="0 0 10 10" refX="2" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+                        <path d="M 9 2 L 2 5 L 9 8 M 2 5 L 9 5" stroke="#475569" stroke-width="1.5" fill="none" />
+                    </marker>
+                    
+                    <!-- Highlight Markers -->
+                    <marker id="one-marker-hl" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                        <circle cx="5" cy="5" r="3" fill="#D81B60" />
+                    </marker>
+                    <marker id="many-marker-hl" viewBox="0 0 10 10" refX="2" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+                        <path d="M 9 2 L 2 5 L 9 8 M 2 5 L 9 5" stroke="#D81B60" stroke-width="1.5" fill="none" />
+                    </marker>
 
-// Download all as PNG
-async function downloadAllPNG() {
-    const status = document.getElementById('global-status');
-    const entries = Object.entries(diagrams);
+                    <!-- Drop Shadows -->
+                    <filter id="table-shadow" x="-10%" y="-10%" width="120%" height="120%">
+                        <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#0f172a" flood-opacity="0.05"/>
+                        <feDropShadow dx="0" dy="1" stdDeviation="2" flood-color="#0f172a" flood-opacity="0.03"/>
+                    </filter>
+                    
+                    <filter id="table-shadow-active" x="-15%" y="-15%" width="130%" height="130%">
+                        <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#0f172a" flood-opacity="0.1"/>
+                    </filter>
+                </defs>
+                
+                <!-- Grid Background -->
+                <rect width="100%" height="100%" fill="url(#erd-grid)" />
+            `;
 
-    for (let i = 0; i < entries.length; i++) {
-        const [id, diag] = entries[i];
-        status.innerHTML = `<span class="loading">⬇️ Mengunduh ${i + 1}/${entries.length}: ${diag.name}...</span>`;
-        downloadPNG(id, diag.name);
-        await new Promise(r => setTimeout(r, 1500));
-    }
+            function getFieldInfo(tableId, fieldName) {
+                const table = erdTables.find(t => t.id === tableId);
+                if (!table) return null;
+                const index = table.columns.findIndex(c => c.name === fieldName);
+                return { table, index };
+            }
 
-    status.innerHTML = '<span class="success">✅ Semua diagram berhasil diunduh!</span>';
-    setTimeout(() => { status.textContent = ''; }, 5000);
-}
+            // 1. Draw Relationships
+            let relationsHtml = '<g class="relations-group">';
+            erdRelations.forEach((rel, rIdx) => {
+                const fromInfo = getFieldInfo(rel.from, rel.fromField);
+                const toInfo = getFieldInfo(rel.to, rel.toField);
+                
+                if (!fromInfo || !toInfo) return;
+                
+                const tableA = fromInfo.table;
+                const tableB = toInfo.table;
+                
+                const fieldAY = tableA.y + headerHeight + (fromInfo.index * rowHeight) + (rowHeight / 2);
+                const fieldBY = tableB.y + headerHeight + (toInfo.index * rowHeight) + (rowHeight / 2);
+                
+                let x1, y1, x2, y2;
+                
+                if (tableA.x < tableB.x) {
+                    x1 = tableA.x + width;
+                    y1 = fieldAY;
+                    x2 = tableB.x;
+                    y2 = fieldBY;
+                } else if (tableA.x > tableB.x) {
+                    x1 = tableA.x;
+                    y1 = fieldAY;
+                    x2 = tableB.x + width;
+                    y2 = fieldBY;
+                } else {
+                    x1 = tableA.x + width;
+                    y1 = fieldAY;
+                    x2 = tableB.x + width;
+                    y2 = fieldBY;
+                }
+                
+                const pathData = getOrthogonalPath(x1, y1, x2, y2, rel.from, rel.to);
+                const mid = getLabelCoords(x1, y1, x2, y2, rel.from, rel.to);
+                
+                relationsHtml += `
+                <g class="erd-relation" id="rel-${rIdx}" data-from="${rel.from}" data-to="${rel.to}" style="cursor: pointer;">
+                    <path d="${pathData}" fill="none" stroke="transparent" stroke-width="12" />
+                    <path class="relation-path" d="${pathData}" fill="none" stroke="#64748b" stroke-width="1.5" 
+                          marker-start="url(#one-marker)" marker-end="url(#many-marker)" />
+                    <g class="relation-label" transform="translate(${mid.x}, ${mid.y})">
+                        <rect x="-42" y="-10" width="84" height="20" rx="10" fill="#ffffff" stroke="#cbd5e1" stroke-width="1" />
+                        <text x="0" y="4" font-family="'Segoe UI', system-ui, sans-serif" font-size="10px" font-weight="600" fill="#475569" text-anchor="middle">${rel.label}</text>
+                    </g>
+                </g>
+                `;
+            });
+            relationsHtml += '</g>';
+            svgHtml += relationsHtml;
 
-// Start rendering
-renderAll();
-</script>
+            // 2. Draw Tables
+            let tablesHtml = '<g class="tables-group">';
+            erdTables.forEach(table => {
+                const tableHeight = headerHeight + (table.columns.length * rowHeight) + 8;
+                
+                tablesHtml += `
+                <g class="erd-table" id="table-${table.id}" transform="translate(${table.x}, ${table.y})" data-id="${table.id}">
+                    <rect width="${width}" height="${tableHeight}" rx="10" fill="#ffffff" filter="url(#table-shadow)" stroke="#cbd5e1" stroke-width="1" />
+                    <path d="M 0 10 A 10 10 0 0 1 10 0 L ${width - 10} 0 A 10 10 0 0 1 ${width} 10 L ${width} ${headerHeight} L 0 ${headerHeight} Z" fill="${table.color}" />
+                    <text x="${width / 2}" y="22" font-family="'Segoe UI', system-ui, sans-serif" font-size="13px" font-weight="700" fill="#ffffff" text-anchor="middle">${table.name}</text>
+                `;
+                
+                table.columns.forEach((col, idx) => {
+                    const rowY = headerHeight + (idx * rowHeight);
+                    const isAlt = idx % 2 === 1;
+                    const rowBg = isAlt ? '#f8fafc' : '#ffffff';
+                    
+                    tablesHtml += `
+                    <rect y="${rowY}" width="${width}" height="${rowHeight}" fill="${rowBg}" />
+                    `;
+                    
+                    let nameX = 14;
+                    if (col.key) {
+                        const badgeColor = col.key === 'PK' ? '#fef08a' : '#dbeafe';
+                        const badgeTextColor = col.key === 'PK' ? '#713f12' : '#1e40af';
+                        tablesHtml += `
+                        <rect x="12" y="${rowY + 4}" width="20" height="14" rx="4" fill="${badgeColor}" />
+                        <text x="22" y="${rowY + 14}" font-family="'Segoe UI', sans-serif" font-size="9px" font-weight="800" fill="${badgeTextColor}" text-anchor="middle">${col.key}</text>
+                        `;
+                        nameX = 38;
+                    }
+                    
+                    const isKey = !!col.key;
+                    const nameFontWeight = isKey ? '700' : '500';
+                    const nameTextColor = isKey ? '#0f172a' : '#334155';
+                    
+                    tablesHtml += `
+                    <text x="${nameX}" y="${rowY + 15}" font-family="'Segoe UI', sans-serif" font-size="11.5px" font-weight="${nameFontWeight}" fill="${nameTextColor}">${col.name}</text>
+                    <text x="${width - 12}" y="${rowY + 15}" font-family="'Segoe UI', sans-serif" font-size="10.5px" font-style="italic" fill="#64748b" text-anchor="end">${col.type}</text>
+                    `;
+                });
+                
+                tablesHtml += `
+                </g>
+                `;
+            });
+            tablesHtml += '</g>';
+            svgHtml += tablesHtml;
+            
+            svgHtml += `</svg>`;
+            container.innerHTML = svgHtml;
+            
+            // Interaction logic
+            const svgEl = container.querySelector('.erd-svg');
+            const tableEls = container.querySelectorAll('.erd-table');
+            const relationEls = container.querySelectorAll('.erd-relation');
+            
+            tableEls.forEach(tableEl => {
+                tableEl.addEventListener('mouseenter', () => {
+                    const tableId = tableEl.getAttribute('data-id');
+                    svgEl.classList.add('highlight-active');
+                    tableEl.classList.add('highlighted');
+                    tableEl.setAttribute('filter', 'url(#table-shadow-active)');
+                    
+                    relationEls.forEach(relEl => {
+                        const from = relEl.getAttribute('data-from');
+                        const to = relEl.getAttribute('data-to');
+                        if (from === tableId || to === tableId) {
+                            relEl.classList.add('highlighted');
+                            const path = relEl.querySelector('.relation-path');
+                            path.setAttribute('marker-start', 'url(#one-marker-hl)');
+                            path.setAttribute('marker-end', 'url(#many-marker-hl)');
+                            
+                            const otherTableId = from === tableId ? to : from;
+                            const otherTableEl = container.querySelector(`#table-${otherTableId}`);
+                            if (otherTableEl) {
+                                otherTableEl.classList.add('highlighted');
+                            }
+                        }
+                    });
+                });
+                
+                tableEl.addEventListener('mouseleave', () => {
+                    svgEl.classList.remove('highlight-active');
+                    tableEls.forEach(t => {
+                        t.classList.remove('highlighted');
+                        t.setAttribute('filter', 'url(#table-shadow)');
+                    });
+                    relationEls.forEach(r => {
+                        r.classList.remove('highlighted');
+                        const path = r.querySelector('.relation-path');
+                        path.setAttribute('marker-start', 'url(#one-marker)');
+                        path.setAttribute('marker-end', 'url(#many-marker)');
+                    });
+                });
+            });
+
+            relationEls.forEach(relEl => {
+                relEl.addEventListener('mouseenter', () => {
+                    const from = relEl.getAttribute('data-from');
+                    const to = relEl.getAttribute('data-to');
+                    
+                    svgEl.classList.add('highlight-active');
+                    relEl.classList.add('highlighted');
+                    
+                    const path = relEl.querySelector('.relation-path');
+                    path.setAttribute('marker-start', 'url(#one-marker-hl)');
+                    path.setAttribute('marker-end', 'url(#many-marker-hl)');
+                    
+                    const t1 = container.querySelector(`#table-${from}`);
+                    const t2 = container.querySelector(`#table-${to}`);
+                    if (t1) { t1.classList.add('highlighted'); t1.setAttribute('filter', 'url(#table-shadow-active)'); }
+                    if (t2) { t2.classList.add('highlighted'); t2.setAttribute('filter', 'url(#table-shadow-active)'); }
+                });
+                
+                relEl.addEventListener('mouseleave', () => {
+                    svgEl.classList.remove('highlight-active');
+                    tableEls.forEach(t => {
+                        t.classList.remove('highlighted');
+                        t.setAttribute('filter', 'url(#table-shadow)');
+                    });
+                    relationEls.forEach(r => {
+                        r.classList.remove('highlighted');
+                        const path = r.querySelector('.relation-path');
+                        path.setAttribute('marker-start', 'url(#one-marker)');
+                        path.setAttribute('marker-end', 'url(#many-marker)');
+                    });
+                });
+            });
+        }
+
+        // Render all diagrams on load
+        async function renderAll() {
+            const status = document.getElementById('global-status');
+            status.innerHTML = '<span class="loading">⏳ Rendering semua diagram...</span>';
+
+            for (const [id, diag] of Object.entries(diagrams)) {
+                try {
+                    if (id === 'diagram3') {
+                        renderCustomERD(id);
+                    } else {
+                        const { svg } = await mermaid.render(id + '_svg', diag.code);
+                        document.getElementById(id).innerHTML = svg;
+                    }
+                } catch (e) {
+                    document.getElementById(id).innerHTML = '<p style="color:red;">Error rendering: ' + e.message + '</p>';
+                    console.error('Error rendering ' + id, e);
+                }
+            }
+
+            status.innerHTML = '<span class="success">✅ Semua diagram berhasil di-render! Silakan download.</span>';
+        }
+
+        // Download as SVG
+        function downloadSVG(containerId, filename) {
+            const container = document.getElementById(containerId);
+            const svgEl = container.querySelector('svg');
+            if (!svgEl) { alert('Diagram belum ter-render.'); return; }
+
+            const clone = svgEl.cloneNode(true);
+            clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+
+            const serializer = new XMLSerializer();
+            const svgString = '<?xml version="1.0" encoding="UTF-8"?>\n' + serializer.serializeToString(clone);
+            const blob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
+
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = filename + '.svg';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(link.href);
+        }
+
+        // Download as PNG (reliable method)
+        function downloadPNG(containerId, filename) {
+            const container = document.getElementById(containerId);
+            const svgEl = container.querySelector('svg');
+            if (!svgEl) { alert('Diagram belum ter-render.'); return; }
+
+            const scale = 3;
+            const clone = svgEl.cloneNode(true);
+
+            // Get actual size
+            const bbox = svgEl.getBBox();
+            const pad = 40;
+            const w = bbox.width + pad * 2;
+            const h = bbox.height + pad * 2;
+
+            // Set viewBox and dimensions
+            clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+            clone.setAttribute('width', w);
+            clone.setAttribute('height', h);
+            clone.setAttribute('viewBox', `${bbox.x - pad} ${bbox.y - pad} ${w} ${h}`);
+
+            // Add white background rect as first child
+            const bg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+            bg.setAttribute('x', bbox.x - pad);
+            bg.setAttribute('y', bbox.y - pad);
+            bg.setAttribute('width', w);
+            bg.setAttribute('height', h);
+            bg.setAttribute('fill', '#ffffff');
+            clone.insertBefore(bg, clone.firstChild);
+
+            // Inline all computed styles for every element
+            const originalElements = svgEl.querySelectorAll('*');
+            const cloneElements = clone.querySelectorAll('*');
+            for (let i = 0; i < originalElements.length; i++) {
+                const computed = window.getComputedStyle(originalElements[i]);
+                let styleStr = '';
+                for (let j = 0; j < computed.length; j++) {
+                    const prop = computed[j];
+                    styleStr += `${prop}:${computed.getPropertyValue(prop)};`;
+                }
+                cloneElements[i].setAttribute('style', styleStr);
+            }
+
+            // Serialize to data URL
+            const serializer = new XMLSerializer();
+            const svgString = serializer.serializeToString(clone);
+            const encodedSvg = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgString);
+
+            // Draw to canvas
+            const canvas = document.createElement('canvas');
+            canvas.width = w * scale;
+            canvas.height = h * scale;
+            const ctx = canvas.getContext('2d');
+
+            const img = new Image();
+            img.onload = function () {
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+                const link = document.createElement('a');
+                link.href = canvas.toDataURL('image/png');
+                link.download = filename + '.png';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            };
+            img.onerror = function () {
+                alert('PNG export gagal untuk ' + filename + '. Gunakan tombol SVG sebagai alternatif.');
+            };
+            img.src = encodedSvg;
+        }
+
+        // Download all as PNG
+        async function downloadAllPNG() {
+            const status = document.getElementById('global-status');
+            const entries = Object.entries(diagrams);
+
+            for (let i = 0; i < entries.length; i++) {
+                const [id, diag] = entries[i];
+                status.innerHTML = `<span class="loading">⬇️ Mengunduh ${i + 1}/${entries.length}: ${diag.name}...</span>`;
+                downloadPNG(id, diag.name);
+                await new Promise(r => setTimeout(r, 1500));
+            }
+
+            status.innerHTML = '<span class="success">✅ Semua diagram berhasil diunduh!</span>';
+            setTimeout(() => { status.textContent = ''; }, 5000);
+        }
+
+        // Start rendering
+        renderAll();
+    </script>
 </body>
+
 </html>

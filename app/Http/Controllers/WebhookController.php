@@ -719,7 +719,7 @@ class WebhookController extends Controller
     {
         $messageLower = strtolower($message);
         $keywords = [
-            'bagaimana', 'gimana', 'cara', 'info', 'bisa pesen', 'mau pesen', 'ingin pesen',
+            'bagaimana', 'gimana', 'cara', 'bisa pesen', 'mau pesen', 'ingin pesen',
             'mau tau', 'mau tahu', 'boleh tau',
             'boleh tahu', 'bisa pesan', 'ingin pesan', 'mau order',
         ];
@@ -728,6 +728,10 @@ class WebhookController extends Controller
             if (str_contains($messageLower, $keyword)) {
                 return true;
             }
+        }
+
+        if (preg_match('/\binfo\b/i', $message)) {
+            return true;
         }
 
         return false;
@@ -776,6 +780,11 @@ class WebhookController extends Controller
                     return $zoneNameMap->get($zoneLower);
                 }
             }
+        }
+
+        $bestAliasMatch = $this->findBestFuzzyMatch($searchHaystack, $zoneNameMap->values()->all(), 82.0);
+        if ($bestAliasMatch !== null) {
+            return $bestAliasMatch;
         }
 
         return null;
@@ -868,6 +877,75 @@ class WebhookController extends Controller
             if ($normalizedStopName !== '' && str_contains($normalizedAddress, $normalizedStopName)) {
                 return $stop;
             }
+        }
+
+        $bestStopName = $this->findBestFuzzyMatch(
+            $normalizedAddress,
+            $stops->pluck('name')->filter()->values()->all(),
+            84.0
+        );
+
+        if ($bestStopName !== null) {
+            foreach ($stops as $stop) {
+                if (strcasecmp(trim((string) $stop->name), $bestStopName) === 0) {
+                    Log::info('[RouteStop] Fuzzy match digunakan untuk customer address.', [
+                        'zone_id' => $zone->id,
+                        'stop_name' => $stop->name,
+                        'address' => $customerAddress,
+                    ]);
+
+                    return $stop;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Cari kandidat teks paling mirip dengan input customer.
+     * Mengembalikan null jika skor kemiripan belum cukup aman.
+     */
+    private function findBestFuzzyMatch(string $needle, array $candidates, float $minimumScore = 80.0): ?string
+    {
+        $needle = trim($needle);
+        if ($needle === '') {
+            return null;
+        }
+
+        $bestCandidate = null;
+        $bestScore = 0.0;
+
+        foreach ($candidates as $candidate) {
+            $candidateText = trim((string) $candidate);
+            if ($candidateText === '') {
+                continue;
+            }
+
+            $normalizedCandidate = $this->normalizeText($candidateText);
+            if ($normalizedCandidate === '') {
+                continue;
+            }
+
+            if (str_contains($needle, $normalizedCandidate) || str_contains($normalizedCandidate, $needle)) {
+                return $candidateText;
+            }
+
+            similar_text($needle, $normalizedCandidate, $score);
+            if ($score > $bestScore) {
+                $bestScore = $score;
+                $bestCandidate = $candidateText;
+            }
+        }
+
+        if ($bestCandidate !== null && $bestScore >= $minimumScore) {
+            Log::info('[RouteStop] Fuzzy text match accepted.', [
+                'needle' => $needle,
+                'candidate' => $bestCandidate,
+                'score' => $bestScore,
+            ]);
+
+            return $bestCandidate;
         }
 
         return null;

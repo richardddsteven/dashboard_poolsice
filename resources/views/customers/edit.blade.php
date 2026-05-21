@@ -59,8 +59,8 @@
                 <input type="text" id="phone" name="phone" class="form-control" value="{{ old('phone', $customer->phone) }}" required>
             </div>
             <div>
-                <label for="address" style="display: block; margin-bottom: 6px; font-weight: 600; font-size: 14px; color: var(--text-main);">Alamat</label>
-                <textarea id="address" name="address" class="form-control" rows="3">{{ old('address', $customer->address) }}</textarea>
+                <label for="address" style="display: block; margin-bottom: 6px; font-weight: 600; font-size: 14px; color: var(--text-main);">Alamat <span style="color: #EF4444;">*</span></label>
+                <textarea id="address" name="address" class="form-control" rows="3" required>{{ old('address', $customer->address) }}</textarea>
             </div>
             <div>
                 <label for="zone" style="display: block; margin-bottom: 6px; font-weight: 600; font-size: 14px; color: var(--text-main);">Zona <span style="color: #EF4444;">*</span></label>

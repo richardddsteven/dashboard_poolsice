@@ -6,122 +6,23 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Use Case Diagram - Bab 3</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'Segoe UI', system-ui, sans-serif;
-            background: #f0f2f5;
-            color: #1a1a2e;
-            padding: 32px;
-        }
-
-        h1 {
-            text-align: center;
-            margin-bottom: 8px;
-            font-size: 26px;
-            color: #1565C0;
-        }
-
-        .subtitle {
-            text-align: center;
-            color: #666;
-            margin-bottom: 32px;
-            font-size: 14px;
-        }
-
-        .diagram-section {
-            background: #fff;
-            border-radius: 16px;
-            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
-            padding: 28px;
-            margin-bottom: 28px;
-            max-width: 1600px;
-            margin-left: auto;
-            margin-right: auto;
-        }
-
-        .diagram-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 16px;
-            flex-wrap: wrap;
-            gap: 10px;
-        }
-
-        .diagram-header h2 {
-            font-size: 18px;
-            color: #333;
-        }
-
-        .btn-group {
-            display: flex;
-            gap: 8px;
-        }
-
-        .btn {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            padding: 9px 18px;
-            color: #fff;
-            border: none;
-            border-radius: 8px;
-            font-size: 13px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .btn:hover {
-            filter: brightness(0.9);
-        }
-
-        .btn-png {
-            background: #1565C0;
-        }
-
-        .btn-svg {
-            background: #6A1B9A;
-        }
-
-        .diagram-container {
-            display: flex;
-            justify-content: center;
-            padding: 12px 0;
-            min-height: 300px;
-            overflow-x: auto;
-        }
-
-        .diagram-container svg {
-            max-width: 100%;
-            height: auto;
-        }
-
-        .loading-text {
-            color: #E65100;
-            font-weight: 600;
-            text-align: center;
-            padding: 60px;
-            font-size: 16px;
-        }
-
-        .status {
-            text-align: center;
-            margin-bottom: 24px;
-            font-size: 14px;
-            color: #888;
-            min-height: 22px;
-        }
-
-        .success {
-            color: #2E7D32;
-            font-weight: 600;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', system-ui, sans-serif; background: #f0f2f5; color: #1a1a2e; padding: 32px; }
+        h1 { text-align: center; margin-bottom: 8px; font-size: 26px; color: #1565C0; }
+        .subtitle { text-align: center; color: #666; margin-bottom: 32px; font-size: 14px; }
+        .diagram-section { background: #fff; border-radius: 16px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); padding: 28px; margin-bottom: 28px; max-width: 1600px; margin-left: auto; margin-right: auto; }
+        .diagram-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 10px; }
+        .diagram-header h2 { font-size: 18px; color: #333; }
+        .btn-group { display: flex; gap: 8px; }
+        .btn { display: inline-flex; align-items: center; gap: 6px; padding: 9px 18px; color: #fff; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+        .btn:hover { filter: brightness(0.9); }
+        .btn-png { background: #1565C0; }
+        .btn-svg { background: #6A1B9A; }
+        .diagram-container { display: flex; justify-content: center; padding: 12px 0; min-height: 300px; overflow-x: auto; }
+        .diagram-container svg { max-width: 100%; height: auto; }
+        .loading-text { color: #E65100; font-weight: 600; text-align: center; padding: 60px; font-size: 16px; }
+        .status { text-align: center; margin-bottom: 24px; font-size: 14px; color: #888; min-height: 22px; }
+        .success { color: #2E7D32; font-weight: 600; }
     </style>
 </head>
 
@@ -166,67 +67,89 @@ skinparam RectangleFontStyle bold
 
 left to right direction
 
+' Aktor kiri
 actor "Pelanggan" as P
 actor "Admin" as A
-actor "Layanan Geocoding" as G
 
 rectangle "Sistem Pools Ice" {
+
+    ' ── Pelanggan
     usecase "Memesan es batu via WhatsApp" as UC1
     usecase "Registrasi pelanggan baru" as UC2
     usecase "Mengirim nama toko" as UC3
     usecase "Mengirim alamat toko" as UC4
     usecase "Deteksi zona & koordinat alamat" as UC5
+    usecase "Deteksi jalur (route stop) customer" as UC5b
     usecase "Menyimpan order status pending" as UC6
-    usecase "Menerima konfirmasi pesanan" as UC26
+    usecase "Menerima konfirmasi pesanan via WA" as UC26
 
+    ' ── Admin
     usecase "Memantau order real-time" as UC7
     usecase "Mengelola data pelanggan" as UC8
     usecase "Mengelola data supir" as UC9
     usecase "Mengelola zona pengiriman" as UC10
+    usecase "Mengelola jalur per zona (route stop)" as UC10b
     usecase "Mengelola tipe es batu" as UC11
     usecase "Mengatur stok global harian" as UC12
     usecase "Memantau sisa stok supir harian" as UC13
     usecase "Memantau laporan keuangan" as UC14
     usecase "Mencatat pengeluaran" as UC15
 
+    ' ── Supir
     usecase "Login ke Driver App" as UC16
     usecase "Input stok bawaan hari ini" as UC17
+    usecase "Lapor posisi GPS (tiap 5 menit)" as UC28
+    usecase "Deteksi jalur supir saat ini" as UC29
     usecase "Melihat daftar order zona" as UC18
+    usecase "Menerima push notification order baru" as UC27
     usecase "Approve order" as UC19
     usecase "Reject order" as UC20
+    usecase "Validasi eligibility jalur order" as UC30
     usecase "Validasi stok saat approve" as UC21
+    usecase "Kurangi stok saat order approved" as UC24
     usecase "Selesai antar (GPS)" as UC22
     usecase "Validasi jarak ke koordinat pelanggan" as UC23
-    usecase "Kurangi stok saat order completed" as UC24
     usecase "Melihat stok hari ini" as UC25
-    usecase "Menerima push notification order baru" as UC27
 }
 
+' Aktor kanan
 actor "Supir" as D
+actor "Layanan Geocoding\\n(Nominatim)" as G
+actor "Google Maps API" as GM
 
+' Pelanggan
 P --> UC1
 P --> UC26
 UC1 ..> UC2 : <<extend>>
 UC2 ..> UC3 : <<include>>
 UC2 ..> UC4 : <<include>>
 UC4 ..> UC5 : <<include>>
+UC4 ..> UC5b : <<include>>
 UC1 ..> UC6 : <<include>>
 UC1 ..> UC26 : <<include>>
 
+' Admin
 A --> UC7
 A --> UC8
 A --> UC9
 A --> UC10
+A --> UC10b
 A --> UC11
 A --> UC12
 A --> UC13
 A --> UC14
 A --> UC15
 
-G --> UC5
+UC10 ..> UC10b : <<include>>
 
+' Layanan eksternal
+G --> UC5
+GM --> UC30
+
+' Supir
 D --> UC16
 D --> UC17
+D --> UC28
 D --> UC18
 D --> UC27
 D --> UC19
@@ -234,9 +157,13 @@ D --> UC20
 D --> UC22
 D --> UC25
 
+UC28 ..> UC29 : <<include>>
+UC29 ..> UC30 : <<include>>
+UC18 ..> UC30 : <<include>>
+UC19 ..> UC30 : <<include>>
 UC19 ..> UC21 : <<include>>
+UC19 ..> UC24 : <<include>>
 UC22 ..> UC23 : <<include>>
-UC22 ..> UC24 : <<include>>
 
 @enduml`;
 
@@ -275,9 +202,7 @@ UC22 ..> UC24 : <<include>>
             const link = document.createElement('a');
             link.href = URL.createObjectURL(blob);
             link.download = 'UC_Sistem_Pools_Ice.svg';
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
+            document.body.appendChild(link); link.click(); document.body.removeChild(link);
             URL.revokeObjectURL(link.href);
         }
 
@@ -290,26 +215,19 @@ UC22 ..> UC24 : <<include>>
             let h = parseFloat(svgEl.getAttribute('height')) || 900;
             const scale = 3;
             const canvas = document.createElement('canvas');
-            canvas.width = w * scale;
-            canvas.height = h * scale;
+            canvas.width = w * scale; canvas.height = h * scale;
             const ctx = canvas.getContext('2d');
             const img = new Image();
             const encodedSvg = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgCache);
             img.onload = function () {
-                ctx.fillStyle = '#ffffff';
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, canvas.width, canvas.height);
                 ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
                 const link = document.createElement('a');
                 link.href = canvas.toDataURL('image/png');
                 link.download = 'UC_Sistem_Pools_Ice.png';
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
+                document.body.appendChild(link); link.click(); document.body.removeChild(link);
             };
-            img.onerror = function () {
-                alert('PNG export gagal. Mengunduh SVG sebagai alternatif.');
-                downloadSVG();
-            };
+            img.onerror = function () { alert('PNG export gagal. Mengunduh SVG sebagai alternatif.'); downloadSVG(); };
             img.src = encodedSvg;
         }
 

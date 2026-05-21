@@ -6,8 +6,8 @@
 
 <div class="page-header" style="margin-bottom: 2rem;">
     <div>
-        <h1 class="page-title" style="margin-bottom: 4px; font-size: 1.5rem; font-weight: 700; color: var(--primary-blue);">Finance Overview</h1>
-        <p class="page-subtitle" style="margin-bottom: 0; color: var(--text-muted); font-size: 0.875rem;">Income, expenses, and financial summaries.</p>
+        <h1 class="page-title" style="margin-bottom: 4px; font-size: 1.5rem; font-weight: 700; color: var(--primary-blue);">Keuangan</h1>
+        <p class="page-subtitle" style="margin-bottom: 0; color: var(--text-muted); font-size: 0.875rem;">Manajemen Informasi Keuangan</p>
     </div>
 </div>
 
@@ -109,12 +109,6 @@
     <div class="card" style="margin-bottom: 0; padding: 24px;">
         <div style="color: var(--text-muted); font-size: 0.875rem; font-weight: 500; margin-bottom: 8px;">Laba Bersih</div>
         <div style="font-size: 1.5rem; font-weight: 700; color: {{ $netProfit >= 0 ? '#10B981' : '#EF4444' }};">Rp {{ number_format($netProfit, 0, ',', '.') }}</div>
-    </div>
-    
-    <!-- Pending Revenue -->
-    <div class="card" style="margin-bottom: 0; padding: 24px;">
-        <div style="color: var(--text-muted); font-size: 0.875rem; font-weight: 500; margin-bottom: 8px;">Pendapatan Tertunda</div>
-        <div style="font-size: 1.5rem; font-weight: 700; color: var(--primary-blue);">Rp {{ number_format($pendingRevenue, 0, ',', '.') }}</div>
     </div>
 </div>
 
@@ -336,8 +330,8 @@
                         labels: {
                             style: { colors: '#64748B', fontSize: '12px' },
                             formatter: (value) => {
-                                if (value >= 1000000) return 'Rp ' + (value / 1000000).toFixed(1) + 'M';
-                                if (value >= 1000) return 'Rp ' + (value / 1000).toFixed(1) + 'K';
+                                if (Math.abs(value) >= 1000000) return 'Rp ' + (value / 1000000).toFixed(1) + 'jt';
+                                if (Math.abs(value) >= 1000) return 'Rp ' + (value / 1000).toFixed(1) + 'rb';
                                 return 'Rp ' + value;
                             }
                         }
@@ -418,8 +412,8 @@
                 labels: {
                     style: { colors: '#64748B', fontSize: '12px' },
                     formatter: (value) => {
-                        if (Math.abs(value) >= 1000000) return 'Rp ' + (value / 1000000).toFixed(1) + 'M';
-                        if (Math.abs(value) >= 1000) return 'Rp ' + (value / 1000).toFixed(1) + 'K';
+                        if (Math.abs(value) >= 1000000) return 'Rp ' + (value / 1000000).toFixed(1) + 'jt';
+                        if (Math.abs(value) >= 1000) return 'Rp ' + (value / 1000).toFixed(1) + 'rb';
                         return 'Rp ' + value;
                     }
                 }

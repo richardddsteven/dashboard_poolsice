@@ -4,12 +4,27 @@
 
 @section('content')
 
-<!-- Reference Design Header (Interactive) -->
 <form id="dashboardFilterForm" method="GET" action="{{ route('dashboard') }}" class="dash-custom-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; flex-wrap: wrap; gap: 16px;">
     <h1 style="font-size: 27px; font-weight: 700; color: #1E293B; letter-spacing: -0.5px; margin: 0;">Dashboard</h1>
-    <div style="display: flex; gap: 8px; align-items: center; color: var(--text-muted); font-weight: 500; font-size: 15px;">
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
-        <span>{{ \Carbon\Carbon::now()->locale('id')->translatedFormat('l, d F Y') }}</span>
+    <div style="display: flex; gap: 8px; align-items: center;">
+        <select name="month" onchange="document.getElementById('dashboardFilterForm').submit()" class="dash-custom-select">
+            <option value="">7 Hari Terakhir</option>
+            <option value="this_month" {{ (isset($requestMonth) && $requestMonth == 'this_month') ? 'selected' : '' }}>Bulan Ini</option>
+            @foreach(range(1, 12) as $m)
+                <option value="{{ $m }}" {{ (isset($requestMonth) && $requestMonth == $m) ? 'selected' : '' }}>{{ \Carbon\Carbon::create()->month($m)->locale('id')->translatedFormat('F') }}</option>
+            @endforeach
+        </select>
+        @if(isset($requestMonth) && $requestMonth != '' && $requestMonth != 'this_month')
+        <select name="year" onchange="document.getElementById('dashboardFilterForm').submit()" class="dash-custom-select">
+            @foreach(range(date('Y'), date('Y') - 2) as $y)
+                <option value="{{ $y }}" {{ (isset($selectedYear) && $selectedYear == $y) ? 'selected' : '' }}>{{ $y }}</option>
+            @endforeach
+        </select>
+        @endif
+        <div style="display: flex; gap: 8px; align-items: center; color: var(--text-muted); font-weight: 500; font-size: 15px; margin-left: 12px;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+            <span>{{ \Carbon\Carbon::now()->locale('id')->translatedFormat('l, d F Y') }}</span>
+        </div>
     </div>
 </form>
 <div id="routeUpdateBanner"
@@ -59,7 +74,7 @@
             <div class="dash-stat-icon" style="color: #3B82F6;">
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.46 4.7 4.13 2.5.6 3 1.48 3 2.41 0 .69-.49 1.79-2.7 1.79-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c1.95-.37 3.5-1.5 3.5-3.55 0-2.84-2.43-3.81-4.7-4.4z"/></svg>
             </div>
-            <span class="dash-stat-label">Pendapatan Hari Ini</span>
+            <span class="dash-stat-label">{{ isset($isFiltered) && $isFiltered ? 'Pendapatan ' . $monthName : 'Pendapatan Hari Ini' }}</span>
             <!-- <div style="margin-left: auto; cursor: pointer; color: #CBD5E1;">
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
             </div> -->
@@ -111,7 +126,7 @@
             @endphp
             <div style="display: flex; align-items: center; gap: 8px;">
                 <span class="dash-stat-badge badge-up" style="font-size: 14px;">{{ $totalOrd7 }} pesanan</span>
-                <span style="font-size: 15px; color: #94A3B8;">dalam 7 hari terakhir</span>
+                <span style="font-size: 15px; color: #94A3B8;">{{ isset($isFiltered) && $isFiltered ? 'di bulan ' . $monthName : 'dalam 7 hari terakhir' }}</span>
             </div>
         </div>
         <div style="height: 220px; position: relative;">
@@ -250,7 +265,7 @@
                 <div style="color: #3B82F6;">
                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M4 19h16v2H4v-2zm2-4h3V9H6v6zm5 0h3V5h-3v10zm5 0h3v-8h-3v8z"/></svg>
                 </div>
-                <span class="dash-card-title">Arus Kas 7 Hari Terakhir</span>
+                <span class="dash-card-title">{{ isset($isFiltered) && $isFiltered ? 'Arus Kas ' . $monthName : 'Arus Kas 7 Hari Terakhir' }}</span>
             </div>
         </div>
         <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px;">
@@ -302,6 +317,34 @@
 
 <style>
     /* Dashboard specific styles matching reference design */
+    .dash-custom-select {
+        padding: 6px 32px 6px 12px;
+        border-radius: 8px;
+        border: 1px solid #CBD5E1;
+        color: #475569;
+        font-weight: 500;
+        font-family: inherit;
+        font-size: 14px;
+        background-color: #fff;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23475569' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 8px center;
+        background-size: 16px;
+        -webkit-appearance: none;
+        -moz-appearance: none;
+        appearance: none;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    .dash-custom-select:hover {
+        border-color: #94A3B8;
+    }
+    .dash-custom-select:focus {
+        outline: none;
+        border-color: #3B82F6;
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    }
+    
     .dash-btn-outline {
         background: #fff;
         border: 1px solid #E2E8F0;
@@ -546,7 +589,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     beginAtZero: true,
                     grid: { color: '#F1F5F9', drawBorder: false },
                     border: { display: false },
-                    ticks: { maxTicksLimit: 5, font: { size: 11 } }
+                    ticks: { maxTicksLimit: 5, font: { size: 11 }, stepSize: 1 }
                 },
                 x: {
                     grid: { display: false },

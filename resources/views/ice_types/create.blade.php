@@ -53,11 +53,11 @@
 
         <div style="margin-bottom:16px;">
             <label style="display:block;margin-bottom:6px;font-size:13px;font-weight:600;color:var(--text-secondary);">
-                Harga (opsional)
+                Harga <span style="color:#EF4444;">*</span>
             </label>
             <div style="position:relative;">
                 <span style="position:absolute;left:14px;top:50%;transform:translateY(-50%);font-size:14px;color:var(--text-muted);pointer-events:none;">Rp</span>
-                <input type="number" name="price" class="form-control" placeholder="0" step="0.01" min="0" value="{{ old('price', 0) }}" style="padding-left:40px;">
+                <input type="number" name="price" class="form-control" placeholder="0" step="0.01" min="0" value="{{ old('price') }}" required style="padding-left:40px;">
             </div>
         </div>
 

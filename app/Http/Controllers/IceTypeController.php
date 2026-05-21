@@ -23,7 +23,7 @@ class IceTypeController extends Controller
         $validated = $request->validate([
             'name'        => ['required', 'string', 'max:100'],
             'weight'      => ['required', 'numeric', 'min:0.01'],
-            'price'       => ['nullable', 'numeric', 'min:0'],
+            'price'       => ['required', 'numeric', 'min:0'],
             'description' => ['nullable', 'string', 'max:255'],
             'is_active'   => ['sometimes', 'boolean'],
         ]);
@@ -46,7 +46,7 @@ class IceTypeController extends Controller
         $validated = $request->validate([
             'name'        => ['required', 'string', 'max:100'],
             'weight'      => ['required', 'numeric', 'min:0.01'],
-            'price'       => ['nullable', 'numeric', 'min:0'],
+            'price'       => ['required', 'numeric', 'min:0'],
             'description' => ['nullable', 'string', 'max:255'],
             'is_active'   => ['sometimes', 'boolean'],
         ]);

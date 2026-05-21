@@ -759,7 +759,7 @@
                                 <path d="M20 6h-2V5a3 3 0 0 0-6 0v1h-2V5a3 3 0 0 0-6 0v1H2v16h20V6zM6 5a1 1 0 0 1 2 0v1H6V5zm8 0a1 1 0 0 1 2 0v1h-2V5zM4 8h16v12H4V8zm3 2h10v2H7v-2zm0 4h6v2H7v-2z"/>
                             </svg>
                         </span>
-                        <span>Stok</span>
+                        <span>Stok & Jenis Es</span>
                         <svg class="nav-arrow" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
                             <path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/>
                         </svg>
@@ -1150,6 +1150,11 @@
                 }
 
                 if (target.disabled) {
+                    return;
+                }
+
+                const isSubmitBtn = target.matches('button[type="submit"], button:not([type="button"]), input[type="submit"]');
+                if (isSubmitBtn && target.form && !target.form.checkValidity()) {
                     return;
                 }
 
