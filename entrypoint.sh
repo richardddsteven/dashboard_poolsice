@@ -6,6 +6,15 @@ cd /var/www/html || exit 1
 mkdir -p storage/app/public storage/logs bootstrap/cache
 touch storage/logs/laravel.log
 
+# Make public storage available for /storage/* asset URLs
+php artisan storage:link --force || true
+
+# Copy logo asset from the Flutter folder if it exists in the repo image
+if [ -f "driver_app_flutter/assets/images/poolsice.png" ]; then
+  cp driver_app_flutter/assets/images/poolsice.png storage/app/public/poolsice.png
+  chown www-data:www-data storage/app/public/poolsice.png || true
+fi
+
 # Write firebase credentials file if provided
 if [ -n "$FIREBASE_CREDENTIALS_JSON" ]; then
   printf '%s' "$FIREBASE_CREDENTIALS_JSON" > storage/app/public/firebase-service-account.json
