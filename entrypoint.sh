@@ -3,7 +3,8 @@ set -e
 
 # Ensure working dirs
 cd /var/www/html || exit 1
-mkdir -p storage/app/public
+mkdir -p storage/app/public storage/logs bootstrap/cache
+touch storage/logs/laravel.log
 
 # Write firebase credentials file if provided
 if [ -n "$FIREBASE_CREDENTIALS_JSON" ]; then
