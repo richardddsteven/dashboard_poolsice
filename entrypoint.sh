@@ -25,5 +25,13 @@ php artisan view:cache || true
 # Ensure permissions
 chown -R www-data:www-data storage bootstrap/cache || true
 
+# Fix Apache MPM conflicts: ensure only one MPM is enabled (use prefork for mod_php)
+# Disable event MPM if present and enable prefork
+if command -v a2dismod >/dev/null 2>&1; then
+  a2dismod mpm_event || true
+  a2enmod mpm_prefork || true
+fi
+
+echo "Starting Apache (entrypoint)..."
 # Start Apache
 exec "$@"
