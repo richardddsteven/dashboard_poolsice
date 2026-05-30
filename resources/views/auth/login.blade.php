@@ -16,6 +16,7 @@
             align-items: center;
             justify-content: center;
             -webkit-font-smoothing: antialiased;
+            padding: 16px;
         }
         .login-container {
             display: flex;
@@ -95,18 +96,79 @@
             transform: translateY(-1px);
             box-shadow: 0 4px 12px rgba(15,23,42,0.15);
         }
-        .register-link {
-            text-align: center;
-            margin-top: 24px;
+        .btn-login:disabled {
+            cursor: wait;
+            opacity: 0.78;
+            transform: none;
+        }
+        .loading-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.42);
+            backdrop-filter: blur(6px);
+            -webkit-backdrop-filter: blur(6px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+            transition: opacity 0.2s ease, visibility 0.2s ease;
+            z-index: 10000;
+            overflow: hidden;
+        }
+        .loading-overlay.show {
+            opacity: 1;
+            visibility: visible;
+            pointer-events: all;
+        }
+        .loading-panel {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            width: 86px;
+            min-height: 104px;
+            gap: 10px;
+        }
+        .loading-bars {
+            position: relative;
+            width: 70px;
+            height: 64px;
+        }
+        .loading-bars span {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            width: 18px;
+            height: 18px;
+            border-radius: 999px;
+            background: #fff;
+            box-shadow: 0 6px 18px rgba(15, 23, 42, 0.14);
+            animation: loadingDotOrbit 1.1s ease-in-out infinite;
+            animation-delay: var(--bar-delay);
+        }
+        .loading-subtitle {
+            z-index: 1;
+            color: rgba(255, 255, 255, 0.86);
             font-size: 14px;
-            color: #64748B;
+            font-weight: 500;
+            letter-spacing: 0.01em;
+            line-height: 1.2;
+            white-space: nowrap;
         }
-        .register-link a {
-            color: #0F172A;
-            text-decoration: none;
-            font-weight: 600;
+        @keyframes loadingDotOrbit {
+            0%, 100% {
+                transform: translate(-50%, -50%) translate(-24px, 12px) scale(1);
+            }
+            33.333% {
+                transform: translate(-50%, -50%) translate(0, -18px) scale(1.08);
+            }
+            66.666% {
+                transform: translate(-50%, -50%) translate(24px, 12px) scale(1);
+            }
         }
-        .register-link a:hover { text-decoration: underline; }
         .alert {
             padding: 12px 16px;
             border-radius: 10px;
@@ -128,9 +190,25 @@
             min-height: 420px;
         }
         @media (max-width: 768px) {
-            .login-container { flex-direction: column; margin: 16px; }
-            .login-visual { min-height: 180px; }
-            .login-form { padding: 32px 24px; }
+            .login-container { flex-direction: column-reverse; }
+            .login-form { padding: 24px 24px 36px; }
+            .login-visual { min-height: 130px; flex: none; background-size: auto 100px; margin-top: 32px; }
+        }
+        @media (max-width: 480px) {
+            .login-form { padding: 20px 20px 28px; }
+            .login-visual { min-height: 110px; background-size: auto 80px; margin-top: 24px; }
+            .login-title { font-size: 22px; }
+            .login-subtitle { font-size: 13px; margin-bottom: 20px; }
+        }
+        @media (max-width: 640px) {
+            .loading-panel { width: 78px; min-height: 98px; }
+            .loading-subtitle { font-size: 13px; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .loading-panel,
+            .loading-bars span {
+                animation: none;
+            }
         }
     </style>
 </head>
@@ -142,7 +220,7 @@
             @if(session('error'))
                 <div class="alert alert-danger">{{ session('error') }}</div>
             @endif
-            <form method="POST" action="{{ route('login') }}">
+            <form id="loginForm" method="POST" action="{{ route('login') }}">
                 @csrf
                 <div class="form-group">
                     <label for="email">Email</label>
@@ -154,11 +232,54 @@
                 </div>
                 <button type="submit" class="btn-login">Masuk</button>
             </form>
-            <div class="register-link">
-                Belum punya akun? <a href="{{ route('register') }}">Daftar</a>
-            </div>
         </div>
         <div class="login-visual"></div>
     </div>
+
+    <div id="loginLoadingOverlay" class="loading-overlay" aria-hidden="true">
+        <div class="loading-panel" role="status" aria-live="polite" aria-label="Memuat">
+            <div class="loading-bars" aria-hidden="true">
+                <span style="--bar-delay: 0ms;"></span>
+                <span style="--bar-delay: -366ms;"></span>
+                <span style="--bar-delay: -733ms;"></span>
+            </div>
+            <div class="loading-subtitle">Memuat...</div>
+        </div>
+    </div>
+
+    <script>
+        (function() {
+            const form = document.getElementById('loginForm');
+            const button = form ? form.querySelector('.btn-login') : null;
+            const loadingOverlay = document.getElementById('loginLoadingOverlay');
+
+            if (!form || !loadingOverlay) {
+                return;
+            }
+
+            function showLoadingOverlay() {
+                loadingOverlay.classList.add('show');
+                loadingOverlay.setAttribute('aria-hidden', 'false');
+
+                if (button) {
+                    button.disabled = true;
+                    button.textContent = 'Memuat...';
+                }
+            }
+
+            function hideLoadingOverlay() {
+                loadingOverlay.classList.remove('show');
+                loadingOverlay.setAttribute('aria-hidden', 'true');
+
+                if (button) {
+                    button.disabled = false;
+                    button.textContent = 'Masuk';
+                }
+            }
+
+            form.addEventListener('submit', showLoadingOverlay);
+            window.addEventListener('pageshow', hideLoadingOverlay);
+        })();
+    </script>
 </body>
 </html>

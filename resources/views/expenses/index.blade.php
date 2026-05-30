@@ -2,6 +2,27 @@
 
 @section('title')
 
+@push('styles')
+<style>
+    @media (max-width: 576px) {
+        .expenses-search-form {
+            width: 100%;
+        }
+        .expenses-search-form > div,
+        .expenses-search-form .expenses-search-input-wrapper,
+        .expenses-search-form .expenses-category-select-wrapper {
+            width: 100% !important;
+            max-width: 100% !important;
+        }
+        .expenses-search-form button,
+        .expenses-search-form a {
+            width: 100%;
+            justify-content: center;
+        }
+    }
+</style>
+@endpush
+
 @section('content')
 <div class="page-header">
     <div>
@@ -17,12 +38,12 @@
 <div class="card">
     <div class="card-header" style="flex-wrap: wrap; gap: 14px;">
         <h3 class="card-title">Daftar Pengeluaran</h3>
-        <form action="{{ route('expenses.index') }}" method="GET" style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
-            <div style="position: relative;">
+        <form action="{{ route('expenses.index') }}" method="GET" class="expenses-search-form" style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
+            <div style="position: relative; flex-grow: 1; max-width: 240px; min-width: 160px;" class="expenses-search-input-wrapper">
                 <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-light);"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-                <input type="text" name="search" value="{{ request('search') }}" placeholder="Cari nama atau catatan..." class="form-control" style="padding-left: 36px; width: 240px;">
+                <input type="text" name="search" value="{{ request('search') }}" placeholder="Cari nama atau catatan..." class="form-control" style="padding-left: 36px; width: 100%;">
             </div>
-            <div style="min-width: 160px;">
+            <div style="min-width: 160px; flex-grow: 1; max-width: 200px;" class="expenses-category-select-wrapper">
                 <div class="custom-select-wrapper" id="categorySelectWrapper">
                     <div class="custom-select-trigger" onclick="toggleCategorySelect()">
                         <span id="categorySelectText" class="text-placeholder">Semua Kategori</span>

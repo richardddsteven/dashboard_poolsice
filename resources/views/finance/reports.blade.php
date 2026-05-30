@@ -8,7 +8,7 @@
         <h1 class="page-title">Laporan Keuangan</h1>
         <p class="page-subtitle">Ringkasan transaksi dan cetak laporan</p>
     </div>
-    <div style="display: flex; gap: 10px;">
+    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
         <a href="{{ route('finance.index') }}" class="btn btn-secondary" style="background: var(--bg-body); border-color: var(--border-light); color: var(--text-main);">
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="me-2"><path d="M19 12H5"/><path d="M12 19L5 12L12 5"/></svg>
             Kembali
@@ -21,92 +21,69 @@
 </div>
 
 <!-- Filter Section -->
-<div class="card no-print" style="margin-bottom: 24px;">
-    <div class="card-header border-bottom">
-        <h3 class="card-title">Filter Laporan</h3>
+<form method="GET" action="{{ route('finance.reports') }}" id="filterForm" class="finance-filter-header no-print">
+    <h3 class="finance-filter-title">Filter Laporan</h3>
+    <div class="finance-filter-controls" style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+        <!-- Custom Select for Filter Type -->
+        <div class="custom-select-wrapper" id="financeFilterSelectWrapper" style="min-width: 170px; width: auto;">
+            <div class="custom-select-trigger" onclick="toggleFinanceFilterSelect('financeFilterSelectWrapper')">
+                <span>Semua</span>
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="select-icon"><path d="M6 9l6 6 6-6"/></svg>
+            </div>
+            <div class="custom-options">
+                <div class="custom-option {{ $filterType === 'all' ? 'selected' : '' }}" data-value="all" onclick="selectFinanceFilterOption(this, 'financeFilterSelectWrapper', 'filter_type')">Semua</div>
+                <div class="custom-option {{ $filterType === 'date' ? 'selected' : '' }}" data-value="date" onclick="selectFinanceFilterOption(this, 'financeFilterSelectWrapper', 'filter_type')">Tanggal Spesifik</div>
+                <div class="custom-option {{ $filterType === 'range' ? 'selected' : '' }}" data-value="range" onclick="selectFinanceFilterOption(this, 'financeFilterSelectWrapper', 'filter_type')">Rentang Tanggal</div>
+                <div class="custom-option {{ $filterType === 'month' ? 'selected' : '' }}" data-value="month" onclick="selectFinanceFilterOption(this, 'financeFilterSelectWrapper', 'filter_type')">Bulanan</div>
+                <div class="custom-option {{ $filterType === 'year' ? 'selected' : '' }}" data-value="year" onclick="selectFinanceFilterOption(this, 'financeFilterSelectWrapper', 'filter_type')">Tahunan</div>
+            </div>
+            <input type="hidden" name="filter_type" id="filter_type" value="{{ $filterType }}">
+        </div>
+
+        <input id="field_date" type="date" name="filter_date" value="{{ $filterDate ?? '' }}" class="form-control" style="min-width: 160px; max-width: 180px; display: none;">
+        <input id="field_start" type="date" name="filter_start" value="{{ $filterStart ?? '' }}" class="form-control" aria-label="Dari tanggal" style="min-width: 160px; max-width: 180px; display: none;">
+        <input id="field_end" type="date" name="filter_end" value="{{ $filterEnd ?? '' }}" class="form-control" aria-label="Sampai tanggal" style="min-width: 160px; max-width: 180px; display: none;">
+
+        <!-- Custom Select for Month -->
+        <div class="custom-select-wrapper" id="financeMonthSelectWrapper" style="min-width: 150px; width: auto; display: none;">
+            <div class="custom-select-trigger" onclick="toggleFinanceFilterSelect('financeMonthSelectWrapper')">
+                <span>Januari</span>
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="select-icon"><path d="M6 9l6 6 6-6"/></svg>
+            </div>
+            <div class="custom-options">
+                @foreach(range(1,12) as $m)
+                    @php $mLabel = \Carbon\Carbon::create()->month($m)->locale('id')->translatedFormat('F'); @endphp
+                    <div class="custom-option {{ ($filterMonth ?? '') == $m ? 'selected' : '' }}" data-value="{{ $m }}" onclick="selectFinanceFilterOption(this, 'financeMonthSelectWrapper', 'filter_month')">{{ $mLabel }}</div>
+                @endforeach
+            </div>
+            <input type="hidden" name="filter_month" id="filter_month" value="{{ $filterMonth ?? '' }}">
+        </div>
+
+        <!-- Custom Select for Year -->
+        <div class="custom-select-wrapper" id="financeYearSelectWrapper" style="min-width: 120px; width: auto; display: none;">
+            <div class="custom-select-trigger" onclick="toggleFinanceFilterSelect('financeYearSelectWrapper')">
+                <span>{{ $filterYear ?: date('Y') }}</span>
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="select-icon"><path d="M6 9l6 6 6-6"/></svg>
+            </div>
+            <div class="custom-options">
+                @foreach(range(date('Y') + 1, date('Y') - 4) as $y)
+                    <div class="custom-option {{ ($filterYear ?: date('Y')) == $y ? 'selected' : '' }}" data-value="{{ $y }}" onclick="selectFinanceFilterOption(this, 'financeYearSelectWrapper', 'filter_year')">{{ $y }}</div>
+                @endforeach
+            </div>
+            <input type="hidden" name="filter_year" id="filter_year" value="{{ $filterYear ?: date('Y') }}">
+        </div>
+
+        <button type="submit" class="btn btn-primary" style="padding: 10px 20px;">Terapkan</button>
+        @if($filterType !== 'all')
+        <a href="{{ route('finance.reports') }}" class="btn btn-secondary" style="padding: 10px 20px;">Reset</a>
+        @endif
     </div>
-    <div class="card-body">
-        <form method="GET" action="{{ route('finance.reports') }}" style="display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end;">
-            <div style="flex: 1; min-width: 200px;">
-                <label style="display:block; font-size: 13px; font-weight:600; color:var(--text-muted); margin-bottom:8px; text-transform: uppercase; letter-spacing: 0.5px;">Periode</label>
-                <div class="custom-select-wrapper" id="financeFilterSelectWrapper" style="width: 100%;">
-                    <div class="custom-select-trigger" onclick="toggleFinanceFilterSelect()" style="background: var(--bg-body); border-color: var(--border-light);">
-                        <span id="financeFilterSelectText" style="font-weight: 500;">{{ $filterType === 'date' ? 'Tanggal Spesifik' : ($filterType === 'range' ? 'Rentang Tanggal' : ($filterType === 'month' ? 'Bulanan' : ($filterType === 'year' ? 'Tahunan' : 'Semua'))) }}</span>
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="select-icon"><path d="M6 9l6 6 6-6"/></svg>
-                    </div>
-                    <div class="custom-options" style="border-radius: var(--radius-md); box-shadow: 0 4px 12px rgba(0,0,0,0.05); border-color: var(--border-light);">
-                        <div class="custom-option {{ $filterType === 'all' ? 'selected' : '' }}" data-value="all" onclick="selectFinanceFilterOption(this)">Semua Periode</div>
-                        <div class="custom-option {{ $filterType === 'date' ? 'selected' : '' }}" data-value="date" onclick="selectFinanceFilterOption(this)">Tanggal Spesifik</div>
-                        <div class="custom-option {{ $filterType === 'range' ? 'selected' : '' }}" data-value="range" onclick="selectFinanceFilterOption(this)">Rentang Tanggal</div>
-                        <div class="custom-option {{ $filterType === 'month' ? 'selected' : '' }}" data-value="month" onclick="selectFinanceFilterOption(this)">Bulanan</div>
-                        <div class="custom-option {{ $filterType === 'year' ? 'selected' : '' }}" data-value="year" onclick="selectFinanceFilterOption(this)">Tahunan</div>
-                    </div>
-                    <input type="hidden" name="filter_type" id="filter_type" value="{{ $filterType }}">
-                </div>
-            </div>
-            
-            <div id="field_date" style="display:{{ $filterType === 'date' ? 'block' : 'none' }}; flex: 1; min-width: 200px;">
-                <label style="display:block; font-size: 13px; font-weight:600; color:var(--text-muted); margin-bottom:8px; text-transform: uppercase;">Tanggal</label>
-                <input type="date" name="filter_date" value="{{ $filterDate ?? '' }}" class="form-control" style="background: var(--bg-body); border-color: var(--border-light);">
-            </div>
-            
-            <div id="field_start" style="display:{{ $filterType === 'range' ? 'block' : 'none' }}; flex: 1; min-width: 200px;">
-                <label style="display:block; font-size: 13px; font-weight:600; color:var(--text-muted); margin-bottom:8px; text-transform: uppercase;">Dari Tanggal</label>
-                <input type="date" name="filter_start" value="{{ $filterStart ?? '' }}" class="form-control" style="background: var(--bg-body); border-color: var(--border-light);">
-            </div>
-            
-            <div id="field_end" style="display:{{ $filterType === 'range' ? 'block' : 'none' }}; flex: 1; min-width: 200px;">
-                <label style="display:block; font-size: 13px; font-weight:600; color:var(--text-muted); margin-bottom:8px; text-transform: uppercase;">Sampai Tanggal</label>
-                <input type="date" name="filter_end" value="{{ $filterEnd ?? '' }}" class="form-control" style="background: var(--bg-body); border-color: var(--border-light);">
-            </div>
-            
-            <div id="field_month" style="display:{{ $filterType === 'month' ? 'block' : 'none' }}; flex: 1; min-width: 200px;">
-                <label style="display:block; font-size: 13px; font-weight:600; color:var(--text-muted); margin-bottom:8px; text-transform: uppercase;">Bulan</label>
-                <div class="custom-select-wrapper" id="monthFilterSelectWrapper" style="width: 100%;">
-                    <div class="custom-select-trigger" onclick="toggleMonthFilterSelect()" style="background: var(--bg-body); border-color: var(--border-light);">
-                        <span id="monthFilterSelectText" style="font-weight: 500;">{{ \Carbon\Carbon::createFromDate(null, $filterMonth, 1)->format('F') }}</span>
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="select-icon"><path d="M6 9l6 6 6-6"/></svg>
-                    </div>
-                    <div class="custom-options" style="border-radius: var(--radius-md); box-shadow: 0 4px 12px rgba(0,0,0,0.05); border-color: var(--border-light);">
-                        @foreach(range(1,12) as $m)
-                            @php $mName = \Carbon\Carbon::createFromDate(null, $m, 1)->format('F') @endphp
-                            <div class="custom-option {{ ($filterMonth ?? '') == $m ? 'selected' : '' }}" data-value="{{ $m }}" onclick="selectMonthFilterOption(this)">{{ $mName }}</div>
-                        @endforeach
-                    </div>
-                    <input type="hidden" name="filter_month" id="filter_month" value="{{ $filterMonth }}">
-                </div>
-            </div>
-            
-            <div id="field_year" style="display:{{ in_array($filterType, ['month', 'year']) ? 'block' : 'none' }}; flex: 1; min-width: 200px;">
-                <label style="display:block; font-size: 13px; font-weight:600; color:var(--text-muted); margin-bottom:8px; text-transform: uppercase;">Tahun</label>
-                <div class="custom-select-wrapper" id="yearFilterSelectWrapper" style="width: 100%;">
-                    <div class="custom-select-trigger" onclick="toggleYearFilterSelect()" style="background: var(--bg-body); border-color: var(--border-light);">
-                        <span id="yearFilterSelectText" style="font-weight: 500;">{{ $filterYear ?? date('Y') }}</span>
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="select-icon"><path d="M6 9l6 6 6-6"/></svg>
-                    </div>
-                    <div class="custom-options" style="border-radius: var(--radius-md); box-shadow: 0 4px 12px rgba(0,0,0,0.05); border-color: var(--border-light);">
-                        @foreach(range(date('Y') + 1, date('Y') - 4) as $y)
-                            <div class="custom-option {{ ($filterYear ?? '') == $y ? 'selected' : '' }}" data-value="{{ $y }}" onclick="selectYearFilterOption(this)">{{ $y }}</div>
-                        @endforeach
-                    </div>
-                    <input type="hidden" name="filter_year" id="filter_year" value="{{ $filterYear ?: date('Y') }}">
-                </div>
-            </div>
-            
-            <div style="display: flex; gap: 8px;">
-                <button type="submit" class="btn btn-primary" style="height: 42px; padding: 0 20px;">Terapkan</button>
-                @if($filterType !== 'all')
-                <a href="{{ route('finance.reports') }}" class="btn btn-secondary" style="height: 42px; padding: 0 20px; line-height: 40px; background: var(--bg-body); border-color: var(--border-light); color: var(--text-main);">Reset</a>
-                @endif
-            </div>
-        </form>
-    </div>
-</div>
+</form>
 
 <!-- Printed Report Container -->
-<div class="card" id="printableReport" style="padding: 40px;">
+<div class="card" id="printableReport">
     <!-- Report Header -->
-    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 40px; padding-bottom: 24px; border-bottom: 2px solid var(--border-color);">
+    <div class="report-header-flex">
         <div>
             <h2 style="font-size: 25px; font-weight: 800; color: var(--text-main); margin: 0; letter-spacing: -0.5px;">Pools Ice Dashboard</h2>
             <p style="color: var(--text-muted); margin: 6px 0 0 0; font-size: 15px;">Laporan Ringkasan Keuangan Sistem</p>
@@ -122,7 +99,7 @@
     <!-- Key Metrics Grid -->
     <div style="margin-bottom: 40px;">
         <h3 style="font-size: 19px; font-weight: 700; color: var(--text-main); margin-bottom: 16px;">Ringkasan Eksekutif</h3>
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px;" class="grid-cols-4">
+        <div class="report-executive-grid">
             <div style="padding: 20px; background: var(--bg-body); border-radius: var(--radius-md); border: 1px solid var(--border-light);">
                 <p style="margin: 0; font-size: 14px; color: var(--text-muted); font-weight: 600; text-transform: uppercase;">Total Pendapatan</p>
                 <p style="margin: 8px 0 0 0; font-size: 25px; font-weight: 800; color: #10B981;">Rp {{ number_format($totalRevenue, 0, ',', '.') }}</p>
@@ -142,7 +119,7 @@
             </div>
         </div>
         
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 16px;" class="grid-cols-2">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; margin-top: 16px;">
             <div style="padding: 16px 20px; background: var(--bg-body); border-radius: var(--radius-sm); display: flex; justify-content: space-between; align-items: center;">
                 <span style="font-weight: 600; color: var(--text-muted); font-size: 15px;">Total Pesanan Selesai</span>
                 <span style="font-weight: 800; font-size: 19px; color: var(--text-main);">{{ $totalOrders }} transaksi</span>
@@ -155,7 +132,7 @@
     </div>
 
     <!-- Two-column Report Details -->
-    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 32px; margin-bottom: 24px;" class="grid-cols-2">
+    <div class="report-subtables-grid">
         
         <!-- Sales by Ice Type -->
         <div>
@@ -222,7 +199,7 @@
     </div>
 
     <!-- Footer -->
-    <div style="margin-top: 60px; padding-top: 24px; border-top: 1px solid var(--border-light); display: flex; justify-content: space-between; align-items: center;">
+    <div class="report-footer-flex">
         <div style="font-size: 14px; color: var(--text-muted);">
             <div>Laporan ini dihasilkan secara otomatis oleh <strong>Pools Ice System</strong>.</div>
             <div style="margin-top: 4px;">Informasi ini bersifat rahasia dan internal.</div>
@@ -237,6 +214,165 @@
 </div>
 
 <style>
+#printableReport {
+    padding: 16px;
+}
+.report-header-flex {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 20px;
+    margin-bottom: 40px;
+    padding-bottom: 24px;
+    border-bottom: 2px solid var(--border-color);
+}
+.report-executive-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+}
+.report-subtables-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 32px;
+    margin-bottom: 24px;
+}
+.report-footer-flex {
+    margin-top: 60px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border-light);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 20px;
+}
+@media (min-width: 768px) {
+    #printableReport {
+        padding: 40px;
+    }
+}
+@media (max-width: 768px) {
+    .report-header-flex {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .report-header-flex > div:last-child {
+        text-align: left !important;
+        margin-top: 16px;
+    }
+    .report-subtables-grid {
+        grid-template-columns: 1fr;
+        gap: 24px;
+    }
+    .report-footer-flex {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .report-footer-flex > div:last-child {
+        text-align: left !important;
+        margin-top: 16px;
+    }
+}
+.finance-filter-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 24px;
+}
+.finance-filter-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: #1E293B;
+    letter-spacing: -0.2px;
+    margin: 0;
+}
+.finance-filter-controls {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+.dash-custom-select,
+.dash-custom-input {
+    min-height: 34px;
+    padding: 6px 32px 6px 12px;
+    border-radius: 8px;
+    border: 1px solid #CBD5E1;
+    color: #475569;
+    font-weight: 500;
+    font-family: inherit;
+    font-size: 14px;
+    background-color: #fff;
+    transition: all 0.2s;
+}
+.dash-custom-select {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23475569' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 8px center;
+    background-size: 16px;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    cursor: pointer;
+}
+.dash-custom-input {
+    padding-right: 12px;
+}
+.dash-custom-select:hover,
+.dash-custom-input:hover {
+    border-color: #94A3B8;
+}
+.dash-custom-select:focus,
+.dash-custom-input:focus {
+    outline: none;
+    border-color: #3B82F6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+.dash-filter-button {
+    min-height: 34px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6px 12px;
+    border-radius: 8px;
+    border: 1px solid #CBD5E1;
+    background: #fff;
+    color: #475569;
+    font-size: 14px;
+    font-weight: 600;
+    text-decoration: none;
+    font-family: inherit;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.dash-filter-button:hover {
+    background: #F8FAFC;
+    border-color: #94A3B8;
+}
+.dash-filter-button-primary {
+    background: #1E293B;
+    border-color: #1E293B;
+    color: #fff;
+}
+.dash-filter-button-primary:hover {
+    background: #334155;
+    border-color: #334155;
+}
+@media (max-width: 768px) {
+    .finance-filter-header {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+    .finance-filter-controls,
+    .custom-select-wrapper,
+    .form-control,
+    .btn {
+        width: 100% !important;
+        max-width: 100% !important;
+    }
+}
 @media print {
     @page { size: landscape; margin: 15mm; }
     body { background: white !important; margin: 0; padding: 0; }
@@ -266,73 +402,84 @@
 </style>
 
 <script>
-// Filter Setup Functions (Kept intact)
-function toggleFinanceFilterSelect() {
-    document.getElementById('financeFilterSelectWrapper').classList.toggle('open');
+function updateFilterFields() {
+    const type = document.getElementById('filter_type').value;
+
+    document.getElementById('field_date').style.display = type === 'date' ? 'inline-block' : 'none';
+    document.getElementById('field_start').style.display = type === 'range' ? 'inline-block' : 'none';
+    document.getElementById('field_end').style.display = type === 'range' ? 'inline-block' : 'none';
+    
+    const monthWrapper = document.getElementById('financeMonthSelectWrapper');
+    const yearWrapper = document.getElementById('financeYearSelectWrapper');
+    
+    if (monthWrapper) {
+        monthWrapper.style.display = type === 'month' ? 'inline-block' : 'none';
+    }
+    if (yearWrapper) {
+        yearWrapper.style.display = (type === 'month' || type === 'year') ? 'inline-block' : 'none';
+    }
 }
 
-function selectFinanceFilterOption(element) {
+document.addEventListener('DOMContentLoaded', updateFilterFields);
+
+function toggleFinanceFilterSelect(id) {
+    // Close other custom selects first
+    ['financeFilterSelectWrapper', 'financeMonthSelectWrapper', 'financeYearSelectWrapper'].forEach(wId => {
+        if (wId !== id) {
+            document.getElementById(wId)?.classList.remove('open');
+        }
+    });
+    document.getElementById(id)?.classList.toggle('open');
+}
+
+function selectFinanceFilterOption(element, wrapperId, inputId) {
     const value = element.getAttribute('data-value');
-    const text = element.innerText;
+    const text = element.textContent.trim();
     
-    document.getElementById('financeFilterSelectText').innerText = text;
-    document.getElementById('filter_type').value = value;
+    document.getElementById(inputId).value = value;
     
-    document.querySelectorAll('#financeFilterSelectWrapper .custom-option').forEach(opt => opt.classList.remove('selected'));
-    element.classList.add('selected');
-    
-    document.getElementById('financeFilterSelectWrapper').classList.remove('open');
-    
-    document.getElementById('field_date').style.display = 'none';
-    document.getElementById('field_start').style.display = 'none';
-    document.getElementById('field_end').style.display = 'none';
-    document.getElementById('field_month').style.display = 'none';
-    document.getElementById('field_year').style.display = 'none';
-    
-    if (value === 'date') document.getElementById('field_date').style.display = 'block';
-    else if (value === 'range') {
-        document.getElementById('field_start').style.display = 'block';
-        document.getElementById('field_end').style.display = 'block';
+    const wrapper = document.getElementById(wrapperId);
+    const textElement = wrapper.querySelector('.custom-select-trigger span');
+    if (textElement) {
+        textElement.textContent = text;
     }
-    else if (value === 'month') {
-        document.getElementById('field_month').style.display = 'block';
-        document.getElementById('field_year').style.display = 'block';
+    
+    const options = wrapper.querySelectorAll('.custom-option');
+    options.forEach(opt => opt.classList.remove('selected'));
+    element.classList.add('selected');
+    
+    wrapper.classList.remove('open');
+    
+    if (inputId === 'filter_type') {
+        updateFilterFields();
     }
-    else if (value === 'year') document.getElementById('field_year').style.display = 'block';
 }
 
-function toggleMonthFilterSelect() {
-    document.getElementById('monthFilterSelectWrapper').classList.toggle('open');
-}
-function selectMonthFilterOption(element) {
-    document.getElementById('monthFilterSelectText').innerText = element.innerText;
-    document.getElementById('filter_month').value = element.getAttribute('data-value');
-    document.querySelectorAll('#monthFilterSelectWrapper .custom-option').forEach(opt => opt.classList.remove('selected'));
-    element.classList.add('selected');
-    document.getElementById('monthFilterSelectWrapper').classList.remove('open');
-}
+// Close select on click outside
+document.addEventListener('click', function(e) {
+    ['financeFilterSelectWrapper', 'financeMonthSelectWrapper', 'financeYearSelectWrapper'].forEach(id => {
+        const wrapper = document.getElementById(id);
+        if (wrapper && !wrapper.contains(e.target)) {
+            wrapper.classList.remove('open');
+        }
+    });
+});
 
-function toggleYearFilterSelect() {
-    document.getElementById('yearFilterSelectWrapper').classList.toggle('open');
-}
-function selectYearFilterOption(element) {
-    document.getElementById('yearFilterSelectText').innerText = element.innerText;
-    document.getElementById('filter_year').value = element.getAttribute('data-value');
-    document.querySelectorAll('#yearFilterSelectWrapper .custom-option').forEach(opt => opt.classList.remove('selected'));
-    element.classList.add('selected');
-    document.getElementById('yearFilterSelectWrapper').classList.remove('open');
-}
-
-// Close selects when clicking outside
-document.addEventListener('click', function(event) {
-    const wrap1 = document.getElementById('financeFilterSelectWrapper');
-    if (wrap1 && !wrap1.contains(event.target)) wrap1.classList.remove('open');
-    
-    const wrap2 = document.getElementById('monthFilterSelectWrapper');
-    if (wrap2 && !wrap2.contains(event.target)) wrap2.classList.remove('open');
-    
-    const wrap3 = document.getElementById('yearFilterSelectWrapper');
-    if (wrap3 && !wrap3.contains(event.target)) wrap3.classList.remove('open');
+// Initialize texts
+window.addEventListener('DOMContentLoaded', () => {
+    ['financeFilterSelectWrapper', 'financeMonthSelectWrapper', 'financeYearSelectWrapper'].forEach(id => {
+        const wrapper = document.getElementById(id);
+        if (wrapper) {
+            const selectedOption = wrapper.querySelector('.custom-option.selected');
+            if (selectedOption) {
+                const textElement = wrapper.querySelector('.custom-select-trigger span');
+                if (textElement) {
+                    textElement.textContent = selectedOption.textContent.trim();
+                }
+            }
+        }
+    });
+    updateFilterFields();
 });
 </script>
 @endsection

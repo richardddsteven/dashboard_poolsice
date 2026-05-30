@@ -7,6 +7,9 @@
     <link rel="icon" type="image/png" href="{{ asset('storage/poolsice.png') }}">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
+        *, ::before, ::after {
+            box-sizing: border-box;
+        }
         :root {
             --primary: #0F172A;
             --primary-light: #1E293B;
@@ -32,10 +35,10 @@
             --transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
+        html, body {
+            overflow-x: hidden;
+            width: 100%;
+            max-width: 100vw;
         }
 
         body {
@@ -53,6 +56,9 @@
         .layout {
             display: flex;
             min-height: 100vh;
+            width: 100%;
+            overflow-x: hidden;
+            position: relative;
         }
 
         /* ========== Sidebar ========== */
@@ -68,7 +74,7 @@
             flex-direction: column;
             z-index: 50;
             border-right: 1px solid var(--border-color);
-            transition: transform 0.3s var(--transition);
+            transition: transform 0.3s var(--transition), visibility 0.3s var(--transition);
         }
 
         .sidebar-header {
@@ -286,6 +292,7 @@
             border: 1px solid var(--border-color);
             margin-bottom: 24px;
             transition: box-shadow var(--transition);
+            max-width: 100%;
         }
         .card:hover {
             box-shadow: var(--shadow-md);
@@ -323,13 +330,17 @@
             line-height: 1.5;
         }
         .btn-primary {
-            background: var(--accent);
-            color: white;
+            background: #1E293B;
+            border: 1px solid #1E293B;
+            border-color: #1E293B;
+            color: #fff;
         }
         .btn-primary:hover {
-            background: var(--accent-hover);
+            background: #334155;
+            border-color: #334155;
+            color: #fff;
             transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.25);
+            box-shadow: 0 4px 12px rgba(30, 41, 59, 0.22);
         }
         .btn-success {
             background: #10B981;
@@ -386,51 +397,52 @@
         .loading-panel {
             position: relative;
             display: flex;
-            flex-direction: row;
+            flex-direction: column;
             align-items: center;
             justify-content: center;
-            gap: 14px;
-            overflow: hidden;
-            transform: translateY(0);
+            width: 86px;
+            min-height: 104px;
+            gap: 10px;
         }
         .loading-bars {
-            display: flex;
-            align-items: flex-end;
-            gap: 5px;
-            height: 58px;
-            margin-bottom: 0;
-            z-index: 1;
+            position: relative;
+            width: 70px;
+            height: 64px;
         }
         .loading-bars span {
-            width: 5px;
-            height: var(--bar-height);
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            width: 18px;
+            height: 18px;
             border-radius: 999px;
-            background: linear-gradient(180deg, #2563eb 100%, #2563eb 100%);
-            box-shadow: 0 0 18px rgba(37, 99, 235, 0.45);
-            transform-origin: center bottom;
-            animation: loadingBarPulse 1.05s ease-in-out infinite;
+            background: #fff;
+            box-shadow: 0 6px 18px rgba(15, 23, 42, 0.14);
+            animation: loadingDotOrbit 1.1s ease-in-out infinite;
             animation-delay: var(--bar-delay);
         }
         .loading-subtitle {
             z-index: 1;
-            color: rgba(255, 255, 255, 0.82);
+            color: rgba(255, 255, 255, 0.86);
             font-size: 14px;
             font-weight: 500;
             letter-spacing: 0.01em;
             line-height: 1.2;
+            white-space: nowrap;
         }
-        @keyframes loadingBarPulse {
+        @keyframes loadingDotOrbit {
             0%, 100% {
-                transform: scaleY(0.72);
-                opacity: 0.74;
+                transform: translate(-50%, -50%) translate(-24px, 12px) scale(1);
             }
-            50% {
-                transform: scaleY(1.1);
-                opacity: 1;
+            33.333% {
+                transform: translate(-50%, -50%) translate(0, -18px) scale(1.08);
+            }
+            66.666% {
+                transform: translate(-50%, -50%) translate(24px, 12px) scale(1);
             }
         }
         @media (max-width: 640px) {
-            .loading-panel { gap: 10px; }
+            .loading-panel { width: 78px; min-height: 98px; }
             .loading-subtitle { font-size: 13px; }
         }
         @media (prefers-reduced-motion: reduce) {
@@ -673,11 +685,21 @@
             z-index: 49;
         }
 
+        /* ========== Grids & Tables ========== */
+        .dash-grid { display: grid; gap: 20px; margin-bottom: 24px; }
+        .grid-cols-2 { grid-template-columns: 1fr 1fr; }
+        .grid-cols-3 { grid-template-columns: repeat(3, 1fr); }
+        .grid-cols-4 { grid-template-columns: repeat(4, 1fr); }
+        .dash-grid-3-2 { grid-template-columns: 3fr 2fr; }
+        .dash-grid-2-3 { grid-template-columns: 2fr 3fr; }
+        
+        .table-responsive { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
         /* ========== Responsive ========== */
         @media (max-width: 1024px) {
-            .sidebar { transform: translateX(-100%); }
-            .sidebar.active { transform: translateX(0); box-shadow: 8px 0 32px rgba(0,0,0,0.15); }
-            .main-content { margin-left: 0; }
+            .sidebar { transform: translateX(-100%); visibility: hidden; }
+            .sidebar.active { transform: translateX(0); visibility: visible; box-shadow: 8px 0 32px rgba(0,0,0,0.15); }
+            .main-content { margin-left: 0; max-width: 100%; overflow-x: hidden; }
             .hamburger { display: flex; }
             .sidebar-overlay.active { display: block; }
             .topbar { display: flex; padding: 0 16px; justify-content: space-between; }
@@ -703,6 +725,9 @@
             
             /* Report Print Summary Grid */
             #printableReport > div:nth-child(2) > div, #printableReport > div:nth-child(3) { grid-template-columns: 1fr; }
+            
+            /* Dash grids */
+            .dash-grid-3-2, .dash-grid-2-3 { grid-template-columns: 1fr !important; }
         }
         
         @media (max-width: 768px) {
@@ -711,7 +736,7 @@
             .content { padding: 12px; }
             
             /* Stack tables on mobile if needed, or allow horizontal scroll */
-            .table-responsive { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; margin-bottom: 0; border: 1px solid var(--border-light); border-radius: var(--radius-sm); }
+            .table-responsive { border: 1px solid var(--border-light); border-radius: var(--radius-sm); }
             
             /* Dashboard Grid */
             .grid-cols-4 { grid-template-columns: 1fr 1fr !important; }
@@ -841,7 +866,7 @@
                         </div>
                         <div class="user-info">
                             <div class="user-name">{{ explode(' ', auth()->user()->name ?? 'Admin')[0] }}</div>
-                            <div class="user-role">Administrator</div>
+                            <div class="user-role">Admin</div>
                         </div>
                         <div class="logout-icon">
                             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
@@ -862,7 +887,7 @@
                     <span></span>
                     <span></span>
                 </button>
-                <div style="font-weight: 600; font-size: 14px; margin-left: 16px;">PoolsIce Dashboard</div>
+                <!-- <div style="font-weight: 600; font-size: 14px; margin-left: 16px;">PoolsIce Dashboard</div> -->
             </div>
 
             <!-- Content -->
@@ -873,14 +898,11 @@
     </div>
 
     <div id="globalLoadingOverlay" class="loading-overlay" aria-hidden="true">
-        <div class="loading-panel" role="status" aria-live="polite">
+        <div class="loading-panel" role="status" aria-live="polite" aria-label="Memuat">
             <div class="loading-bars" aria-hidden="true">
-                <span style="--bar-height: 26px; --bar-delay: 0ms;"></span>
-                <span style="--bar-height: 36px; --bar-delay: 90ms;"></span>
-                <span style="--bar-height: 22px; --bar-delay: 180ms;"></span>
-                <span style="--bar-height: 42px; --bar-delay: 270ms;"></span>
-                <span style="--bar-height: 28px; --bar-delay: 360ms;"></span>
-                <span style="--bar-height: 20px; --bar-delay: 450ms;"></span>
+                <span style="--bar-delay: 0ms;"></span>
+                <span style="--bar-delay: -366ms;"></span>
+                <span style="--bar-delay: -733ms;"></span>
             </div>
             <div class="loading-subtitle">Memuat...</div>
         </div>

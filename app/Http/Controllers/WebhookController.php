@@ -2,6 +2,8 @@
 namespace App\Http\Controllers;
 use App\Models\Customer;
 use App\Models\Driver;
+use App\Models\DriverStock;
+use App\Models\IceTypeDriverStock;
 use App\Models\Order;
 use App\Models\IceType;
 use App\Models\Zone;
@@ -24,13 +26,41 @@ class WebhookController extends Controller
 
     public function fonnte(Request $request)
     {
+        // ----------------------------------------------------------------
+        // SECURITY: Verifikasi token webhook dari Fonnte
+        // Fonnte menyertakan device token di field 'token' setiap payload.
+        // Kita cocokkan dengan FONNTE_TOKEN yang sudah ada di .env.
+        // ----------------------------------------------------------------
+        // ----------------------------------------------------------------
+        // SECURITY: Verifikasi token webhook dari Fonnte
+        // Kita menggunakan FONNTE_WEBHOOK_SECRET (jika dikonfigurasi).
+        // Jika kosong (default), verifikasi dilewati agar kompatibel dengan default Fonnte.
+        // ----------------------------------------------------------------
+        $expectedToken = config('services.fonnte.webhook_secret');
+        if ($expectedToken) {
+            $receivedToken = $request->header('Authorization') 
+                ?? $request->input('token') 
+                ?? null;
+
+            if ($receivedToken !== $expectedToken) {
+                Log::warning('Webhook Fonnte: token tidak valid — kemungkinan request palsu.', [
+                    'ip' => $request->ip(),
+                ]);
+                return response()->json(['status' => 'unauthorized'], 401);
+            }
+        }
+
         try {
             // Skip state-only payloads (read/delivered)
             if ($request->has('state') && !$request->has('message') && !$request->has('text')) {
                 return response()->json(['status' => 'ok']);
             }
 
-            Log::info('Webhook received', $request->all());
+            Log::info('Webhook received', [
+                'phone'   => $request->input('sender') ?? $request->input('from') ?? $request->input('phone'),
+                'state'   => $request->input('state'),
+                // Hindari log seluruh payload agar nomor HP & pesan customer tidak tersimpan plain
+            ]);
 
             $phone = $this->cleanPhone(
                 $request->input('sender') ??
@@ -241,11 +271,12 @@ class WebhookController extends Controller
         } catch (\Exception $e) {
             Log::error('Webhook error: ' . $e->getMessage(), [
                 'trace'   => $e->getTraceAsString(),
-                'payload' => $request->all(),
+                // Hindari log payload lengkap di production untuk privasi customer
+                'payload' => app()->isProduction() ? '[hidden in production]' : $request->all(),
             ]);
             return response()->json([
                 'status'  => 'error',
-                'message' => $e->getMessage(),
+                'message' => app()->isProduction() ? 'Internal server error.' : $e->getMessage(),
             ], 500);
         }
     }
@@ -357,81 +388,82 @@ class WebhookController extends Controller
      */
     private function notifyDriversInZone(Order $order, Customer $customer): void
     {
-        $customerZone = strtolower(trim((string) ($customer->zone ?? '')));
+        app(\App\Services\OrderDispatchService::class)->dispatch($order, $customer);
+    }
 
-        if ($customerZone === '') {
-            Log::info('[FCM] Zone kosong, notifikasi supir dilewati.', ['order_id' => $order->id]);
-            return;
+    private function driverHasEnoughStockForOrder(int $driverId, Order $order): bool
+    {
+        $driverStocks = $this->resolveDriverTodayStock($driverId);
+
+        if (empty($driverStocks)) {
+            return false;
         }
 
-        try {
-            // Cari semua supir di zona yang sama yang memiliki FCM token
-            $drivers = Driver::with(['zone:id,name', 'currentRouteStop'])
-                ->whereNotNull('fcm_token')
-                ->whereNotNull('api_token') // hanya supir yang sedang login
-                ->whereHas('zone', function ($query) use ($customerZone) {
-                    $query->whereRaw('LOWER(name) = ?', [$customerZone]);
-                })
-                ->get();
+        $required = max(1, (int) ($order->effective_quantity ?? $order->quantity ?? 1));
+        $iceTypeId = (int) ($order->ice_type_id ?? 0);
+        $iceTypeWeight = (float) ($order->iceType?->weight ?? 0);
 
-            if ($drivers->isEmpty()) {
-                Log::info('[FCM] Tidak ada supir online dengan FCM token di zona: ' . $customerZone);
-                return;
-            }
-
-            $fcm = app(FcmService::class);
-
-            $orderData = [
-                'id'            => $order->id,
-                'customer_name' => $customer->name,
-                'zone'          => $customer->zone,
-                'items'         => $order->items ?? '',
-            ];
-
-            $eligibleDriversCount = 0;
-
-            foreach ($drivers as $driver) {
-                if (!Order::isEligibleForDriver($order, $driver)) {
-                    Log::info('[FCM] Notifikasi dilewati, supir sudah terlalu jauh.', [
-                        'driver_id' => $driver->id,
-                        'order_id'  => $order->id,
-                    ]);
-                    continue;
+        if ($iceTypeId > 0) {
+            foreach ($driverStocks as $stock) {
+                if (isset($stock['ice_type_id']) && (int) $stock['ice_type_id'] === $iceTypeId) {
+                    return (int) $stock['quantity'] >= $required;
                 }
-
-                $eligibleDriversCount++;
-                $fcm->sendOrderNotification($driver->fcm_token, $orderData);
-
-                Log::info('[FCM] Notifikasi order terkirim ke supir.', [
-                    'driver_id'   => $driver->id,
-                    'driver_name' => $driver->name,
-                    'order_id'    => $order->id,
-                    'zone'        => $customerZone,
-                ]);
             }
 
-            // Jika ada supir online di zona tersebut, TETAPI tidak ada satupun yang memenuhi syarat
-            // (semua sudah terlewat terlalu jauh), maka otomatis tolak pesanannya.
-            if ($eligibleDriversCount === 0 && $drivers->isNotEmpty()) {
-                Log::info('[Webhook] Auto-reject order, semua supir di zona sudah terlewat', [
-                    'order_id' => $order->id,
-                    'zone'     => $customerZone,
-                ]);
-
-                $order->update(['status' => 'rejected']);
-                
-                $this->fonnte->sendMessage(
-                    $customer->phone,
-                    "Mohon maaf {$customer->name}, pesanan Anda kami tolak karena saat ini semua supir kami sudah melewati jalur pengiriman ke alamat Anda 🙏."
-                );
-            }
-        } catch (\Throwable $e) {
-            // Jangan gagalkan webhook karena error FCM
-            Log::error('[FCM] Gagal kirim notifikasi ke supir: ' . $e->getMessage(), [
-                'order_id' => $order->id,
-                'zone'     => $customerZone,
-            ]);
+            return false;
         }
+
+        foreach ($driverStocks as $stock) {
+            $stockWeight = (float) ($stock['weight'] ?? 0);
+            if (abs($stockWeight - $iceTypeWeight) < 0.01) {
+                return (int) $stock['quantity'] >= $required;
+            }
+        }
+
+        return false;
+    }
+
+    private function resolveDriverTodayStock(int $driverId): array
+    {
+        $newFormatStocks = IceTypeDriverStock::query()
+            ->forDate(now()->toDateString())
+            ->where('driver_id', $driverId)
+            ->get()
+            ->map(fn ($stock) => [
+                'ice_type_id' => (int) $stock->ice_type_id,
+                'quantity'    => (int) $stock->quantity,
+            ]);
+
+        if ($newFormatStocks->isNotEmpty()) {
+            return $newFormatStocks->values()->all();
+        }
+
+        $oldFormatStock = DriverStock::query()
+            ->where('driver_id', $driverId)
+            ->whereDate('date', now()->toDateString())
+            ->first();
+
+        if (!$oldFormatStock) {
+            return [];
+        }
+
+        $stocks = [];
+
+        if ((int) $oldFormatStock->stock_5kg > 0) {
+            $stocks[] = [
+                'quantity' => (int) $oldFormatStock->stock_5kg,
+                'weight'   => 5,
+            ];
+        }
+
+        if ((int) $oldFormatStock->stock_20kg > 0) {
+            $stocks[] = [
+                'quantity' => (int) $oldFormatStock->stock_20kg,
+                'weight'   => 20,
+            ];
+        }
+
+        return $stocks;
     }
 
     private function validateOrderMessage($message)

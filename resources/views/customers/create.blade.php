@@ -10,6 +10,8 @@
         border: 1px solid var(--border-color);
         overflow: hidden;
         background: #F8FAFC;
+        position: relative;
+        z-index: 1;
     }
     .zone-help-text {
         margin-top: 8px;

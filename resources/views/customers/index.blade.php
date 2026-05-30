@@ -11,6 +11,8 @@
         border: 1px solid var(--border-color);
         overflow: hidden;
         background: #F8FAFC;
+        position: relative;
+        z-index: 1;
     }
 
     .zone-map-empty {
@@ -130,7 +132,7 @@
 @if(!$selectedZone)
     <!-- Zone Selection SaaS Style -->
     <div style="margin-bottom: 32px;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 12px;">
             <div>
                 <h3 style="font-size: 17px; font-weight: 700; color: var(--text-main); margin-bottom: 4px;">Peta Zona</h3>
                 <p style="font-size: 14px; color: var(--text-muted); margin: 0;">Pilih direktori wilayah untuk mengelola pelanggan</p>
@@ -158,7 +160,7 @@
             @foreach($zones as $zone)
             <div style="position: relative; background: #fff; border: 1px solid var(--border-color); border-radius: 8px; border-left: 3px solid var(--accent); overflow: hidden; transition: box-shadow 0.2s, transform 0.2s;" onmouseover="this.style.boxShadow='0 4px 12px rgba(0,0,0,0.05)'; this.style.transform='translateY(-2px)';" onmouseout="this.style.boxShadow='none'; this.style.transform='none';">
                 
-                <a href="{{ route('customers.index', ['zone' => $zone->name]) }}" style="display: block; padding: 20px; text-decoration: none;">
+                <a href="{{ route('customers.index', ['zone' => $zone->name]) }}" style="display: block; padding: 20px 72px 20px 20px; text-decoration: none;">
                     <div style="display: flex; align-items: center; gap: 12px;">
                         <div style="width: 40px; height: 40px; border-radius: 8px; background: rgba(59, 130, 246, 0.1); color: var(--accent); display: flex; align-items: center; justify-content: center;">
                             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
@@ -273,11 +275,11 @@
                 <h3 class="card-title" style="font-size: 17px; margin: 0;">Pelanggan: {{ ucfirst($selectedZone) }}</h3>
             </div>
             
-            <form method="GET" action="{{ route('customers.index') }}" style="display: flex; gap: 8px; align-items: center;">
+            <form method="GET" action="{{ route('customers.index') }}" class="customer-search-form" style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
                 <input type="hidden" name="zone" value="{{ $selectedZone }}">
-                <div style="position: relative;">
+                <div style="position: relative; flex-grow: 1; max-width: 220px; min-width: 150px;" class="customer-search-input-wrapper">
                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--text-light);"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-                    <input type="text" name="search" value="{{ $search ?? '' }}" placeholder="Cari nama atau telepon..." class="form-control" style="padding: 6px 12px 6px 32px; width: 220px; font-size: 14px;">
+                    <input type="text" name="search" value="{{ $search ?? '' }}" placeholder="Cari nama atau telepon..." class="form-control" style="padding: 6px 12px 6px 32px; width: 100%; font-size: 14px;">
                 </div>
                 <button type="submit" class="btn btn-primary" style="padding: 6px 14px; font-size: 14px;">Cari</button>
                 @if($search)
@@ -369,6 +371,21 @@
     @keyframes modalFadeIn {
         from { opacity: 0; transform: translateY(-20px); }
         to { opacity: 1; transform: translateY(0); }
+    }
+    @media (max-width: 576px) {
+        .customer-search-form {
+            width: 100%;
+        }
+        .customer-search-form > div,
+        .customer-search-form .customer-search-input-wrapper {
+            width: 100% !important;
+            max-width: 100% !important;
+        }
+        .customer-search-form button,
+        .customer-search-form a {
+            width: 100%;
+            justify-content: center;
+        }
     }
 </style>
 

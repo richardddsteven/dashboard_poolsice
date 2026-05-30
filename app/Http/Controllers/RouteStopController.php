@@ -3,8 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Models\RouteStop;
+use App\Models\Order;
 use App\Models\Zone;
 use App\Models\Customer;
+use App\Services\OrderDispatchService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -64,6 +66,10 @@ class RouteStopController extends Controller
             );
 
             RouteStop::create($validated);
+
+            // Setelah jalur baru dibuat, langsung sinkronkan customer yang sudah ada
+            // supaya order berikutnya tidak masih membaca route_stop_id = null.
+            $this->reassignCustomersInZone($zone);
         });
 
         return redirect()
@@ -185,6 +191,27 @@ class RouteStopController extends Controller
         }
 
         $customer->update(['route_stop_id' => $validated['route_stop_id'] ?? null]);
+
+        $reviewOrders = Order::query()
+            ->where('customer_id', $customer->id)
+            ->where('status', 'pending')
+            ->get()
+            ->filter(function (Order $order) {
+                $rawPayload = is_array($order->raw_payload ?? null) ? $order->raw_payload : [];
+
+                return !empty($rawPayload['route_review_required'])
+                    || ($rawPayload['route_review_status'] ?? null) === 'pending_manual_review';
+            });
+
+        foreach ($reviewOrders as $order) {
+            $rawPayload = is_array($order->raw_payload ?? null) ? $order->raw_payload : [];
+            $rawPayload['route_review_status'] = 'route_assigned';
+            $rawPayload['route_review_assigned_at'] = now()->toDateTimeString();
+
+            $order->update(['raw_payload' => $rawPayload]);
+
+            app(OrderDispatchService::class)->dispatch($order->fresh(['customer.routeStop', 'iceType']), $customer->fresh(['routeStop']));
+        }
 
         return back()->with('success', 'Jalur customer berhasil diperbarui.');
     }

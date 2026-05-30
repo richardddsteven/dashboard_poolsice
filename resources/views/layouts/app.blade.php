@@ -82,11 +82,15 @@
             transition: all 0.3s;
         }
         .btn-primary {
-            background: #3498db;
-            color: white;
+            background: #1E293B;
+            border: 1px solid #1E293B;
+            border-color: #1E293B;
+            color: #fff;
         }
         .btn-primary:hover {
-            background: #2980b9;
+            background: #334155;
+            border-color: #334155;
+            color: #fff;
         }
         .btn-success {
             background: #27ae60;
@@ -137,51 +141,60 @@
         .loading-panel {
             position: relative;
             display: flex;
-            flex-direction: row;
+            flex-direction: column;
             align-items: center;
             justify-content: center;
-            gap: 14px;
-            overflow: hidden;
+            width: 86px;
+            min-height: 104px;
+            gap: 10px;
         }
         .loading-bars {
-            display: flex;
-            align-items: flex-end;
-            gap: 5px;
-            height: 58px;
-            margin-bottom: 0;
-            z-index: 1;
+            position: relative;
+            width: 70px;
+            height: 64px;
         }
         .loading-bars span {
-            width: 5px;
-            height: var(--bar-height);
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            width: 18px;
+            height: 18px;
             border-radius: 999px;
-            background: linear-gradient(180deg, #2563eb 100%, #2563eb 100%);
-            box-shadow: 0 0 18px rgba(37, 99, 235, 0.45);
-            transform-origin: center bottom;
-            animation: loadingBarPulse 1.05s ease-in-out infinite;
+            background: #fff;
+            box-shadow: 0 6px 18px rgba(15, 23, 42, 0.14);
+            animation: loadingDotOrbit 1.1s ease-in-out infinite;
             animation-delay: var(--bar-delay);
         }
         .loading-subtitle {
             z-index: 1;
-            color: rgba(255, 255, 255, 0.82);
+            color: rgba(255, 255, 255, 0.86);
             font-size: 14px;
             font-weight: 500;
             letter-spacing: 0.01em;
             line-height: 1.2;
+            white-space: nowrap;
         }
-        @keyframes loadingBarPulse {
+        @keyframes loadingDotOrbit {
             0%, 100% {
-                transform: scaleY(0.72);
-                opacity: 0.74;
+                transform: translate(-50%, -50%) translate(-24px, 12px) scale(1);
             }
-            50% {
-                transform: scaleY(1.1);
-                opacity: 1;
+            33.333% {
+                transform: translate(-50%, -50%) translate(0, -18px) scale(1.08);
+            }
+            66.666% {
+                transform: translate(-50%, -50%) translate(24px, 12px) scale(1);
             }
         }
         @media (max-width: 640px) {
-            .loading-panel { gap: 10px; }
+            .loading-panel { width: 78px; min-height: 98px; }
             .loading-subtitle { font-size: 13px; }
+            .navbar { padding: 1rem; }
+            .navbar-content { flex-direction: column; gap: 1rem; }
+            .nav-links { gap: 1rem; flex-wrap: wrap; justify-content: center; }
+            .container { padding: 0 1rem; margin: 1rem auto; }
+            .card { padding: 1rem; }
+            .card-header { flex-direction: column; gap: 1rem; align-items: flex-start; }
+            .btn { width: 100%; text-align: center; }
         }
         @media (prefers-reduced-motion: reduce) {
             .loading-panel,
@@ -207,6 +220,7 @@
         table tr:hover {
             background: #f8f9fa;
         }
+        .table-responsive { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
         .alert {
             padding: 1rem;
             border-radius: 4px;
@@ -312,14 +326,11 @@
     </div>
 
     <div id="globalLoadingOverlay" class="loading-overlay" aria-hidden="true">
-        <div class="loading-panel" role="status" aria-live="polite">
+        <div class="loading-panel" role="status" aria-live="polite" aria-label="Memuat">
             <div class="loading-bars" aria-hidden="true">
-                <span style="--bar-height: 26px; --bar-delay: 0ms;"></span>
-                <span style="--bar-height: 36px; --bar-delay: 90ms;"></span>
-                <span style="--bar-height: 22px; --bar-delay: 180ms;"></span>
-                <span style="--bar-height: 42px; --bar-delay: 270ms;"></span>
-                <span style="--bar-height: 28px; --bar-delay: 360ms;"></span>
-                <span style="--bar-height: 20px; --bar-delay: 450ms;"></span>
+                <span style="--bar-delay: 0ms;"></span>
+                <span style="--bar-delay: -366ms;"></span>
+                <span style="--bar-delay: -733ms;"></span>
             </div>
             <div class="loading-subtitle">Memuat...</div>
         </div>

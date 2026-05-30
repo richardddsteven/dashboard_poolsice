@@ -17,12 +17,12 @@
 <div class="card">
     <div class="card-header" style="flex-wrap: wrap; gap: 14px;">
         <h3 class="card-title">Daftar Supir</h3>
-        <form action="{{ route('drivers.index') }}" method="GET" style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
-            <div style="position: relative;">
+        <form action="{{ route('drivers.index') }}" method="GET" class="drivers-search-form" style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
+            <div style="position: relative; flex-grow: 1; max-width: 240px; min-width: 160px;" class="drivers-search-input-wrapper">
                 <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-light);"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-                <input type="text" name="search" value="{{ request('search') }}" placeholder="Cari nama atau telepon..." class="form-control" style="padding-left: 36px; width: 240px;">
+                <input type="text" name="search" value="{{ request('search') }}" placeholder="Cari nama atau telepon..." class="form-control" style="padding-left: 36px; width: 100%;">
             </div>
-            <div style="min-width: 160px;">
+            <div style="min-width: 160px; flex-grow: 1; max-width: 200px;" class="drivers-zone-select-wrapper">
                 <div class="custom-select-wrapper" id="zoneFilterSelectWrapper">
                     <div class="custom-select-trigger" onclick="toggleZoneFilterSelect()">
                         @php
@@ -352,6 +352,22 @@
         color: #059669;
         font-size: 12px;
         font-weight: 700;
+    }
+    @media (max-width: 576px) {
+        .drivers-search-form {
+            width: 100%;
+        }
+        .drivers-search-form > div,
+        .drivers-search-form .drivers-search-input-wrapper,
+        .drivers-search-form .drivers-zone-select-wrapper {
+            width: 100% !important;
+            max-width: 100% !important;
+        }
+        .drivers-search-form button,
+        .drivers-search-form a {
+            width: 100%;
+            justify-content: center;
+        }
     }
 </style>
 

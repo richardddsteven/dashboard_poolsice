@@ -4,7 +4,7 @@
 @push('styles')
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
 <style>
-    .stop-picker-map { height: 300px; border-radius: 12px; border: 1px solid var(--border-color); overflow: hidden; }
+    .stop-picker-map { height: 300px; border-radius: 12px; border: 1px solid var(--border-color); overflow: hidden; position: relative; z-index: 1; }
     .route-hint-note {
         display: flex;
         align-items: flex-start;

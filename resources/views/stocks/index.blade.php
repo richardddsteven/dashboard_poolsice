@@ -10,7 +10,7 @@
     </div>
 </div>
 
-<div style="display: grid; grid-template-columns: 320px 1fr; gap: 24px; align-items: start;">
+<div class="dash-grid stocks-grid" style="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); align-items: start;">
     <div style="display: flex; flex-direction: column; gap: 24px;">
         <div class="card" style="margin-bottom: 0;">
             <div class="card-header" style="border-bottom: 1px solid var(--border-color); padding-bottom: 16px; margin-bottom: 20px;">
@@ -99,7 +99,7 @@
                         Tidak ada jenis es yang aktif. Silakan tambahkan jenis es di halaman Jenis Es.
                     </div>
                 @else
-                    <div style="display: grid; gap: 12px; grid-auto-flow: dense;">
+                    <div class="stocks-today-list" style="display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));">
                         @php
                             $colors = [
                                 ['bg' => 'rgba(59, 130, 246, 0.08)', 'border' => 'rgba(59, 130, 246, 0.2)', 'text' => '#1D4ED8', 'dark' => '#1E3A8A'],
@@ -127,9 +127,9 @@
                                             <span id="stock-qty-{{ $iceType->id }}">{{ number_format($quantity, 0, ',', '.') }}</span>
                                         </div>
                                     </div>
-                                    <div style="font-size: 11px; color: {{ $color['text'] }}; font-weight: 600; background: white; padding: 4px 8px; border-radius: 6px;">
+                                    <!-- <div style="font-size: 11px; color: {{ $color['text'] }}; font-weight: 600; background: white; padding: 4px 8px; border-radius: 6px;">
                                         {{ $iceType->weight }}kg
-                                    </div>
+                                    </div> -->
                                 </div>
                             </div>
                         @endforeach
@@ -151,49 +151,48 @@
                 @endif
             </div>
         </div>
+    </div>
+</div>
 
-        <div class="card" style="margin-bottom: 0;">
-            <div class="card-header" style="border-bottom: 1px solid var(--border-color); padding-bottom: 16px; margin-bottom: 0;">
-                <h3 class="card-title" style="font-size: 17px; display: flex; align-items: center; gap: 8px;">
-                    <div style="color: var(--accent);">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 22h14"></path><path d="M5 2h14"></path><path d="M17 22V2"></path><path d="M7 22V2"></path><path d="M7 12h10"></path></svg>
-                    </div>
-                    Sisa Bawaan Supir Hari Ini
-                </h3>
+<div class="card" style="margin-top: 24px; margin-bottom: 0;">
+    <div class="card-header" style="border-bottom: 1px solid var(--border-color); padding-bottom: 16px; margin-bottom: 0;">
+        <h3 class="card-title" style="font-size: 17px; display: flex; align-items: center; gap: 8px;">
+            <div style="color: var(--accent);">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 22h14"></path><path d="M5 2h14"></path><path d="M17 22V2"></path><path d="M7 22V2"></path><path d="M7 12h10"></path></svg>
             </div>
+            Sisa Bawaan Supir Hari Ini
+        </h3>
+    </div>
 
-            <div class="table-responsive">
-                <table class="table" style="margin-bottom: 0;">
-                    <thead>
-                        <tr>
-                            <th>NAMA SUPIR</th>
-                            @foreach($iceTypes as $iceType)
-                                <th>SISA {{ strtoupper($iceType->name) }}</th>
-                            @endforeach
-                            <th>UPDATE TERAKHIR</th>
-                        </tr>
-                    </thead>
-                    <tbody id="driver-stock-table-body">
-                        @forelse($driverStockRows as $driverStock)
-                            <tr>
-                                <td>
-                                    <div style="font-weight: 500; color: var(--text-main); font-size: 15px;">{{ $driverStock['driver_name'] ?? $driverStock->driver?->name ?? '-' }}</div>
-                                </td>
-                                @foreach($iceTypes as $iceType)
-                                    <td><span style="font-size: 14px; font-weight: 600; color: #475569;">{{ number_format($driverStock['qty_'.$iceType->id] ?? $driverStock->{"qty_{$iceType->id}"} ?? 0, 0, ',', '.') }}</span></td>
-                                @endforeach
-                                <td style="font-size: 13px; color: var(--text-muted);">{{ \Carbon\Carbon::parse($driverStock['updated_at'] ?? $driverStock->updated_at)->format('H:i') }}</td>
-                            </tr>
-                        @empty
-                            <tr id="driver-stock-empty-row">
-                                <td colspan="{{ count($iceTypes) + 2 }}" style="text-align: center; padding: 24px; color: var(--text-muted); font-size: 14px;">Belum ada input stok supir.</td>
-                            </tr>
-                        @endforelse
-                    </tbody>
-                </table>
-            </div>
-        </div>
-
+    <div class="table-responsive">
+        <table class="table" style="margin-bottom: 0;">
+            <thead>
+                <tr>
+                    <th>NAMA SUPIR</th>
+                    @foreach($iceTypes as $iceType)
+                        <th>SISA {{ strtoupper($iceType->name) }}</th>
+                    @endforeach
+                    <th>UPDATE TERAKHIR</th>
+                </tr>
+            </thead>
+            <tbody id="driver-stock-table-body">
+                @forelse($driverStockRows as $driverStock)
+                    <tr>
+                        <td>
+                            <div style="font-weight: 500; color: var(--text-main); font-size: 15px;">{{ $driverStock['driver_name'] ?? $driverStock->driver?->name ?? '-' }}</div>
+                        </td>
+                        @foreach($iceTypes as $iceType)
+                            <td><span style="font-size: 14px; font-weight: 600; color: #475569;">{{ number_format($driverStock['qty_'.$iceType->id] ?? $driverStock->{"qty_{$iceType->id}"} ?? 0, 0, ',', '.') }}</span></td>
+                        @endforeach
+                        <td style="font-size: 13px; color: var(--text-muted);">{{ \Carbon\Carbon::parse($driverStock['updated_at'] ?? $driverStock->updated_at)->format('H:i') }}</td>
+                    </tr>
+                @empty
+                    <tr id="driver-stock-empty-row">
+                        <td colspan="{{ count($iceTypes) + 2 }}" style="text-align: center; padding: 24px; color: var(--text-muted); font-size: 14px;">Belum ada input stok supir.</td>
+                    </tr>
+                @endforelse
+            </tbody>
+        </table>
     </div>
 </div>
 
@@ -330,5 +329,57 @@
         setInterval(refreshRealtimeStock, 5000);
     })();
 </script>
+
+@push('styles')
+<style>
+/* Styling khusus halaman Stok pada resolusi Desktop (di atas 1024px) */
+@media (min-width: 1025px) {
+    .stocks-grid {
+        grid-template-columns: 4fr 6fr !important; /* Card kanan (Stok Utama Hari Ini) lebih besar dari card kiri (Input) */
+        gap: 24px !important;
+        align-items: stretch !important; /* Menyamakan tinggi wrapper kolom kiri & kanan */
+    }
+    
+    .stocks-grid > div {
+        display: flex !important;
+        flex-direction: column !important;
+    }
+    
+    .stocks-grid > div > .card {
+        flex-grow: 1 !important;
+        display: flex !important;
+        flex-direction: column !important;
+        margin-bottom: 0 !important;
+        height: 100% !important;
+    }
+    
+    /* Menyamakan isi tinggi form di kolom kiri agar button/input & warning banner menempel proporsional */
+    .stocks-grid > div:first-child > .card > form {
+        flex-grow: 1 !important;
+        display: flex !important;
+        flex-direction: column !important;
+        justify-content: space-between !important;
+    }
+    
+    /* Menyamakan isi tinggi kolom kanan agar list item & timestamp diatur secara space-between */
+    .stocks-grid > div:last-child > .card > div:last-child {
+        flex-grow: 1 !important;
+        display: flex !important;
+        flex-direction: column !important;
+        justify-content: space-between !important;
+    }
+    
+    .stocks-today-list {
+        grid-template-columns: 1fr !important; /* Membuat list jenis-jenis es berderet ke bawah */
+        gap: 12px !important;
+    }
+    
+    /* Layout detail item di dalam list vertikal agar terlihat lapang dan premium */
+    .stocks-today-list > div {
+        padding: 16px 20px !important;
+    }
+}
+</style>
+@endpush
 
 @endsection

@@ -9,14 +9,25 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
+
+/// URL production — GANTI dengan domain production kamu sebelum build release!
+/// Contoh: 'https://api.poolsice.com/api'
+const String _kProductionApiUrl = 'https://api.yourdomain.com/api';
 
 String get apiBaseUrl {
+  // Production & staging: wajib HTTPS
+  if (kReleaseMode || kProfileMode) {
+    return _kProductionApiUrl;
+  }
+
+  // Development only — HTTP hanya di local
   if (kIsWeb) {
     return 'http://127.0.0.1:8000/api';
   }
 
   if (defaultTargetPlatform == TargetPlatform.android) {
-    return 'http://10.0.2.2:8000/api';
+    return 'http://10.0.2.2:8000/api'; // Android emulator → localhost host machine
   }
 
   return 'http://127.0.0.1:8000/api';
@@ -65,7 +76,7 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
         importance: Importance.max,
         priority: Priority.high,
         playSound: true,
-        icon: '@mipmap/ic_launcher',
+        icon: 'ic_launcher_foreground',
       ),
     ),
   );
@@ -269,17 +280,55 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
 
     Timer(const Duration(milliseconds: 2500), () {
       if (mounted) {
+        _checkPersistedSession();
+      }
+    });
+  }
+
+  Future<void> _checkPersistedSession() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final authToken = prefs.getString('authToken');
+      final driverId = prefs.getInt('driverId');
+      final driverName = prefs.getString('driverName');
+      final zone = prefs.getString('zone');
+
+      if (!mounted) return;
+
+      if (authToken != null && authToken.isNotEmpty &&
+          driverId != null &&
+          driverName != null && driverName.isNotEmpty &&
+          zone != null && zone.isNotEmpty) {
         Navigator.of(context).pushReplacement(
           PageRouteBuilder(
             transitionDuration: const Duration(milliseconds: 600),
-            pageBuilder: (_, __, ___) => const LoginScreen(),
+            pageBuilder: (_, __, ___) => DriverHomeScreen(
+              driverId: driverId,
+              driverName: driverName,
+              zone: zone,
+              authToken: authToken,
+            ),
             transitionsBuilder: (_, animation, __, child) {
               return FadeTransition(opacity: animation, child: child);
             },
           ),
         );
+        return;
       }
-    });
+    } catch (_) {
+      // Gagal membaca storage, default ke LoginScreen
+    }
+
+    if (!mounted) return;
+    Navigator.of(context).pushReplacement(
+      PageRouteBuilder(
+        transitionDuration: const Duration(milliseconds: 600),
+        pageBuilder: (_, __, ___) => const LoginScreen(),
+        transitionsBuilder: (_, animation, __, child) {
+          return FadeTransition(opacity: animation, child: child);
+        },
+      ),
+    );
   }
 
   @override
@@ -399,6 +448,16 @@ class _LoginScreenState extends State<LoginScreen> {
         throw Exception('Data supir belum lengkap.');
       }
 
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('authToken', token);
+        await prefs.setInt('driverId', driverId);
+        await prefs.setString('driverName', safeDriverName);
+        await prefs.setString('zone', zone);
+      } catch (_) {
+        // Gagal menyimpan session, login tetap dilanjutkan
+      }
+
       if (!mounted) {
         return;
       }
@@ -420,7 +479,7 @@ class _LoginScreenState extends State<LoginScreen> {
       }
       showAppSnackBar(
         context,
-        message: 'Login gagal: $e',
+        message: 'Username atau password salah.',
         type: AppSnackBarType.error,
       );
     } finally {
@@ -610,6 +669,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
   bool _isSessionExpiredHandled = false;
   bool _isLoadingIceTypes = false;
   bool _isReportingRouteStop = false;
+  //bool _isAppInForeground = true;
   String? _currentRouteStopName; // Nama jalur supir saat ini
   final Set<int> _isUpdatingOrderIds = <int>{};
   int _todayStock5Kg = 0;
@@ -658,14 +718,18 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      _loadIceTypes();
-      _fetchOrders();
-      _fetchTodayStock();
-      _startPolling();
-      _startRouteStopReporting(); // Resume laporan posisi saat app kembali aktif
+      // Berikan jeda singkat agar network stack OS kembali aktif sepenuhnya
+      Future.delayed(const Duration(milliseconds: 300), () {
+        if (mounted) {
+          _startPolling();
+          _startRouteStopReporting();
+        }
+      });
       return;
     }
     if (state == AppLifecycleState.paused) {
+      // _isAppInForeground = false;
+      // _timer?.cancel(); // FCM tetap memberi notifikasi order saat app diminimize
       _routeStopTimer?.cancel(); // Hemat baterai saat app diminimize
     }
   }
@@ -743,6 +807,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
               importance: Importance.max,
               priority: Priority.high,
               playSound: true,
+              icon: 'ic_launcher_foreground',
             ),
           ),
         );
@@ -805,7 +870,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
       // Silently fail - will retry on refresh
       showAppSnackBar(
         context,
-        message: 'Gagal ambil daftar jenis es: $e',
+        message: 'Internet Tidak Stabil',
         type: AppSnackBarType.error,
       );
     } finally {
@@ -835,6 +900,13 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
     }
 
     _isSessionExpiredHandled = true;
+
+    SharedPreferences.getInstance().then((prefs) {
+      prefs.remove('authToken');
+      prefs.remove('driverId');
+      prefs.remove('driverName');
+      prefs.remove('zone');
+    }).catchError((_) {});
 
     showAppSnackBar(
       context,
@@ -888,6 +960,14 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
     } catch (_) {
       // Ignore API logout failure and continue local logout for better UX.
     } finally {
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.remove('authToken');
+        await prefs.remove('driverId');
+        await prefs.remove('driverName');
+        await prefs.remove('zone');
+      } catch (_) {}
+
       if (mounted) {
         Navigator.pushAndRemoveUntil(
           context,
@@ -1014,7 +1094,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
 
       showAppSnackBar(
         context,
-        message: 'Gagal ambil stok hari ini: $e',
+        message: 'Internet Tidak Stabil',
         type: AppSnackBarType.error,
       );
     } finally {
@@ -1121,13 +1201,13 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
         return;
       }
 
-      final message =
-          (payload['message'] as String?) ?? 'Stok bawaan berhasil disimpan.';
-      showAppSnackBar(
-        context,
-        message: message,
-        type: AppSnackBarType.success,
-      );
+      // final message =
+      //     (payload['message'] as String?) ?? 'Stok bawaan berhasil disimpan.';
+      // showAppSnackBar(
+      //   context,
+      //   message: message,
+      //   type: AppSnackBarType.success,
+      // );
       setState(() {
         _hasTodayStockInput = true;
       });
@@ -1229,6 +1309,10 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
   }
 
   Future<void> _fetchOrders() async {
+    // if (!_isAppInForeground) {
+    //   return;
+    // }
+
     if (_isLoading) {
       return;
     }
@@ -1277,9 +1361,12 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
       if (!mounted) {
         return;
       }
+      if (_isRecoverableOrderFetchError(e)) {
+        return;
+      }
       showAppSnackBar(
         context,
-        message: 'Gagal ambil data order: $e',
+        message: 'Internet Tidak Stabil',
         type: AppSnackBarType.error,
       );
     } finally {
@@ -1289,6 +1376,19 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
         });
       }
     }
+  }
+
+  bool _isRecoverableOrderFetchError(Object error) {
+    if (error is! http.ClientException) {
+      return false;
+    }
+
+    final message = error.toString().toLowerCase();
+    return message.contains('connection abort') ||
+        message.contains('connection reset') ||
+        message.contains('connection closed') ||
+        message.contains('connection terminated') ||
+        message.contains('software caused connection abort');
   }
 
   Future<Position> _resolveDriverPosition() async {
@@ -1413,16 +1513,16 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
         }
       });
 
-      final successMessage = (payload['message'] as String?) ?? 'Pesanan selesai diantar.';
-      final finalMessage = distance != null
-          ? '$successMessage (Jarak tervalidasi: ${distance}m)'
-          : successMessage;
+      // final successMessage = (payload['message'] as String?) ?? 'Pesanan selesai diantar.';
+      // final finalMessage = distance != null
+      //     ? '$successMessage (Jarak tervalidasi: ${distance}m)'
+      //     : successMessage;
 
-      showAppSnackBar(
-        context,
-        message: finalMessage,
-        type: AppSnackBarType.success,
-      );
+      // showAppSnackBar(
+      //   context,
+      //   message: finalMessage,
+      //   type: AppSnackBarType.success,
+      // );
 
       _fetchTodayStock();
     } catch (e) {
@@ -2420,12 +2520,12 @@ class _AddCustomerScreenState extends State<AddCustomerScreen> {
       final responseBody = response.body;
 
       if (response.statusCode == 201) {
-        final responseData = jsonDecode(responseBody);
-        showAppSnackBar(
-          context,
-          message: responseData['message'] ?? 'Customer berhasil ditambahkan!',
-          type: AppSnackBarType.success,
-        );
+        // final responseData = jsonDecode(responseBody);
+        // showAppSnackBar(
+        //   context,
+        //   message: responseData['message'] ?? 'Customer berhasil ditambahkan!',
+        //   type: AppSnackBarType.success,
+        // );
 
         // Panggil callback untuk refresh orders
         widget.onCustomerAdded();

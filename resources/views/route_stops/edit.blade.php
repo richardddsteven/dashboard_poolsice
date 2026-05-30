@@ -4,7 +4,7 @@
 @push('styles')
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
 <style>
-    .stop-picker-map { height: 300px; border-radius: 12px; border: 1px solid var(--border-color); overflow: hidden; }
+    .stop-picker-map { height: 300px; border-radius: 12px; border: 1px solid var(--border-color); overflow: hidden; position: relative; z-index: 1; }
     .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
     .form-grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
     @media (max-width: 768px) { .form-grid, .form-grid-3 { grid-template-columns: 1fr; } }

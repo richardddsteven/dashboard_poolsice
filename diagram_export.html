@@ -240,9 +240,72 @@
         <div class="diagram-container" id="diagram4"></div>
     </div>
 
+    <div class="diagram-section" id="section5">
+        <div class="diagram-header">
+            <h2>5. Diagram Technology Stack</h2>
+            <div class="btn-group">
+                <button class="btn-download svg-btn" onclick="downloadSVG('diagram5', 'Diagram_Technology_Stack')">⬇
+                    SVG</button>
+                <button class="btn-download" onclick="downloadPNG('diagram5', 'Diagram_Technology_Stack')">⬇ PNG</button>
+            </div>
+        </div>
+        <div class="diagram-container" id="diagram5"></div>
+    </div>
+
     <script>
         // Diagram definitions
         const diagrams = {
+            diagram5: {
+                name: 'Diagram_Technology_Stack',
+                code: `%%{init: {'theme': 'base', 'themeVariables': { 'fontSize': '18px', 'fontFamily': 'sans-serif'}}}%%
+flowchart TD
+    classDef layer fill:#f8f9fa,stroke:#b0bec5,stroke-width:2px,color:#1a237e,font-size:24px,font-weight:bold,padding:20px
+    classDef box fill:#ffffff,stroke:#42a5f5,stroke-width:3px,color:#1a1a1a,font-size:18px,text-align:left
+    classDef db fill:#e8f5e9,stroke:#66bb6a,stroke-width:3px,color:#1a1a1a,font-size:18px
+    classDef ext fill:#fff3e0,stroke:#ffb74d,stroke-width:3px,color:#1a1a1a,font-size:18px
+    
+    subgraph KLIEN["LAPISAN KLIEN"]
+        direction LR
+        WEB["Dashboard Admin (Web Browser)\\n-----------------------------------\\n• Blade Templating Engine\\n• Tailwind CSS v4\\n• Chart.js v4.5\\n• Vite v7 + Axios v1.11"]:::box
+        APP["Aplikasi Driver (Android)\\n-----------------------------------\\n• Flutter 3.29.3 / Dart 3.7.2\\n• firebase_messaging v15.2\\n• flutter_local_notifications\\n• geolocator / geocoding"]:::box
+    end
+    
+    subgraph BACKEND["LAPISAN BACKEND — SERVER"]
+        API["Laravel Framework v12.65 (PHP 8.3)\\n-----------------------------------\\n• MVC Backend Utama\\n• Laravel Sanctum v4.3 (Token Auth)\\n• kreait/firebase-php (FCM Sender)"]:::box
+    end
+    
+    subgraph DATA["LAPISAN DATA"]
+        DB[("MySQL 8.0.30\\nRelational Database")]:::db
+    end
+
+    subgraph EKSTERNAL["LAYANAN EKSTERNAL"]
+        direction LR
+        MAPS["Google Maps API\\n-------------------\\nDirections & Routing"]:::ext
+        FONNTE["Fonnte API\\n-------------------\\nNotifikasi WhatsApp"]:::ext
+        OSM["Nominatim (OSM)\\n-------------------\\nGeocode Zona Wilayah"]:::ext
+        FCM["Firebase FCM\\n-------------------\\nPush Notification"]:::ext
+    end
+    
+    %% Tata Letak Hierarki (Wajib agar tidak menyamping / layout portrait ketat)
+    KLIEN ~~~ BACKEND
+    BACKEND ~~~ DATA
+    BACKEND ~~~ EKSTERNAL
+
+    %% Relasi Utama
+    WEB ===>|"HTTP (Blade SSR)"| API
+    APP ===>|"HTTPS REST API"| API
+    
+    API ===>|"Eloquent ORM"| DB
+    
+    API --->|"HTTP Client"| MAPS
+    API --->|"HTTP Client"| FONNTE
+    API --->|"HTTP Client"| OSM
+    API --->|"kreait SDK"| FCM
+    
+    FCM -.->|"Push Delivery"| APP
+    
+    class KLIEN,BACKEND,DATA,EKSTERNAL layer`
+            },
             diagram1: {
                 name: 'Diagram_Arsitektur_Sistem',
                 code: `graph LR
@@ -1256,7 +1319,8 @@
 
         // Start rendering
         renderAll();
-    </script>
+        </script>
+    </div>
 </body>
 
 </html>

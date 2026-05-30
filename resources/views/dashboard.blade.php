@@ -1,25 +1,43 @@
 @extends('layouts.dashboard')
 
-@section('title', 'Dashboard')
+@section('title')
 
 @section('content')
 
 <form id="dashboardFilterForm" method="GET" action="{{ route('dashboard') }}" class="dash-custom-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; flex-wrap: wrap; gap: 16px;">
     <h1 style="font-size: 27px; font-weight: 700; color: #1E293B; letter-spacing: -0.5px; margin: 0;">Dashboard</h1>
-    <div style="display: flex; gap: 8px; align-items: center;">
-        <select name="month" onchange="document.getElementById('dashboardFilterForm').submit()" class="dash-custom-select">
-            <option value="">7 Hari Terakhir</option>
-            <option value="this_month" {{ (isset($requestMonth) && $requestMonth == 'this_month') ? 'selected' : '' }}>Bulan Ini</option>
-            @foreach(range(1, 12) as $m)
-                <option value="{{ $m }}" {{ (isset($requestMonth) && $requestMonth == $m) ? 'selected' : '' }}>{{ \Carbon\Carbon::create()->month($m)->locale('id')->translatedFormat('F') }}</option>
-            @endforeach
-        </select>
+    <div class="dashboard-filter-controls" style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+        <!-- Custom Select for Dashboard Month -->
+        <div class="custom-select-wrapper" id="dashboardMonthSelectWrapper" style="min-width: 170px; width: auto;">
+            <div class="custom-select-trigger" onclick="toggleDashboardSelect('dashboardMonthSelectWrapper')">
+                <span>7 Hari Terakhir</span>
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="select-icon"><path d="M6 9l6 6 6-6"/></svg>
+            </div>
+            <div class="custom-options">
+                <div class="custom-option {{ (!isset($requestMonth) || $requestMonth == '') ? 'selected' : '' }}" data-value="" onclick="selectDashboardOption(this, 'dashboardMonthSelectWrapper', 'month_input')">7 Hari Terakhir</div>
+                <div class="custom-option {{ (isset($requestMonth) && $requestMonth == 'this_month') ? 'selected' : '' }}" data-value="this_month" onclick="selectDashboardOption(this, 'dashboardMonthSelectWrapper', 'month_input')">Bulan Ini</div>
+                @foreach(range(1, 12) as $m)
+                    @php $mLabel = \Carbon\Carbon::create()->month($m)->locale('id')->translatedFormat('F'); @endphp
+                    <div class="custom-option {{ (isset($requestMonth) && $requestMonth == $m) ? 'selected' : '' }}" data-value="{{ $m }}" onclick="selectDashboardOption(this, 'dashboardMonthSelectWrapper', 'month_input')">{{ $mLabel }}</div>
+                @endforeach
+            </div>
+            <input type="hidden" name="month" id="month_input" value="{{ $requestMonth ?? '' }}">
+        </div>
+
         @if(isset($requestMonth) && $requestMonth != '' && $requestMonth != 'this_month')
-        <select name="year" onchange="document.getElementById('dashboardFilterForm').submit()" class="dash-custom-select">
-            @foreach(range(date('Y'), date('Y') - 2) as $y)
-                <option value="{{ $y }}" {{ (isset($selectedYear) && $selectedYear == $y) ? 'selected' : '' }}>{{ $y }}</option>
-            @endforeach
-        </select>
+        <!-- Custom Select for Dashboard Year -->
+        <div class="custom-select-wrapper" id="dashboardYearSelectWrapper" style="min-width: 120px; width: auto;">
+            <div class="custom-select-trigger" onclick="toggleDashboardSelect('dashboardYearSelectWrapper')">
+                <span>{{ $selectedYear ?? date('Y') }}</span>
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="select-icon"><path d="M6 9l6 6 6-6"/></svg>
+            </div>
+            <div class="custom-options">
+                @foreach(range(date('Y'), date('Y') - 2) as $y)
+                    <div class="custom-option {{ (isset($selectedYear) && $selectedYear == $y) ? 'selected' : '' }}" data-value="{{ $y }}" onclick="selectDashboardOption(this, 'dashboardYearSelectWrapper', 'year_input')">{{ $y }}</div>
+                @endforeach
+            </div>
+            <input type="hidden" name="year" id="year_input" value="{{ $selectedYear ?? '' }}">
+        </div>
         @endif
         <div style="display: flex; gap: 8px; align-items: center; color: var(--text-muted); font-weight: 500; font-size: 15px; margin-left: 12px;">
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
@@ -45,7 +63,7 @@
 </div>
 
 <!-- Stat Cards Row (3 cards like reference) -->
-<div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 24px;">
+<div class="dash-grid grid-cols-3">
     <!-- Total Pelanggan -->
     <div class="dash-stat-card">
         <div class="dash-stat-header">
@@ -105,7 +123,7 @@
 </div>
 
 <!-- Row 2: Sales Overview (bar chart) + Total Pesanan (bar chart) -->
-<div style="display: grid; grid-template-columns: 3fr 2fr; gap: 20px; margin-bottom: 24px;">
+<div class="dash-grid dash-grid-3-2">
     <!-- Sales Overview - Stacked/Grouped Bar Chart -->
     <div class="dash-card">
         <div class="dash-card-header">
@@ -158,7 +176,7 @@
 </div>
 
 <!-- Row 3: Sales Distribution (Doughnut) + List (Table) -->
-<div style="display: grid; grid-template-columns: 2fr 3fr; gap: 20px; margin-bottom: 24px;">
+<div class="dash-grid dash-grid-2-3">
     <!-- Sales Distribution -->
     <div class="dash-card">
         <div class="dash-card-header">
@@ -257,7 +275,7 @@
 </div>
 
 <!-- Row 4: Arus Kas + Pelanggan Teraktif -->
-<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+<div class="dash-grid grid-cols-2">
     <!-- Arus Kas Harian -->
     <div class="dash-card">
         <div class="dash-card-header">
@@ -373,6 +391,8 @@
         box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.02);
         border: 1px solid #F1F5F9;
         transition: all 0.2s;
+        min-width: 0;
+        overflow: hidden;
     }
     .dash-stat-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.06); }
     .dash-stat-header { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; }
@@ -406,6 +426,8 @@
         padding: 24px;
         box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.02);
         border: 1px solid #F1F5F9;
+        min-width: 0;
+        overflow: hidden;
     }
     .dash-card-header {
         display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;
@@ -458,12 +480,34 @@
     }
     .dash-customer-row:last-child { border-bottom: none; }
 
+    .dashboard-filter-controls {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        flex-wrap: wrap;
+    }
+
     /* Responsive */
     @media (max-width: 1024px) {
         [style*="grid-template-columns: repeat(3"] { grid-template-columns: 1fr !important; }
         [style*="grid-template-columns: 3fr 2fr"] { grid-template-columns: 1fr !important; }
         [style*="grid-template-columns: 2fr 3fr"] { grid-template-columns: 1fr !important; }
         [style*="grid-template-columns: 1fr 1fr"] { grid-template-columns: 1fr !important; }
+    }
+    @media (max-width: 576px) {
+        .dashboard-filter-controls {
+            width: 100%;
+            justify-content: space-between;
+            margin-top: 4px;
+        }
+        .dashboard-filter-controls > select {
+            width: auto !important;
+            flex-grow: 0 !important;
+        }
+        .dashboard-filter-controls > div {
+            margin-left: 0px !important;
+            width: auto !important;
+        }
     }
 </style>
 
@@ -729,6 +773,60 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 
     @push('scripts')
+    <script>
+        function toggleDashboardSelect(id) {
+            ['dashboardMonthSelectWrapper', 'dashboardYearSelectWrapper'].forEach(wId => {
+                if (wId !== id) {
+                    document.getElementById(wId)?.classList.remove('open');
+                }
+            });
+            document.getElementById(id)?.classList.toggle('open');
+        }
+
+        function selectDashboardOption(element, wrapperId, inputId) {
+            const value = element.getAttribute('data-value');
+            const text = element.textContent.trim();
+            
+            document.getElementById(inputId).value = value;
+            
+            const wrapper = document.getElementById(wrapperId);
+            const textElement = wrapper.querySelector('.custom-select-trigger span');
+            if (textElement) {
+                textElement.textContent = text;
+            }
+            
+            wrapper.classList.remove('open');
+            
+            // Auto-submit form
+            document.getElementById('dashboardFilterForm').submit();
+        }
+
+        // Close select on click outside
+        document.addEventListener('click', function(e) {
+            ['dashboardMonthSelectWrapper', 'dashboardYearSelectWrapper'].forEach(id => {
+                const wrapper = document.getElementById(id);
+                if (wrapper && !wrapper.contains(e.target)) {
+                    wrapper.classList.remove('open');
+                }
+            });
+        });
+
+        // Initialize texts
+        window.addEventListener('DOMContentLoaded', () => {
+            ['dashboardMonthSelectWrapper', 'dashboardYearSelectWrapper'].forEach(id => {
+                const wrapper = document.getElementById(id);
+                if (wrapper) {
+                    const selectedOption = wrapper.querySelector('.custom-option.selected');
+                    if (selectedOption) {
+                        const textElement = wrapper.querySelector('.custom-select-trigger span');
+                        if (textElement) {
+                            textElement.textContent = selectedOption.textContent.trim();
+                        }
+                    }
+                }
+            });
+        });
+    </script>
     <script>
         (function() {
             const banner = document.getElementById('routeUpdateBanner');

@@ -13,25 +13,25 @@
 
 <div class="card">
     <div class="card-header" style="display: flex; flex-direction: column; gap: 20px; align-items: stretch; border-bottom: 1px solid var(--border-color); padding-bottom: 20px;">
-        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
+        <div class="orders-header-row">
             <h3 class="card-title">Daftar Pesanan (<span id="ordersTotalCount">{{ $orders->total() }}</span>)</h3>
             
-            <form method="GET" action="{{ route('orders.index') }}" id="orderFilterForm" style="display: flex; gap: 12px; flex-wrap: wrap; align-items: center;">
+            <form method="GET" action="{{ route('orders.index') }}" id="orderFilterForm" class="orders-filter-form">
                 @if(request('status'))
                     <input type="hidden" name="status" value="{{ request('status') }}">
                 @endif
                 
                 <!-- Search -->
-                <div style="position: relative;">
+                <div class="orders-search-wrapper">
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #94a3b8;">
                         <circle cx="11" cy="11" r="8"></circle>
                         <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
                     </svg>
-                    <input type="text" name="search" value="{{ request('search') }}" placeholder="Nama atau no. telepon..." class="form-control" style="padding-left: 36px; width: 250px;">
+                    <input type="text" name="search" value="{{ request('search') }}" placeholder="Nama atau no. telepon..." class="form-control" style="padding-left: 36px; width: 100%;">
                 </div>
 
                 <!-- Filter Tanggal -->
-                <div style="min-width: 160px;">
+                <div class="orders-select-wrapper">
                     <div class="custom-select-wrapper" id="orderFilterSelectWrapper">
                         <div class="custom-select-trigger" onclick="toggleOrderFilterSelect()">
                             <span id="orderFilterSelectText" class="text-placeholder">Semua Tanggal</span>
@@ -46,14 +46,14 @@
                     </div>
                 </div>
 
-                <div id="order_field_date" style="display:none;">
+                <div id="order_field_date" class="orders-date-wrapper" style="display:none;">
                     <input type="date" name="filter_date" value="{{ $filterDate ?? '' }}" class="form-control">
                 </div>
 
-                <div id="order_field_start" style="display:none;">
+                <div id="order_field_start" class="orders-date-wrapper" style="display:none;">
                     <input type="date" name="filter_start" value="{{ $filterStart ?? '' }}" class="form-control" placeholder="Dari">
                 </div>
-                <div id="order_field_end" style="display:none;">
+                <div id="order_field_end" class="orders-date-wrapper" style="display:none;">
                     <input type="date" name="filter_end" value="{{ $filterEnd ?? '' }}" class="form-control" placeholder="Sampai">
                 </div>
 
@@ -65,7 +65,7 @@
         </div>
 
         <!-- Filter Tabs (dipindah ke dalam header, di atas gariss) -->
-        <div class="filter-tabs" style="display: flex; gap: 8px; justify-content: flex-start;">
+        <div class="filter-tabs" style="display: flex; gap: 8px; justify-content: flex-start; flex-wrap: wrap;">
             <a href="{{ route('orders.index', array_merge(request()->except('status', 'page'), [])) }}" class="btn {{ request('status') == null ? 'btn-primary' : 'btn-secondary' }}" style="padding: 6px 12px; font-size: 14px;">Semua</a>
             <a href="{{ route('orders.index', array_merge(request()->except('status', 'page'), ['status' => 'pending'])) }}" class="btn {{ request('status') == 'pending' ? 'btn-primary' : 'btn-secondary' }}" style="padding: 6px 12px; font-size: 14px;">Pending</a>
             <a href="{{ route('orders.index', array_merge(request()->except('status', 'page'), ['status' => 'approved'])) }}" class="btn {{ request('status') == 'approved' ? 'btn-primary' : 'btn-secondary' }}" style="padding: 6px 12px; font-size: 14px;">Diterima</a>
@@ -77,14 +77,14 @@
     @include('orders.partials.table', ['orders' => $orders])
 </div>
 
-<div id="realtimeOrderToast" style="position: fixed; top: 24px; right: 24px; background: #ffffff; border: 1px solid #dbeafe; border-left: 4px solid #3b82f6; border-radius: 10px; padding: 12px 14px; box-shadow: 0 8px 20px rgba(15, 23, 42, 0.12); z-index: 1200; min-width: 280px; display: none;">
+<div id="realtimeOrderToast" style="position: fixed; top: 24px; right: 16px; background: #ffffff; border: 1px solid #dbeafe; border-left: 4px solid #3b82f6; border-radius: 10px; padding: 12px 14px; box-shadow: 0 8px 20px rgba(15, 23, 42, 0.12); z-index: 1200; width: calc(100vw - 32px); max-width: 360px; display: none;">
     <div style="font-size: 14px; font-weight: 700; color: #1e3a8a; margin-bottom: 4px;">Pesanan baru masuk</div>
     <div id="realtimeOrderToastText" style="font-size: 13px; color: #334155;"></div>
 </div>
 
 <!-- Modal Konfirmasi -->
-<div id="customConfirmModal" class="modal-overlay" style="display: none;">
-    <div class="modal-content">
+<div id="customConfirmModal" class="modal-overlay" style="display: none; padding: 16px;">
+    <div class="modal-content" style="width: 100%;">
         <div class="modal-icon-container" id="confirmModalIconContainer">
             <svg id="confirmModalIcon" xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <!-- Icon will be injected via JS -->
@@ -237,6 +237,142 @@
     background: #eff6ff;
     color: #2563eb;
     font-weight: 500;
+}
+
+/* --- Desktop & Default Sizing (Original Styles) --- */
+.orders-header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 16px;
+    width: 100%;
+}
+.orders-filter-form {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+.orders-search-wrapper {
+    position: relative;
+    flex-grow: 1;
+    max-width: 240px;
+    min-width: 160px;
+}
+.orders-search-wrapper input {
+    padding-left: 36px !important;
+    padding-right: 12px !important;
+    font-size: 15px !important;
+}
+.orders-search-wrapper svg {
+    left: 12px !important;
+    width: 16px !important;
+    height: 16px !important;
+}
+.orders-select-wrapper {
+    flex-grow: 1;
+    max-width: 200px;
+    min-width: 160px;
+}
+.orders-select-wrapper .custom-select-trigger {
+    padding: 10px 16px !important;
+    font-size: 15px !important;
+}
+.orders-date-wrapper {
+    flex-grow: 1;
+    max-width: 180px;
+    min-width: 140px;
+}
+.orders-date-wrapper input.form-control {
+    padding: 10px 16px !important;
+    font-size: 15px !important;
+}
+.orders-filter-form .btn {
+    padding: 10px 20px !important;
+    font-size: 15px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    white-space: nowrap !important;
+}
+
+/* --- Medium / Tablet Viewports (iPad Pro, 768px to 1024px) --- */
+/* Enforces perfect side-by-side alignment with compact sizing only when screen width is constrained */
+@media (max-width: 1024px) and (min-width: 769px) {
+    .orders-header-row {
+        flex-wrap: nowrap !important;
+        gap: 12px !important;
+    }
+    .orders-filter-form {
+        gap: 8px !important;
+        flex-wrap: nowrap !important;
+        flex-shrink: 1 !important;
+    }
+    .orders-search-wrapper {
+        max-width: 180px !important;
+        min-width: 120px !important;
+    }
+    .orders-search-wrapper input {
+        padding-left: 32px !important;
+        padding-right: 8px !important;
+        font-size: 13.5px !important;
+        height: 38px !important;
+    }
+    .orders-search-wrapper svg {
+        left: 10px !important;
+        width: 14px !important;
+        height: 14px !important;
+    }
+    .orders-select-wrapper {
+        max-width: 150px !important;
+        min-width: 120px !important;
+    }
+    .orders-select-wrapper .custom-select-trigger {
+        padding: 8px 12px !important;
+        font-size: 13.5px !important;
+        height: 38px !important;
+    }
+    .orders-date-wrapper {
+        max-width: 130px !important;
+        min-width: 100px !important;
+    }
+    .orders-date-wrapper input.form-control {
+        padding: 8px 12px !important;
+        font-size: 13.5px !important;
+        height: 38px !important;
+    }
+    .orders-filter-form .btn {
+        padding: 8px 12px !important;
+        font-size: 13.5px !important;
+        height: 38px !important;
+    }
+}
+
+/* --- Mobile Viewports (768px and below) --- */
+@media (max-width: 768px) {
+    .orders-header-row {
+        flex-wrap: wrap !important;
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 12px !important;
+    }
+    .orders-filter-form {
+        flex-wrap: wrap !important;
+        width: 100% !important;
+        gap: 8px !important;
+    }
+    .orders-search-wrapper,
+    .orders-select-wrapper,
+    .orders-date-wrapper {
+        max-width: 100% !important;
+        min-width: calc(50% - 4px) !important;
+        flex-grow: 1 !important;
+    }
+    .orders-filter-form .btn {
+        flex-grow: 1 !important;
+        width: 100% !important;
+    }
 }
 </style>
 

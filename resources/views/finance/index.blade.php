@@ -11,85 +11,67 @@
     </div>
 </div>
 
-<div class="card" style="margin-bottom: 2rem; border-radius: 12px; padding: 24px;">
-    <div class="card-header" style="border-bottom: 1px solid var(--border-color); padding-bottom: 16px; margin-bottom: 20px;">
-        <h3 class="card-title" style="font-size: 1.125rem; font-weight: 600; color: var(--primary-blue); margin: 0;">Filter Laporan</h3>
+<form method="GET" action="{{ route('finance.index') }}" id="filterForm" class="finance-filter-header">
+    <h3 class="finance-filter-title">Filter Laporan</h3>
+    <div class="finance-filter-controls" style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+        <!-- Custom Select for Filter Type -->
+        <div class="custom-select-wrapper" id="financeFilterSelectWrapper" style="min-width: 170px; width: auto;">
+            <div class="custom-select-trigger" onclick="toggleFinanceFilterSelect('financeFilterSelectWrapper')">
+                <span>Semua</span>
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="select-icon"><path d="M6 9l6 6 6-6"/></svg>
+            </div>
+            <div class="custom-options">
+                <div class="custom-option {{ $filterType === 'all' ? 'selected' : '' }}" data-value="all" onclick="selectFinanceFilterOption(this, 'financeFilterSelectWrapper', 'filter_type')">Semua</div>
+                <div class="custom-option {{ $filterType === 'date' ? 'selected' : '' }}" data-value="date" onclick="selectFinanceFilterOption(this, 'financeFilterSelectWrapper', 'filter_type')">Tanggal Spesifik</div>
+                <div class="custom-option {{ $filterType === 'range' ? 'selected' : '' }}" data-value="range" onclick="selectFinanceFilterOption(this, 'financeFilterSelectWrapper', 'filter_type')">Rentang Tanggal</div>
+                <div class="custom-option {{ $filterType === 'month' ? 'selected' : '' }}" data-value="month" onclick="selectFinanceFilterOption(this, 'financeFilterSelectWrapper', 'filter_type')">Bulanan</div>
+                <div class="custom-option {{ $filterType === 'year' ? 'selected' : '' }}" data-value="year" onclick="selectFinanceFilterOption(this, 'financeFilterSelectWrapper', 'filter_type')">Tahunan</div>
+            </div>
+            <input type="hidden" name="filter_type" id="filter_type" value="{{ $filterType }}">
+        </div>
+
+        <input id="field_date" type="date" name="filter_date" value="{{ $filterDate }}" class="form-control" style="min-width: 160px; max-width: 180px; display: none;">
+        <input id="field_start" type="date" name="filter_start" value="{{ $filterStart ?? '' }}" class="form-control" aria-label="Dari tanggal" style="min-width: 160px; max-width: 180px; display: none;">
+        <input id="field_end" type="date" name="filter_end" value="{{ $filterEnd ?? '' }}" class="form-control" aria-label="Sampai tanggal" style="min-width: 160px; max-width: 180px; display: none;">
+
+        <!-- Custom Select for Month -->
+        <div class="custom-select-wrapper" id="financeMonthSelectWrapper" style="min-width: 150px; width: auto; display: none;">
+            <div class="custom-select-trigger" onclick="toggleFinanceFilterSelect('financeMonthSelectWrapper')">
+                <span>Januari</span>
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="select-icon"><path d="M6 9l6 6 6-6"/></svg>
+            </div>
+            <div class="custom-options">
+                @foreach(range(1,12) as $m)
+                    @php $mLabel = \Carbon\Carbon::create()->month($m)->locale('id')->translatedFormat('F'); @endphp
+                    <div class="custom-option {{ $filterMonth == $m ? 'selected' : '' }}" data-value="{{ $m }}" onclick="selectFinanceFilterOption(this, 'financeMonthSelectWrapper', 'filter_month')">{{ $mLabel }}</div>
+                @endforeach
+            </div>
+            <input type="hidden" name="filter_month" id="filter_month" value="{{ $filterMonth }}">
+        </div>
+
+        <!-- Custom Select for Year -->
+        <div class="custom-select-wrapper" id="financeYearSelectWrapper" style="min-width: 120px; width: auto; display: none;">
+            <div class="custom-select-trigger" onclick="toggleFinanceFilterSelect('financeYearSelectWrapper')">
+                <span>{{ $filterYear ?: date('Y') }}</span>
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="select-icon"><path d="M6 9l6 6 6-6"/></svg>
+            </div>
+            <div class="custom-options">
+                @foreach(range(date('Y') + 1, date('Y') - 4) as $y)
+                    <div class="custom-option {{ ($filterYear ?: date('Y')) == $y ? 'selected' : '' }}" data-value="{{ $y }}" onclick="selectFinanceFilterOption(this, 'financeYearSelectWrapper', 'filter_year')">{{ $y }}</div>
+                @endforeach
+            </div>
+            <input type="hidden" name="filter_year" id="filter_year" value="{{ $filterYear ?: date('Y') }}">
+        </div>
+
+        <button type="submit" class="btn btn-primary" style="padding: 10px 20px;">Terapkan</button>
+        @if($filterType !== 'all')
+        <a href="{{ route('finance.index') }}" class="btn btn-secondary" style="padding: 10px 20px;">Reset</a>
+        @endif
+        <a href="{{ route('finance.reports') }}" class="btn btn-secondary" style="padding: 10px 20px;">
+            Export
+        </a>
     </div>
-    <form method="GET" action="{{ route('finance.index') }}" id="filterForm" style="display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end;">
-        <div style="flex: 1; min-width: 180px;">
-            <label style="display:block; font-size:0.75rem; font-weight:600; color:var(--text-muted); margin-bottom:8px; text-transform: uppercase; letter-spacing: 0.5px;">Periode</label>
-            <div class="custom-select-wrapper" id="financeFilterSelectWrapper" style="width: 100%;">
-                <div class="custom-select-trigger form-control" onclick="toggleFinanceFilterSelect()" style="display: flex; justify-content: space-between; align-items: center; border-radius: 8px;">
-                    <span id="financeFilterSelectText" class="text-placeholder">Semua</span>
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="select-icon"><path d="M6 9l6 6 6-6"/></svg>
-                </div>
-                <div class="custom-options">
-                    <div class="custom-option {{ $filterType === 'all' ? 'selected' : '' }}" data-value="all" onclick="selectFinanceFilterOption(this)">Semua</div>
-                    <div class="custom-option {{ $filterType === 'date' ? 'selected' : '' }}" data-value="date" onclick="selectFinanceFilterOption(this)">Tanggal Spesifik</div>
-                    <div class="custom-option {{ $filterType === 'range' ? 'selected' : '' }}" data-value="range" onclick="selectFinanceFilterOption(this)">Rentang Tanggal</div>
-                    <div class="custom-option {{ $filterType === 'month' ? 'selected' : '' }}" data-value="month" onclick="selectFinanceFilterOption(this)">Bulanan</div>
-                    <div class="custom-option {{ $filterType === 'year' ? 'selected' : '' }}" data-value="year" onclick="selectFinanceFilterOption(this)">Tahunan</div>
-                </div>
-                <input type="hidden" name="filter_type" id="filter_type" value="{{ $filterType }}">
-            </div>
-        </div>
-
-        <div id="field_date" style="display:none; flex: 1; min-width: 180px;">
-            <label style="display:block; font-size:0.75rem; font-weight:600; color:var(--text-muted); margin-bottom:8px; text-transform: uppercase;">Tanggal</label>
-            <input type="date" name="filter_date" value="{{ $filterDate }}" class="form-control" style="border-radius: 8px;">
-        </div>
-        <div id="field_start" style="display:none; flex: 1; min-width: 180px;">
-            <label style="display:block; font-size:0.75rem; font-weight:600; color:var(--text-muted); margin-bottom:8px; text-transform: uppercase;">Dari</label>
-            <input type="date" name="filter_start" value="{{ $filterStart ?? '' }}" class="form-control" style="border-radius: 8px;">
-        </div>
-        <div id="field_end" style="display:none; flex: 1; min-width: 180px;">
-            <label style="display:block; font-size:0.75rem; font-weight:600; color:var(--text-muted); margin-bottom:8px; text-transform: uppercase;">Sampai</label>
-            <input type="date" name="filter_end" value="{{ $filterEnd ?? '' }}" class="form-control" style="border-radius: 8px;">
-        </div>
-        <div id="field_month" style="display:none; flex: 1; min-width: 180px;">
-            <label style="display:block; font-size:0.75rem; font-weight:600; color:var(--text-muted); margin-bottom:8px; text-transform: uppercase;">Bulan</label>
-            <div class="custom-select-wrapper" id="monthFilterSelectWrapper" style="width: 100%;">
-                <div class="custom-select-trigger form-control" onclick="toggleMonthFilterSelect()" style="display: flex; justify-content: space-between; align-items: center; border-radius: 8px;">
-                    <span id="monthFilterSelectText">{{ $filterMonth ? \Carbon\Carbon::createFromDate(null, $filterMonth, 1)->format('F') : 'Pilih bulan' }}</span>
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="select-icon"><path d="M6 9l6 6 6-6"/></svg>
-                </div>
-                <div class="custom-options">
-                    @foreach(range(1,12) as $m)
-                        @php $mName = \Carbon\Carbon::createFromDate(null, $m, 1)->format('F') @endphp
-                        <div class="custom-option {{ $filterMonth == $m ? 'selected' : '' }}" data-value="{{ $m }}" onclick="selectMonthFilterOption(this)">{{ $mName }}</div>
-                    @endforeach
-                </div>
-                <input type="hidden" name="filter_month" id="filter_month" value="{{ $filterMonth }}">
-            </div>
-        </div>
-        <div id="field_year" style="display:none; flex: 1; min-width: 180px;">
-            <label style="display:block; font-size:0.75rem; font-weight:600; color:var(--text-muted); margin-bottom:8px; text-transform: uppercase;">Tahun</label>
-            <div class="custom-select-wrapper" id="yearFilterSelectWrapper" style="width: 100%;">
-                <div class="custom-select-trigger form-control" onclick="toggleYearFilterSelect()" style="display: flex; justify-content: space-between; align-items: center; border-radius: 8px;">
-                    <span id="yearFilterSelectText">{{ $filterYear ?: date('Y') }}</span>
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="select-icon"><path d="M6 9l6 6 6-6"/></svg>
-                </div>
-                <div class="custom-options">
-                    @foreach(range(date('Y') + 1, date('Y') - 4) as $y)
-                        <div class="custom-option {{ $filterYear == $y ? 'selected' : '' }}" data-value="{{ $y }}" onclick="selectYearFilterOption(this)">{{ $y }}</div>
-                    @endforeach
-                </div>
-                <input type="hidden" name="filter_year" id="filter_year" value="{{ $filterYear ?: date('Y') }}">
-            </div>
-        </div>
-
-        <div style="display: flex; gap: 8px;">
-            <button type="submit" class="btn btn-primary" style="height: 42px; border-radius: 8px;">Terapkan</button>
-            @if($filterType !== 'all')
-            <a href="{{ route('finance.index') }}" class="btn btn-secondary" style="height: 42px; border-radius: 8px; line-height: 20px;">Reset</a>
-            @endif
-            <a href="{{ route('finance.reports') }}" class="btn btn-secondary" style="height: 42px; border-radius: 8px; line-height: 20px;">
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style="margin-right: 6px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z"/><path d="M14 2v6h6"/></svg>
-                Export
-            </a>
-        </div>
-    </form>
-</div>
+</form>
 
 <!-- Stats Grid (Minimalist) -->
 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; margin-bottom: 2rem;">
@@ -129,9 +111,109 @@
 <!-- Charts -->
 @push('styles')
 <style>
+    .finance-filter-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 16px;
+        flex-wrap: wrap;
+        margin-bottom: 24px;
+    }
+    .finance-filter-title {
+        font-size: 18px;
+        font-weight: 700;
+        color: #1E293B;
+        letter-spacing: -0.2px;
+        margin: 0;
+    }
+    .finance-filter-controls {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        flex-wrap: wrap;
+    }
+    .dash-custom-select,
+    .dash-custom-input {
+        min-height: 34px;
+        padding: 6px 32px 6px 12px;
+        border-radius: 8px;
+        border: 1px solid #CBD5E1;
+        color: #475569;
+        font-weight: 500;
+        font-family: inherit;
+        font-size: 14px;
+        background-color: #fff;
+        transition: all 0.2s;
+    }
+    .dash-custom-select {
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23475569' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 8px center;
+        background-size: 16px;
+        -webkit-appearance: none;
+        -moz-appearance: none;
+        appearance: none;
+        cursor: pointer;
+    }
+    .dash-custom-input {
+        padding-right: 12px;
+    }
+    .dash-custom-select:hover,
+    .dash-custom-input:hover {
+        border-color: #94A3B8;
+    }
+    .dash-custom-select:focus,
+    .dash-custom-input:focus {
+        outline: none;
+        border-color: #3B82F6;
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    }
+    .dash-filter-button {
+        min-height: 34px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 6px 12px;
+        border-radius: 8px;
+        border: 1px solid #CBD5E1;
+        background: #fff;
+        color: #475569;
+        font-size: 14px;
+        font-weight: 600;
+        text-decoration: none;
+        font-family: inherit;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    .dash-filter-button:hover {
+        background: #F8FAFC;
+        border-color: #94A3B8;
+    }
+    .dash-filter-button-primary {
+        background: #1E293B;
+        border-color: #1E293B;
+        color: #fff;
+    }
+    .dash-filter-button-primary:hover {
+        background: #334155;
+        border-color: #334155;
+    }
     @media (max-width: 1024px) {
         .responsive-finance-grid-1, .responsive-finance-grid-2 {
             grid-template-columns: 1fr !important;
+        }
+    }
+    @media (max-width: 768px) {
+        .finance-filter-header {
+            align-items: flex-start;
+            flex-direction: column;
+        }
+        .finance-filter-controls,
+        .custom-select-wrapper,
+        .form-control,
+        .btn {
+            width: 100% !important;
+            max-width: 100% !important;
         }
     }
 </style>
@@ -493,49 +575,84 @@
     });
 </script>
 <script>
-    function toggleFinanceFilterSelect() { document.getElementById('financeFilterSelectWrapper').classList.toggle('open'); }
-    function toggleMonthFilterSelect() { document.getElementById('monthFilterSelectWrapper').classList.toggle('open'); }
-    function toggleYearFilterSelect() { document.getElementById('yearFilterSelectWrapper').classList.toggle('open'); }
+    function updateFilterFields() {
+        const type = document.getElementById('filter_type').value;
+        document.getElementById('field_date').style.display = type === 'date' ? 'inline-block' : 'none';
+        document.getElementById('field_start').style.display = type === 'range' ? 'inline-block' : 'none';
+        document.getElementById('field_end').style.display = type === 'range' ? 'inline-block' : 'none';
+        
+        // Show/hide custom select wrappers
+        const monthWrapper = document.getElementById('financeMonthSelectWrapper');
+        const yearWrapper = document.getElementById('financeYearSelectWrapper');
+        
+        if (monthWrapper) {
+            monthWrapper.style.display = type === 'month' ? 'inline-block' : 'none';
+        }
+        if (yearWrapper) {
+            yearWrapper.style.display = (type === 'month' || type === 'year') ? 'inline-block' : 'none';
+        }
+    }
+    document.addEventListener('DOMContentLoaded', updateFilterFields);
 
-    function selectFinanceFilterOption(el) {
-        document.getElementById('filter_type').value = el.dataset.value;
-        document.getElementById('financeFilterSelectText').textContent = el.textContent.trim();
-        document.querySelectorAll('#financeFilterSelectWrapper .custom-option').forEach(o => o.classList.remove('selected'));
-        el.classList.add('selected');
-        document.getElementById('financeFilterSelectWrapper').classList.remove('open');
-        updateFilterFields();
-    }
-    function selectMonthFilterOption(el) {
-        document.getElementById('filter_month').value = el.dataset.value;
-        document.getElementById('monthFilterSelectText').textContent = el.textContent.trim();
-        document.querySelectorAll('#monthFilterSelectWrapper .custom-option').forEach(o => o.classList.remove('selected'));
-        el.classList.add('selected');
-        document.getElementById('monthFilterSelectWrapper').classList.remove('open');
-    }
-    function selectYearFilterOption(el) {
-        document.getElementById('filter_year').value = el.dataset.value;
-        document.getElementById('yearFilterSelectText').textContent = el.textContent.trim();
-        document.querySelectorAll('#yearFilterSelectWrapper .custom-option').forEach(o => o.classList.remove('selected'));
-        el.classList.add('selected');
-        document.getElementById('yearFilterSelectWrapper').classList.remove('open');
+    function toggleFinanceFilterSelect(id) {
+        // Close other custom selects first
+        ['financeFilterSelectWrapper', 'financeMonthSelectWrapper', 'financeYearSelectWrapper'].forEach(wId => {
+            if (wId !== id) {
+                document.getElementById(wId)?.classList.remove('open');
+            }
+        });
+        document.getElementById(id)?.classList.toggle('open');
     }
 
+    function selectFinanceFilterOption(element, wrapperId, inputId) {
+        const value = element.getAttribute('data-value');
+        const text = element.textContent.trim();
+        
+        document.getElementById(inputId).value = value;
+        
+        const wrapper = document.getElementById(wrapperId);
+        const textElement = wrapper.querySelector('.custom-select-trigger span');
+        if (textElement) {
+            textElement.textContent = text;
+        }
+        
+        const options = wrapper.querySelectorAll('.custom-option');
+        options.forEach(opt => opt.classList.remove('selected'));
+        element.classList.add('selected');
+        
+        wrapper.classList.remove('open');
+        
+        if (inputId === 'filter_type') {
+            updateFilterFields();
+        }
+    }
+
+    // Close select on click outside
     document.addEventListener('click', function(e) {
-        ['financeFilterSelectWrapper','monthFilterSelectWrapper','yearFilterSelectWrapper'].forEach(id => {
-            const w = document.getElementById(id);
-            if (w && !w.contains(e.target)) w.classList.remove('open');
+        ['financeFilterSelectWrapper', 'financeMonthSelectWrapper', 'financeYearSelectWrapper'].forEach(id => {
+            const wrapper = document.getElementById(id);
+            if (wrapper && !wrapper.contains(e.target)) {
+                wrapper.classList.remove('open');
+            }
         });
     });
 
-    function updateFilterFields() {
-        const type = document.getElementById('filter_type').value;
-        document.getElementById('field_date').style.display  = (type === 'date')  ? 'block' : 'none';
-        document.getElementById('field_start').style.display = (type === 'range') ? 'block' : 'none';
-        document.getElementById('field_end').style.display   = (type === 'range') ? 'block' : 'none';
-        document.getElementById('field_month').style.display = (type === 'month') ? 'block' : 'none';
-        document.getElementById('field_year').style.display  = (type === 'month' || type === 'year') ? 'block' : 'none';
-    }
-    document.addEventListener('DOMContentLoaded', updateFilterFields);
+    // Initialize texts
+    window.addEventListener('DOMContentLoaded', () => {
+        ['financeFilterSelectWrapper', 'financeMonthSelectWrapper', 'financeYearSelectWrapper'].forEach(id => {
+            const wrapper = document.getElementById(id);
+            if (wrapper) {
+                const selectedOption = wrapper.querySelector('.custom-option.selected');
+                if (selectedOption) {
+                    const textElement = wrapper.querySelector('.custom-select-trigger span');
+                    if (textElement) {
+                        textElement.textContent = selectedOption.textContent.trim();
+                    }
+                }
+            }
+        });
+        updateFilterFields();
+    });
 </script>
 @endpush
 

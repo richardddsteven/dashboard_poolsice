@@ -127,17 +127,19 @@
       {
         name: 'AD_Pemesanan_WhatsApp',
         code: `@startuml
-scale 2.1
+scale 2.5
 skinparam backgroundColor #FFFFFF
 skinparam shadowing false
-skinparam ActivityFontSize 22
+skinparam ActivityFontSize 35
 skinparam ActivityFontStyle plain
-skinparam PartitionFontSize 24
+skinparam PartitionFontSize 40
 skinparam PartitionFontStyle bold
-skinparam ActivityDiamondFontSize 19
-skinparam ArrowFontSize 18
-skinparam ArrowThickness 2.2
-skinparam ActivityBorderThickness 2.2
+skinparam SwimlaneTitleFontSize 40
+skinparam SwimlaneTitleFontStyle bold
+skinparam ActivityDiamondFontSize 30
+skinparam ArrowFontSize 28
+skinparam ArrowThickness 3.5
+skinparam ActivityBorderThickness 3.5
 skinparam ActivityBorderColor #000000
 skinparam ActivityBackgroundColor #FFFFFF
 skinparam ActivityDiamondBackgroundColor #FFFFFF
@@ -256,16 +258,19 @@ endif
       {
         name: 'AD_Deteksi_Zona_Jalur',
         code: `@startuml
+scale 2.0
 skinparam backgroundColor #FFFFFF
 skinparam shadowing false
-skinparam ActivityFontSize 15
+skinparam ActivityFontSize 30
 skinparam ActivityFontStyle plain
-skinparam PartitionFontSize 16
+skinparam PartitionFontSize 34
 skinparam PartitionFontStyle bold
-skinparam ActivityDiamondFontSize 14
-skinparam ArrowFontSize 13
-skinparam ArrowThickness 1.5
-skinparam ActivityBorderThickness 1.5
+skinparam SwimlaneTitleFontSize 34
+skinparam SwimlaneTitleFontStyle bold
+skinparam ActivityDiamondFontSize 26
+skinparam ArrowFontSize 24
+skinparam ArrowThickness 2.5
+skinparam ActivityBorderThickness 2.5
 skinparam ActivityBorderColor #000000
 skinparam ActivityBackgroundColor #FFFFFF
 skinparam ActivityDiamondBackgroundColor #FFFFFF
@@ -282,71 +287,37 @@ start
 :Kirim alamat toko;
 
 |Sistem|
-:Normalisasi alamat;
-:Cek cache geocoding (14 hari);
+:Lakukan proses Geocoding\\n(konversi alamat ke koordinat);
+:Cocokkan lokasi dengan Zona Penjualan;
 
-if (Cache tersedia?) then (Ya)
-  :Gunakan hasil cache (lat/lng + context);
+if (Berada di dalam Zona?) then (Ya)
+  :Deteksi Jalur Distribusi (Route Stop)\\nberdasarkan alamat/koordinat;
+  :Simpan data pelanggan\\n(Alamat, Zona, Jalur);
 else (Tidak)
-  :Request geocoding ke Nominatim (OpenStreetMap);
-
-  if (Geocoding berhasil?) then (Ya)
-    :Ekstrak latitude, longitude, address context;
-    :Simpan ke cache (14 hari);
-  else (Tidak)
-    :Hasil geocoding = null;
-  endif
+  :Tandai lokasi\\ndi luar jangkauan (Zona = Tidak Ada);
 endif
 
-:Bangun search context (nama + geocoding context);
-:Cocokkan nama zona di database (exact match);
-
-if (Zona cocok?) then (Ya)
-  :Zona berhasil terdeteksi;
-else (Tidak)
-  :Cocokkan dengan alias area per zona;
-
-  if (Alias cocok?) then (Ya)
-    :Zona berhasil terdeteksi;
-  else (Tidak)
-    :Fuzzy match dengan zona yang ada;
-    if (Fuzzy match >= 82%?) then (Ya)
-      :Zona berhasil terdeteksi;
-    else (Tidak)
-      :Zona = NULL;
-    endif
-  endif
-endif
-
-:Deteksi route_stop berdasarkan nama jalan di alamat;
-:Cocokkan nama jalur di zona (exact + fuzzy >= 84%);
-
-if (Jalur terdeteksi?) then (Ya)
-  :Simpan route_stop_id ke customer;
-else (Tidak)
-  :route_stop_id = NULL;
-endif
-
-:Simpan data customer:\\naddress + zone + lat/lng + route_stop_id;
 stop
 @enduml`
       },
       {
         name: 'AD_Validasi_Stok_Jalur',
         code: `@startuml
-scale 2.6
+scale 2.5
 skinparam backgroundColor #FFFFFF
 skinparam shadowing false
-skinparam nodesep 90
-skinparam ranksep 90
-skinparam ActivityFontSize 18
+skinparam nodesep 20
+skinparam ranksep 85
+skinparam ActivityFontSize 32
 skinparam ActivityFontStyle plain
-skinparam PartitionFontSize 20
+skinparam PartitionFontSize 36
 skinparam PartitionFontStyle bold
-skinparam ActivityDiamondFontSize 16
-skinparam ArrowFontSize 15
-skinparam ArrowThickness 1.8
-skinparam ActivityBorderThickness 1.8
+skinparam SwimlaneTitleFontSize 36
+skinparam SwimlaneTitleFontStyle bold
+skinparam ActivityDiamondFontSize 26
+skinparam ArrowFontSize 24
+skinparam ArrowThickness 3.0
+skinparam ActivityBorderThickness 3.0
 skinparam ActivityBorderColor #000000
 skinparam ActivityBackgroundColor #FFFFFF
 skinparam ActivityDiamondBackgroundColor #FFFFFF
@@ -360,36 +331,36 @@ skinparam FontColor #000000
 
 |Sistem|
 start
-:Order baru masuk dari customer;
-:Periksa urutan jalur pelanggan \\nterhadap posisi supir saat ini;
+:Order baru masuk\\ndari customer;
+:Periksa urutan jalur\\npelanggan terhadap\\nposisi supir saat ini;
 
-if (Pelanggan di urutan depan/sama \\natau supir belum punya jalur?) then (Ya)
-  :Status Jalur = Cocok;
+if (Pelanggan di urutan\\ndepan/sama atau\\nsupir belum\\npunya jalur?) then (Ya)
+  :Status Jalur\\n= Cocok;
 else (Tidak)
-  :Hitung jarak nyata rute supir ke pelanggan \\n(menggunakan Google Maps API);
-  if (Jarak rute <= Maksimal batas putar balik meter?) then (Ya)
-    :Status Jalur = Cocok;
+  :Hitung jarak nyata\\nrute supir ke pelanggan\\n(menggunakan\\nGoogle Maps API);
+  if (Jarak rute <=\\nMaksimal batas\\nputar balik meter?) then (Ya)
+    :Status Jalur\\n= Cocok;
   else (Tidak)
-    :Status Jalur = Berlalu (Kejauhan);
+    :Status\\nJalur\\n=\\nBerlalu\\n(Kejauhan);
   endif
 endif
 
-:Hitung sisa stok supir untuk jenis es yang diminta;
+:Hitung sisa stok\\nsupir untuk jenis es\\nyang diminta;
 
-if (Status Jalur = Cocok DAN \\nsisa stok >= permintaan?) then (Ya)
-  :Set order = approved;
-  :Sisa stok berkurang setelah order approved;
-  :Kirim WA konfirmasi ke pelanggan;
+if (Status Jalur = Cocok\\nDAN sisa stok >=\\npermintaan?) then (Ya)
+  :Set order\\n= approved;
+  :Sisa stok berkurang\\nsetelah order approved;
+  :Kirim WA konfirmasi\\nke pelanggan;
 
   |Supir|
-  :Order diterima otomatis;
+  :Order\\nditerima\\notomatis;
 else (Tidak)
   |Sistem|
-  :Set order = rejected;
-  :Kirim WA notifikasi maaf ke pelanggan;
+  :Set order\\n= rejected;
+  :Kirim WA notifikasi\\nmaaf ke pelanggan;
 
   |Supir|
-  :Order ditolak otomatis;
+  :Order\\nditolak\\notomatis;
 endif
 
 stop
@@ -591,19 +562,21 @@ stop
       {
         name: 'AD_Flow_Sistem_Keseluruhan',
         code: `@startuml
-scale 2.8
+scale 4.5
 skinparam backgroundColor #FFFFFF
 skinparam shadowing false
-skinparam nodesep 110
-skinparam ranksep 110
-skinparam ActivityFontSize 20
+skinparam nodesep 35
+skinparam ranksep 120
+skinparam ActivityFontSize 42
 skinparam ActivityFontStyle plain
-skinparam PartitionFontSize 22
+skinparam PartitionFontSize 52
 skinparam PartitionFontStyle bold
-skinparam ActivityDiamondFontSize 18
-skinparam ArrowFontSize 16
-skinparam ArrowThickness 2.0
-skinparam ActivityBorderThickness 2.0
+skinparam SwimlaneTitleFontSize 52
+skinparam SwimlaneTitleFontStyle bold
+skinparam ActivityDiamondFontSize 36
+skinparam ArrowFontSize 34
+skinparam ArrowThickness 4.5
+skinparam ActivityBorderThickness 4.5
 skinparam ActivityBorderColor #000000
 skinparam ActivityBackgroundColor #FFFFFF
 skinparam ActivityDiamondBackgroundColor #FFFFFF
@@ -617,40 +590,40 @@ skinparam FontColor #000000
 
 |Admin|
 start
-:Login & Mengisi / Cek Master Data \\n(Supir, Zona, Jalur, Stok Es);
+:Login & Mengisi\\n/ Cek Master Data\\n(Supir, Zona, Jalur,\\nStok Es);
 
 |Supir|
-:Buka Aplikasi (Login) & Input Stok Harian;
+:Buka Aplikasi (Login)\\n& Input Stok Harian;
 fork
-  :Aplikasi rutin membagikan \\nlokasi GPS (Tiap 5 Menit);
+  :Aplikasi rutin\\nmembagikan lokasi GPS\\n(Tiap 5 Menit);
 fork again
   |Pelanggan|
-  :Kirim pesan \\npemesanan via WhatsApp;
+  :Kirim pesan\\npemesanan\\nvia WhatsApp;
 end fork
 
-|Sistem (Bot & Webhook)|
-:Identifikasi identitas Pelanggan & Alamat;
-:Mendeteksi jalur & rute supir;
+|Sistem|
+:Identifikasi identitas\\nPelanggan & Alamat;
+:Mendeteksi jalur\\n& rute supir;
 
-if (Supir & Stok Tersedia\\n(Jarak Valid / Bisa Putar Balik)?) then (Ya)
-  :Order Disetujui (Approved) \\n& Stok supir dipotong;
-  :Kirim Pesan Konfirmasi;
+if (Supir & Stok Tersedia\\n(Jarak Valid /\\nBisa Putar Balik)?) then (Ya)
+  :Order Disetujui\\n(Approved) & Stok\\nsupir dipotong;
+  :Kirim Pesan\\nKonfirmasi;
 
   |Supir|
-  :Pesanan masuk ke dalam tugas pengantaran;
-  :Menuju Lokasi Pelanggan & Lakukan Pengantaran;
-  :Tekan "Selesai Antar" \\n(Berhasil jika divalidasi oleh Radius GPS);
+  :Pesanan masuk ke\\ndalam tugas pengantaran;
+  :Menuju Lokasi Pelanggan\\n& Lakukan Pengantaran;
+  :Tekan "Selesai Antar"\\n(Berhasil jika divalidasi\\noleh Radius GPS);
 
-  |Sistem (Bot & Webhook)|
-  :Mencatat Pesanan Menjadi Selesai;
+  |Sistem|
+  :Mencatat Pesanan\\nMenjadi Selesai;
 
 else (Tidak)
-  :Order Ditolak (Rejected)\\n(Supir sudah lewat rute / stok tidak cukup);
-  :Notifikasi Mohon Maaf ke Pelanggan;
+  :Order Ditolak\\n(Rejected)\\n(Supir sudah\\nlewat rute /\\nstok tidak cukup);
+  :Notifikasi Mohon\\nMaaf ke Pelanggan;
 endif
 
 |Admin|
-:Catatan Laporan Keuangan \\n& Dashboard Otomatis Diperbarui;
+:Catatan Laporan\\nKeuangan & Dashboard\\nOtomatis Diperbarui;
 stop
 @enduml`
       }

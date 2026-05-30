@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ER Diagram - DrawSQL Style</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Segoe UI', system-ui, sans-serif; background: #f0f2f5; color: #1a1a2e; padding: 32px; }
+    h1 { text-align: center; margin-bottom: 8px; font-size: 26px; color: #1565C0; }
+    .subtitle { text-align: center; color: #666; margin-bottom: 32px; font-size: 14px; }
+    .diagram-section { background: #fff; border-radius: 16px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); padding: 28px; margin-bottom: 28px; max-width: 1400px; margin-left: auto; margin-right: auto; }
+    .diagram-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 10px; }
+    .diagram-header h2 { font-size: 18px; color: #333; }
+    .btn-group { display: flex; gap: 8px; flex-wrap: wrap; }
+    .btn { display: inline-flex; align-items: center; gap: 6px; padding: 9px 18px; color: #fff; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+    .btn:hover { filter: brightness(0.9); }
+    .btn-png { background: #1565C0; }
+    .btn-svg { background: #6A1B9A; }
+    .diagram-container { display: flex; justify-content: center; padding: 12px 0; min-height: 400px; overflow-x: auto; overflow-y: hidden; }
+    .diagram-container img { max-width: 100%; height: auto; border: 1px solid #e0e0e0; border-radius: 8px; }
+  </style>
+</head>
+
+<body>
+
+  <h1>🗄️ ER Diagram (DrawSQL Style)</h1>
+  <p class="subtitle">Desain Database Entity-Relationship menggunakan gaya penamaan dan pewarnaan DrawSQL. Silakan klik SVG atau PNG untuk mengekstraksi gambar ke MS Word Anda.</p>
+
+  <div class="diagram-section">
+    <div class="diagram-header">
+      <h2>Entity Relationship Diagram - Sistem Ice</h2>
+      <div class="btn-group">
+        <button class="btn btn-svg" onclick="downloadSVG()">⬇ SVG</button>
+        <button class="btn btn-png" onclick="downloadPNG()">⬇ PNG</button>
+      </div>
+    </div>
+    <div class="diagram-container" id="container0"><p style="color:#E65100;font-weight:600;padding:40px;">⏳ Rendering ERD...</p></div>
+  </div>
+
+  <script>
+    const erdCode = `@startuml
+scale 2.5
+hide circle
+skinparam shadowing false
+skinparam linetype ortho
+skinparam roundcorner 8
+skinparam nodesep 60
+skinparam ranksep 70
+skinparam class {
+    BackgroundColor #FFFFFF
+    BorderColor #E2E8F0
+    ArrowColor #94A3B8
+    ArrowThickness 1.5
+    FontSize 20
+    AttributeFontSize 18
+    HeaderFontColor #0F172A
+    FontColor #334155
+    FontName "Segoe UI", sans-serif
+}
+
+entity "users" #E1F5FE {
+  * id : bigint
+  --
+  name : varchar(255)
+  # email : varchar(255)
+  password : varchar(255)
+  remember_token : varchar(100)
+  created_at : timestamp
+  updated_at : timestamp
+}
+
+entity "zones" #F3E5F5 {
+  * id : bigint
+  --
+  name : varchar(255)
+  latitude : decimal(10,8)
+  longitude : decimal(11,8)
+  created_at : timestamp
+  updated_at : timestamp
+}
+
+entity "route_stops" #E8F5E9 {
+  * id : bigint
+  --
+  name : varchar(255)
+  order_index : smallint
+  latitude : decimal(10,8)
+  longitude : decimal(11,8)
+  radius_meters : int
+  created_at : timestamp
+  updated_at : timestamp
+  ~ zone_id : bigint
+}
+
+entity "customers" #FFF3E0 {
+  * id : bigint
+  --
+  name : varchar(255)
+  # phone : varchar(20)
+  address : varchar(255)
+  zone : varchar(255)
+  latitude : decimal(10,8)
+  longitude : decimal(11,8)
+  conversation_state : varchar(255)
+  pending_message : text
+  ~ route_stop_id : bigint
+  created_at : timestamp
+  updated_at : timestamp
+}
+
+entity "drivers" #E0F2F1 {
+  * id : bigint
+  --
+  name : varchar(255)
+  phone : varchar(20)
+  ~ current_route_stop_id : bigint
+  route_stop_updated_at : timestamp
+  # username : varchar(255)
+  password : varchar(255)
+  api_token : varchar(255)
+  ~ zone_id : bigint
+  fcm_token : varchar(255)
+  created_at : timestamp
+  updated_at : timestamp
+}
+
+entity "orders" #FCE4EC {
+  * id : bigint
+  --
+  ~ customer_id : bigint
+  ~ driver_id : bigint
+  ~ ice_type_id : bigint
+  quantity : int
+  phone : varchar(20)
+  items : text
+  status : varchar(50)
+  raw_payload : json
+  created_at : timestamp
+  updated_at : timestamp
+}
+
+entity "ice_types" #E8EAF6 {
+  * id : bigint
+  --
+  name : varchar(255)
+  description : varchar(255)
+  weight : decimal(8,2)
+  price : decimal(10,2)
+  is_active : tinyint(1)
+  created_at : timestamp
+  updated_at : timestamp
+}
+
+entity "ice_type_driver_stocks" #FFEBEE {
+  * id : bigint
+  --
+  ~ driver_id : bigint
+  ~ ice_type_id : bigint
+  date : date
+  quantity : int
+  created_at : timestamp
+  updated_at : timestamp
+}
+
+entity "expenses" #FFF8E1 {
+  * id : bigint
+  --
+  name : varchar(255)
+  amount : decimal(12,2)
+  ~ expense_category_id : bigint
+  notes : text
+  date : date
+  created_at : timestamp
+  updated_at : timestamp
+}
+
+entity "expense_categories" #F1F8E9 {
+  * id : bigint
+  --
+  name : varchar(255)
+  created_at : timestamp
+  updated_at : timestamp
+}
+
+' ==========================================
+' RELATIONSHIPS & LAYOUT HINTS
+' ==========================================
+
+users -[hidden]right-> zones
+
+route_stops -[hidden]right-> expense_categories
+expense_categories ||-down-o{ expenses
+
+zones ||-right-o{ route_stops
+zones ||-down-o| drivers
+
+route_stops ||-down-o{ customers
+route_stops ||-down-o{ drivers
+
+customers ||-down-o{ orders
+drivers ||-down-o{ orders
+ice_types ||-down-o{ orders
+
+drivers ||-right-o{ ice_type_driver_stocks
+ice_types ||-up-o{ ice_type_driver_stocks
+
+@enduml`;
+
+    let currentSvg = '';
+
+    async function renderDiagram() {
+      const container = document.getElementById('container0');
+      try {
+        const response = await fetch('https://kroki.io/plantuml/svg', {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain' },
+          body: erdCode
+        });
+        if (!response.ok) throw new Error('HTTP ' + response.status);
+        currentSvg = await response.text();
+        container.innerHTML = currentSvg;
+        const svgEl = container.querySelector('svg');
+        if (svgEl) {
+          svgEl.style.maxWidth = '100%';
+          svgEl.style.height = 'auto';
+        }
+      } catch (e) {
+        container.innerHTML = '<p style="color:red;text-align:center;padding:20px;">❌ Gagal render: ' + e.message + '</p>';
+      }
+    }
+
+    function downloadSVG() {
+      if (!currentSvg) return alert('Belum ter-render.');
+      const blob = new Blob([currentSvg], { type: 'image/svg+xml;charset=utf-8' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = 'ER_Diagram_DrawSQL.svg';
+      document.body.appendChild(link); link.click(); document.body.removeChild(link);
+      URL.revokeObjectURL(link.href);
+    }
+
+    function downloadPNG() {
+      if (!currentSvg) return alert('Belum ter-render.');
+      const parser = new DOMParser();
+      const svgDoc = parser.parseFromString(currentSvg, 'image/svg+xml');
+      const svgEl = svgDoc.querySelector('svg');
+      let w = parseFloat(svgEl.getAttribute('width')) || 1200;
+      let h = parseFloat(svgEl.getAttribute('height')) || 800;
+      const scale = 2.0; 
+      const canvas = document.createElement('canvas');
+      canvas.width = w * scale; canvas.height = h * scale;
+      const ctx = canvas.getContext('2d');
+      const img = new Image();
+      const encodedSvg = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(currentSvg);
+      
+      img.onload = function () {
+        ctx.fillStyle = '#ffffff'; 
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        canvas.toBlob(function(blob) {
+          if (!blob) return alert('Gagal konversi ke PNG');
+          const link = document.createElement('a');
+          link.href = URL.createObjectURL(blob);
+          link.download = 'ER_Diagram_DrawSQL.png';
+          document.body.appendChild(link); link.click(); document.body.removeChild(link);
+          URL.revokeObjectURL(link.href);
+        }, 'image/png');
+      };
+      img.onerror = () => { alert('Export PNG gagal. Mengunduh SVG sebagai ganti.'); downloadSVG(); };
+      img.src = encodedSvg;
+    }
+
+    renderDiagram();
+  </script>
+</body>
+
+</html>

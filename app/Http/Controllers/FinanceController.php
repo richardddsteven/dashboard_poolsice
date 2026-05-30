@@ -16,12 +16,8 @@ class FinanceController extends Controller
         $filterDate  = $request->input('filter_date');    // YYYY-MM-DD
         $filterStart = $request->input('filter_start');   // YYYY-MM-DD
         $filterEnd   = $request->input('filter_end');     // YYYY-MM-DD
-        $filterMonth = $request->input('filter_month');   // 1-12
-        $filterYear  = $request->input('filter_year');    // YYYY
-
-        if ($filterType === 'month' && $filterMonth && ! $filterYear) {
-            $filterYear = date('Y');
-        }
+        $filterMonth = $request->input('filter_month') ?: date('n');   // 1-12, default to current month
+        $filterYear  = $request->input('filter_year') ?: date('Y');    // YYYY, default to current year
 
         // Helper closure untuk menerapkan filter tanggal pada query
         $applyFilter = function ($query) use ($filterType, $filterDate, $filterStart, $filterEnd, $filterMonth, $filterYear) {
@@ -140,12 +136,8 @@ class FinanceController extends Controller
         $filterDate  = $request->input('filter_date');
         $filterStart = $request->input('filter_start');
         $filterEnd   = $request->input('filter_end');
-        $filterMonth = $request->input('filter_month');
-        $filterYear  = $request->input('filter_year');
-
-        if ($filterType === 'month' && $filterMonth && ! $filterYear) {
-            $filterYear = date('Y');
-        }
+        $filterMonth = $request->input('filter_month') ?: date('n');   // 1-12, default to current month
+        $filterYear  = $request->input('filter_year') ?: date('Y');    // YYYY, default to current year
 
         $applyFilter = function ($query) use ($filterType, $filterDate, $filterStart, $filterEnd, $filterMonth, $filterYear) {
             if ($filterType === 'date' && $filterDate) {

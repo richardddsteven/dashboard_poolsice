@@ -46,6 +46,53 @@ $sendOrderStatusReply = function (Order $order, string $status, ?string $note = 
     return app(FonnteService::class)->sendOrderStatusUpdate($phone, $order, $status, $note);
 };
 
+$normalizeText = function (string $text): string {
+    $normalized = strtolower(trim($text));
+    $normalized = preg_replace('/[^a-z0-9]+/', '', $normalized);
+
+    return $normalized ?? '';
+};
+
+$detectRouteStopId = function (?string $zoneName, ?string $address, ?float $latitude, ?float $longitude) use ($normalizeText): ?int {
+    $zoneName = trim((string) $zoneName);
+    if ($zoneName === '') {
+        return null;
+    }
+
+    $zone = Zone::query()
+        ->whereRaw('LOWER(name) = ?', [strtolower($zoneName)])
+        ->first();
+
+    if (!$zone) {
+        return null;
+    }
+
+    $stops = RouteStop::query()
+        ->where('zone_id', $zone->id)
+        ->get();
+
+    $normalizedAddress = $normalizeText((string) $address);
+    if ($normalizedAddress !== '') {
+        foreach ($stops as $stop) {
+            $normalizedStopName = $normalizeText((string) $stop->name);
+            if ($normalizedStopName !== '' && str_contains($normalizedAddress, $normalizedStopName)) {
+                return (int) $stop->id;
+            }
+        }
+    }
+
+    if (
+        $latitude !== null &&
+        $longitude !== null &&
+        abs($latitude) >= 0.0001 &&
+        abs($longitude) >= 0.0001
+    ) {
+        return RouteStop::detectForCoordinates($latitude, $longitude, (int) $zone->id)?->id;
+    }
+
+    return null;
+};
+
 $extractQtyByWeight = function (string $text, int $weight): ?int {
     $pattern = '/(?:\b' . $weight . '\s*kg\b\D{0,18}(\d+)|(\d+)\D{0,18}\b' . $weight . '\s*kg\b)/i';
 
@@ -161,9 +208,13 @@ $resolveDriverTodayStock = function (int $driverId, ?string $date = null) {
     }
 
     // Fallback ke format lama (DriverStock) untuk backward compatibility
-    $oldFormatStock = DriverStock::query()
-        ->where('driver_id', $driverId)
-        ->first();
+    try {
+        $oldFormatStock = DriverStock::query()
+            ->where('driver_id', $driverId)
+            ->first();
+    } catch (\Exception $e) {
+        $oldFormatStock = null;
+    }
 
     if (!$oldFormatStock) {
         return [];
@@ -247,16 +298,20 @@ $reduceDriverStockForOrder = function (int $driverId, Order $order, $resolveOrde
     }
 
     $requiredStock = $resolveOrderStockDemand($order);
-    $driverStock = DriverStock::query()
-        ->where('driver_id', $driverId)
-        ->lockForUpdate()
-        ->first();
+    try {
+        $driverStock = DriverStock::query()
+            ->where('driver_id', $driverId)
+            ->lockForUpdate()
+            ->first();
 
-    if ($driverStock && ((int) $requiredStock['stock_5kg'] > 0 || (int) $requiredStock['stock_20kg'] > 0)) {
-        $driverStock->update([
-            'stock_5kg' => max(0, ((int) $driverStock->stock_5kg) - (int) $requiredStock['stock_5kg']),
-            'stock_20kg' => max(0, ((int) $driverStock->stock_20kg) - (int) $requiredStock['stock_20kg']),
-        ]);
+        if ($driverStock && ((int) $requiredStock['stock_5kg'] > 0 || (int) $requiredStock['stock_20kg'] > 0)) {
+            $driverStock->update([
+                'stock_5kg' => max(0, ((int) $driverStock->stock_5kg) - (int) $requiredStock['stock_5kg']),
+                'stock_20kg' => max(0, ((int) $driverStock->stock_20kg) - (int) $requiredStock['stock_20kg']),
+            ]);
+        }
+    } catch (\Exception $e) {
+        // Table doesn't exist or other error, ignore
     }
 };
 
@@ -297,7 +352,7 @@ Route::get('/ice-types', function () {
     ]);
 });
 
-Route::post('/driver/login', function (Request $request) {
+Route::middleware('throttle:5,1')->post('/driver/login', function (Request $request) {
     $validated = $request->validate([
         'username' => 'required|string',
         'password' => 'required|string',
@@ -714,20 +769,12 @@ Route::patch('/driver/orders/{order}/status', function (Request $request, Order 
         $sendOrderStatusReply($updatedOrder, 'rejected', $note);
     }
 
-    $todayStock = DriverStock::query()
-        ->where('driver_id', (int) $driver->id)
-        ->first();
-
     return response()->json([
         'message' => $statusUpdateResult['message'] ?? 'Order berhasil diproses.',
         'data' => [
             'id' => $updatedOrder->id,
             'status' => $updatedOrder->status,
             'driver_id' => $updatedOrder->driver_id,
-            'stock_today' => [
-                'stock_5kg' => (int) ($todayStock->stock_5kg ?? 0),
-                'stock_20kg' => (int) ($todayStock->stock_20kg ?? 0),
-            ],
         ],
     ]);
 });
@@ -819,10 +866,6 @@ Route::patch('/driver/orders/{order}/complete', function (Request $request, Orde
     $updatedOrder->loadMissing('customer:id,name,phone');
     $sendOrderStatusReply($updatedOrder, 'completed');
 
-    $todayStock = DriverStock::query()
-        ->where('driver_id', (int) $driver->id)
-        ->first();
-
     return response()->json([
         'message' => $result['message'],
         'data' => [
@@ -831,10 +874,6 @@ Route::patch('/driver/orders/{order}/complete', function (Request $request, Orde
             'driver_id' => $updatedOrder->driver_id,
             'distance_m' => $result['distance_m'] ?? null,
             'max_distance_m' => $result['max_distance_m'] ?? 500,
-            'stock_today' => [
-                'stock_5kg' => (int) ($todayStock->stock_5kg ?? 0),
-                'stock_20kg' => (int) ($todayStock->stock_20kg ?? 0),
-            ],
         ],
     ]);
 });
@@ -872,11 +911,15 @@ Route::post('/driver/stocks', function (Request $request) use ($resolveDriverFro
         if ($isNewFormat) {
             $hasStockToday = IceTypeDriverStock::hasStockInputToday($driver->id, $stockDate);
         } else {
-            $existingStock = DriverStock::query()
-                ->forDate($stockDate)
-                ->where('driver_id', (int) $driver->id)
-                ->first();
-            $hasStockToday = !is_null($existingStock);
+            try {
+                $existingStock = DriverStock::query()
+                    ->forDate($stockDate)
+                    ->where('driver_id', (int) $driver->id)
+                    ->first();
+                $hasStockToday = !is_null($existingStock);
+            } catch (\Exception $e) {
+                $hasStockToday = false;
+            }
         }
 
         if ($hasStockToday) {
@@ -907,27 +950,31 @@ Route::post('/driver/stocks', function (Request $request) use ($resolveDriverFro
                     'stocks' => $todayStocks->values(),
                 ],
             ]);
+        } else {
+            // Old format - create DriverStock for backward compatibility
+            try {
+                $stock = DriverStock::updateOrCreate([
+                    'driver_id' => (int) $driver->id,
+                    'date' => $stockDate,
+                ], [
+                    'stock_5kg' => (int) $validated['stock_5kg'],
+                    'stock_20kg' => (int) $validated['stock_20kg'],
+                ]);
+            } catch (\Exception $e) {
+                // Bypass
+            }
+
+            return response()->json([
+                'message' => 'Stok bawaan berhasil disimpan.',
+                'data' => $stock ? [
+                    'id' => $stock->id,
+                    'driver_id' => $stock->driver_id,
+                    'date' => $stock->date,
+                    'stock_5kg' => $stock->stock_5kg,
+                    'stock_20kg' => $stock->stock_20kg,
+                ] : null,
+            ]);
         }
-
-        // Old format - create DriverStock for backward compatibility
-        $stock = DriverStock::updateOrCreate([
-            'driver_id' => (int) $driver->id,
-            'date' => $stockDate,
-        ], [
-            'stock_5kg' => (int) $validated['stock_5kg'],
-            'stock_20kg' => (int) $validated['stock_20kg'],
-        ]);
-
-        return response()->json([
-            'message' => 'Stok bawaan berhasil disimpan.',
-            'data' => [
-                'id' => $stock->id,
-                'driver_id' => $stock->driver_id,
-                'date' => $stock->date,
-                'stock_5kg' => $stock->stock_5kg,
-                'stock_20kg' => $stock->stock_20kg,
-            ],
-        ]);
     } catch (\Throwable $e) {
         return response()->json([
             'message' => 'Gagal menyimpan stok bawaan.',
@@ -950,10 +997,14 @@ Route::get('/driver/stocks/today', function (Request $request) use ($resolveDriv
 
     // Fallback to old format if new format doesn't exist
     if ($todayStocks->isEmpty()) {
-        $stock = DriverStock::query()
-            ->forDate($todayStockDate = now()->toDateString())
-            ->where('driver_id', (int) $driver->id)
-            ->first();
+        try {
+            $stock = DriverStock::query()
+                ->forDate($todayStockDate = now()->toDateString())
+                ->where('driver_id', (int) $driver->id)
+                ->first();
+        } catch (\Exception $e) {
+            $stock = null;
+        }
 
         return response()->json([
             'data' => [
@@ -1012,7 +1063,7 @@ Route::get('/driver/customers', function (Request $request) use ($resolveDriverF
  * POST /api/driver/customers
  * Supir membuat customer baru beserta order-nya
  */
-Route::post('/driver/customers', function (Request $request) use ($resolveDriverFromToken) {
+Route::post('/driver/customers', function (Request $request) use ($resolveDriverFromToken, $detectRouteStopId) {
     $driver = $resolveDriverFromToken($request);
     if (!$driver) {
         return response()->json([
@@ -1033,12 +1084,27 @@ Route::post('/driver/customers', function (Request $request) use ($resolveDriver
     ]);
 
     try {
-        $result = DB::transaction(function () use ($driver, $validated) {
+        $result = DB::transaction(function () use ($driver, $validated, $detectRouteStopId) {
             $zone = $driver->zone?->name ?? 'Unknown Zone';
             $customerPhone = trim((string) ($validated['customer_phone'] ?? ''));
             if ($customerPhone === '') {
                 $customerPhone = 'CUST_' . time() . '_' . rand(1000, 9999);
             }
+
+            $routeStopId = $detectRouteStopId(
+                $zone,
+                $validated['customer_address'],
+                isset($validated['latitude']) ? (float) $validated['latitude'] : null,
+                isset($validated['longitude']) ? (float) $validated['longitude'] : null,
+            );
+
+            Log::info('[DriverCustomer] Prepared customer payload.', [
+                'driver_id' => $driver->id,
+                'zone' => $zone,
+                'customer_phone' => $customerPhone,
+                'route_stop_id' => $routeStopId,
+                'has_existing_customer_id' => !empty($validated['existing_customer_id']),
+            ]);
 
             $customer = null;
 
@@ -1059,6 +1125,17 @@ Route::post('/driver/customers', function (Request $request) use ($resolveDriver
                     'phone' => $customerPhone,
                     'latitude' => (float) ($validated['latitude'] ?? 0),
                     'longitude' => (float) ($validated['longitude'] ?? 0),
+                    'route_stop_id' => $routeStopId,
+                ]);
+            } else {
+                $customer->update([
+                    'name' => trim($validated['customer_name']),
+                    'address' => trim($validated['customer_address']),
+                    'zone' => $zone,
+                    'phone' => $customerPhone,
+                    'latitude' => (float) ($validated['latitude'] ?? 0),
+                    'longitude' => (float) ($validated['longitude'] ?? 0),
+                    'route_stop_id' => $routeStopId,
                 ]);
             }
 
@@ -1092,6 +1169,18 @@ Route::post('/driver/customers', function (Request $request) use ($resolveDriver
             ],
         ], 201);
     } catch (\Throwable $e) {
+        Log::error('[DriverCustomer] Failed to create customer and order.', [
+            'driver_id' => $driver->id ?? null,
+            'customer_name' => $validated['customer_name'] ?? null,
+            'customer_phone' => $validated['customer_phone'] ?? null,
+            'customer_address' => $validated['customer_address'] ?? null,
+            'existing_customer_id' => $validated['existing_customer_id'] ?? null,
+            'ice_type_id' => $validated['ice_type_id'] ?? null,
+            'latitude' => $validated['latitude'] ?? null,
+            'longitude' => $validated['longitude'] ?? null,
+            'exception' => $e->getMessage(),
+        ]);
+
         return response()->json([
             'message' => 'Gagal membuat customer dan order.',
             'error' => app()->hasDebugModeEnabled() ? $e->getMessage() : null,

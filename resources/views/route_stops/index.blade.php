@@ -21,6 +21,8 @@
         border: 1px solid var(--border-color);
         overflow: hidden;
         margin-bottom: 20px;
+        position: relative;
+        z-index: 1;
     }
         .route-hint-note {
             display: flex;
@@ -64,7 +66,7 @@
         <h1 class="page-title">Urutan Jalur — {{ $zone->name }}</h1>
         <p class="page-subtitle">Kelola daftar jalur pengiriman dalam zona ini beserta urutannya</p>
     </div>
-    <div style="display: flex; gap: 10px;">
+    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
         <a href="{{ route('route-stops.create', array_merge([$zone], request()->only(['hint_route_name', 'hint_customer_name', 'hint_zone_name', 'hint_latitude', 'hint_longitude']))) }}" class="btn btn-primary">
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
             Tambah Jalur

@@ -10,6 +10,8 @@
         border: 1px solid var(--border-color);
         overflow: hidden;
         background: #F8FAFC;
+        position: relative;
+        z-index: 1;
     }
 
     .zone-help-text {
@@ -38,7 +40,7 @@
         <h1 class="page-title">Edit Zona</h1>
         <p class="page-subtitle">Perbarui nama zona wilayah</p>
     </div>
-    <div style="display: flex; gap: 10px;">
+    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
         <a href="{{ route('route-stops.index', $zone) }}" class="btn btn-primary" style="font-size: 13px;">
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18"/><path d="M8 8l-5 4 5 4"/><path d="M16 8l5 4-5 4"/></svg>
             Kelola Jalur
