@@ -42,9 +42,10 @@
         }
 
         html, body {
-            overflow-x: hidden;
+            overflow-x: clip;
             width: 100%;
-            max-width: 100vw;
+            max-width: 100%;
+            overscroll-behavior-x: none;
         }
 
         body {
@@ -53,9 +54,17 @@
             color: var(--text-main);
             -webkit-font-smoothing: antialiased;
             -moz-osx-font-smoothing: grayscale;
-            overflow-x: hidden;
+            overflow-x: clip;
             font-size: 15px;
             line-height: 1.6;
+            position: relative;
+            width: 100%;
+            max-width: 100%;
+        }
+
+        img, svg, video, canvas {
+            max-width: 100%;
+            height: auto;
         }
 
         /* ========== Layout ========== */
@@ -703,8 +712,8 @@
 
         /* ========== Responsive ========== */
         @media (max-width: 1024px) {
-            .sidebar { transform: translateX(-100%); visibility: hidden; }
-            .sidebar.active { transform: translateX(0); visibility: visible; box-shadow: 8px 0 32px rgba(0,0,0,0.15); }
+            .sidebar { transform: translateX(-100%); visibility: hidden; display: none; }
+            .sidebar.active { transform: translateX(0); visibility: visible; display: flex; box-shadow: 8px 0 32px rgba(0,0,0,0.15); }
             .main-content { margin-left: 0; max-width: 100%; overflow-x: hidden; }
             .hamburger { display: flex; }
             .sidebar-overlay.active { display: block; }

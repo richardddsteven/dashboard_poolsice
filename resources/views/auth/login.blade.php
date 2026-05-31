@@ -23,6 +23,10 @@
             justify-content: center;
             -webkit-font-smoothing: antialiased;
             padding: 16px;
+            width: 100%;
+            max-width: 100%;
+            overflow-x: clip;
+            position: relative;
         }
         .login-container {
             display: flex;
@@ -31,7 +35,7 @@
             box-shadow: 0 4px 24px rgba(0,0,0,0.06);
             border: 1px solid #E2E8F0;
             max-width: 820px;
-            width: 100%;
+            width: min(100%, 820px);
             overflow: hidden;
             animation: fadeUp 0.5s ease;
         }
@@ -194,9 +198,10 @@
             background-size: contain;
             background-repeat: no-repeat;
             min-height: 420px;
+            max-width: 100%;
         }
         @media (max-width: 768px) {
-            .login-container { flex-direction: column-reverse; }
+            .login-container { flex-direction: column-reverse; width: 100%; max-width: 100%; }
             .login-form { padding: 24px 24px 36px; }
             .login-visual { min-height: 130px; flex: none; background-size: auto 100px; margin-top: 32px; }
         }

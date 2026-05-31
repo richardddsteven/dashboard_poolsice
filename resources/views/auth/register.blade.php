@@ -22,6 +22,10 @@
             align-items: center;
             justify-content: center;
             -webkit-font-smoothing: antialiased;
+            width: 100%;
+            max-width: 100%;
+            overflow-x: clip;
+            position: relative;
         }
         .register-container {
             display: flex;
@@ -30,7 +34,7 @@
             box-shadow: 0 4px 24px rgba(0,0,0,0.06);
             border: 1px solid #E2E8F0;
             max-width: 820px;
-            width: 100%;
+            width: min(100%, 820px);
             overflow: hidden;
             animation: fadeUp 0.5s ease;
         }
@@ -139,10 +143,11 @@
             background-size: contain;
             background-repeat: no-repeat;
             min-height: 420px;
+            max-width: 100%;
         }
 
         @media (max-width: 768px) {
-            .register-container { flex-direction: column; margin: 16px; }
+            .register-container { flex-direction: column; margin: 16px; width: calc(100% - 32px); max-width: calc(100% - 32px); }
             .register-visual { min-height: 180px; }
             .register-form { padding: 32px 24px; }
         }
