@@ -4,8 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>@yield('title', 'Dashboard Admin')</title>
-    @php($faviconPath = public_path('storage/poolsice.png'))
-    @php($faviconVersion = file_exists($faviconPath) ? filemtime($faviconPath) : time())
+    <?php
+        $faviconPath = public_path('storage/poolsice.png');
+        $faviconVersion = file_exists($faviconPath) ? filemtime($faviconPath) : time();
+    ?>
     <link rel="icon" type="image/png" sizes="32x32" href="{{ asset('storage/poolsice.png') }}?v={{ $faviconVersion }}">
     <link rel="shortcut icon" href="{{ asset('storage/poolsice.png') }}?v={{ $faviconVersion }}">
     <link rel="apple-touch-icon" href="{{ asset('storage/poolsice.png') }}?v={{ $faviconVersion }}">
