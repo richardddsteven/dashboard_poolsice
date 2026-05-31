@@ -13,7 +13,19 @@ php artisan storage:link --force || true
 if [ -f "driver_app_flutter/assets/images/poolsice.png" ]; then
   cp driver_app_flutter/assets/images/poolsice.png storage/app/public/poolsice.png
   chown www-data:www-data storage/app/public/poolsice.png || true
-  cp driver_app_flutter/assets/images/poolsice.png public/favicon.ico
+fi
+
+# Generate a valid favicon.ico from the PNG logo so browsers do not reject it
+if [ -f "storage/app/public/poolsice.png" ]; then
+  php -r '
+    $pngPath = "storage/app/public/poolsice.png";
+    $icoPath = "public/favicon.ico";
+    $png = file_get_contents($pngPath);
+    if ($png === false || strlen($png) === 0) { exit(0); }
+    $header = pack("vvv", 0, 1, 1);
+    $entry = pack("CCCCvvVV", 0, 0, 0, 0, 1, 32, strlen($png), 22);
+    file_put_contents($icoPath, $header . $entry . $png);
+  ' || true
   chown www-data:www-data public/favicon.ico || true
 fi
 
