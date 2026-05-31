@@ -13,6 +13,8 @@ php artisan storage:link --force || true
 if [ -f "driver_app_flutter/assets/images/poolsice.png" ]; then
   cp driver_app_flutter/assets/images/poolsice.png storage/app/public/poolsice.png
   chown www-data:www-data storage/app/public/poolsice.png || true
+  cp driver_app_flutter/assets/images/poolsice.png public/favicon.ico
+  chown www-data:www-data public/favicon.ico || true
 fi
 
 # Write firebase credentials file if provided
