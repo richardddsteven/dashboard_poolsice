@@ -728,6 +728,34 @@
             .card-header form { flex-direction: column; width: 100%; }
             .card-header form > div, .card-header form > input, .card-header form > button { width: 100%; }
             .card-header form > div > input { width: 100% !important; }
+
+            .finance-filter-controls,
+            .orders-filter-form,
+            .filter-container,
+            .card-header form {
+                max-width: 100%;
+            }
+            .finance-filter-controls > *,
+            .orders-filter-form > *,
+            .filter-container > *,
+            .card-header form > * {
+                width: 100% !important;
+                max-width: 100% !important;
+                min-width: 0 !important;
+                box-sizing: border-box;
+            }
+            .finance-filter-controls input[type="date"],
+            .orders-filter-form input[type="date"],
+            .finance-filter-controls .custom-select-wrapper,
+            .orders-filter-form .custom-select-wrapper,
+            .finance-filter-controls .custom-select-trigger,
+            .orders-filter-form .custom-select-trigger,
+            .finance-filter-controls .custom-options,
+            .orders-filter-form .custom-options {
+                width: 100% !important;
+                max-width: 100% !important;
+                min-width: 0 !important;
+            }
             
             .filter-container { flex-direction: column; }
             .filter-container > div { width: 100%; min-width: 100%; }
@@ -752,6 +780,20 @@
             
             /* Stack tables on mobile if needed, or allow horizontal scroll */
             .table-responsive { border: 1px solid var(--border-light); border-radius: var(--radius-sm); }
+
+            input[type="date"],
+            input[type="month"],
+            input[type="datetime-local"],
+            input[type="week"],
+            input.form-control,
+            select.form-control,
+            .dash-custom-input,
+            .dash-custom-select {
+                width: 100% !important;
+                max-width: 100% !important;
+                min-width: 0 !important;
+                box-sizing: border-box;
+            }
             
             /* Dashboard Grid */
             .grid-cols-4 { grid-template-columns: 1fr 1fr !important; }
