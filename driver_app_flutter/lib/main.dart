@@ -867,11 +867,11 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
         return;
       }
       // Silently fail - will retry on refresh
-      showAppSnackBar(
-        context,
-        message: 'Internet Tidak Stabil',
-        type: AppSnackBarType.error,
-      );
+      // showAppSnackBar(
+      //   context,
+      //   message: 'Internet Tidak Stabil',
+      //   type: AppSnackBarType.error,
+      // );
     } finally {
       if (mounted) {
         setState(() {
@@ -1091,11 +1091,11 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
         return;
       }
 
-      showAppSnackBar(
-        context,
-        message: 'Internet Tidak Stabil',
-        type: AppSnackBarType.error,
-      );
+      // showAppSnackBar(
+      //   context,
+      //   message: 'Internet Tidak Stabil',
+      //   type: AppSnackBarType.error,
+      // );
     } finally {
       if (mounted) {
         setState(() {
@@ -1363,11 +1363,11 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
       if (_isRecoverableOrderFetchError(e)) {
         return;
       }
-      showAppSnackBar(
-        context,
-        message: 'Internet Tidak Stabil',
-        type: AppSnackBarType.error,
-      );
+      // showAppSnackBar(
+      //   context,
+      //   message: 'Internet Tidak Stabil',
+      //   type: AppSnackBarType.error,
+      // );
     } finally {
       if (mounted) {
         setState(() {
