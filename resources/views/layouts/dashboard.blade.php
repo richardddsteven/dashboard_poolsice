@@ -5,12 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>@yield('title', 'Dashboard Admin')</title>
     <?php
-        $faviconPath = public_path('storage/poolsice.png');
+        $faviconPath = public_path('poolsice.png');
         $faviconVersion = file_exists($faviconPath) ? filemtime($faviconPath) : time();
     ?>
-    <link rel="icon" type="image/png" sizes="32x32" href="{{ asset('storage/poolsice.png') }}?v={{ $faviconVersion }}">
-    <link rel="shortcut icon" href="{{ asset('storage/poolsice.png') }}?v={{ $faviconVersion }}">
-    <link rel="apple-touch-icon" href="{{ asset('storage/poolsice.png') }}?v={{ $faviconVersion }}">
+    <link rel="icon" type="image/png" sizes="32x32" href="/poolsice.png?v={{ $faviconVersion }}">
+    <link rel="shortcut icon" href="/poolsice.png?v={{ $faviconVersion }}">
+    <link rel="apple-touch-icon" href="/poolsice.png?v={{ $faviconVersion }}">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         *, ::before, ::after {
@@ -816,7 +816,7 @@
         <aside class="sidebar" id="sidebar">
             <div class="sidebar-header">
                 <div class="sidebar-logo">
-                    <img src="/storage/poolsice.png" alt="Pools Ice">
+                    <img src="/poolsice.png" alt="Pools Ice">
                 </div>
             </div>
 
