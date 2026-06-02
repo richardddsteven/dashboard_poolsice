@@ -11,9 +11,8 @@ import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// URL production — GANTI dengan domain production kamu sebelum build release!
-/// Contoh: 'https://api.poolsice.com/api'
-const String _kProductionApiUrl = 'https://api.yourdomain.com/api';
+/// URL production — Railway deployment
+const String _kProductionApiUrl = 'https://dashboardpoolsice-production.up.railway.app/api';
 
 String get apiBaseUrl {
   // Production & staging: wajib HTTPS
@@ -2334,8 +2333,8 @@ class _AddCustomerScreenState extends State<AddCustomerScreen> {
           }
         });
       }
-    } catch (e) {
-      print('Error loading ice types: $e');
+    } catch (_) {
+      // Gagal diam-diam
     } finally {
       if (mounted) {
         setState(() => _isLoadingIceTypes = false);
@@ -2372,8 +2371,8 @@ class _AddCustomerScreenState extends State<AddCustomerScreen> {
           );
         });
       }
-    } catch (e) {
-      print('Error loading existing customers: $e');
+    } catch (_) {
+      // Gagal diam-diam
     } finally {
       if (mounted) {
         setState(() => _isLoadingExistingCustomers = false);
@@ -2438,7 +2437,6 @@ class _AddCustomerScreenState extends State<AddCustomerScreen> {
         'longitude': location.longitude,
       };
     } catch (e) {
-      print('Error geocoding address: $e');
       if (mounted) {
         showAppSnackBar(
           context,
@@ -2577,7 +2575,6 @@ class _AddCustomerScreenState extends State<AddCustomerScreen> {
           type: AppSnackBarType.error,
         );
       }
-      print('Error: $e');
     } finally {
       if (mounted) {
         setState(() => _isSubmitting = false);
