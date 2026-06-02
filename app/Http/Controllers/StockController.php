@@ -150,31 +150,35 @@ class StockController extends Controller
             ->values();
 
         $usedDriverIds = $driverStocksNew->pluck('driver_id')->toArray();
-        $driverStocksOld = DriverStock::query()
-            ->with(['driver:id,name'])
-            ->whereNotIn('driver_id', $usedDriverIds)
-            ->get()
-            ->map(function (DriverStock $driverStock) use ($iceTypes) {
-                $row = [
-                    'driver_id' => $driverStock->driver_id,
-                    'driver_name' => $driverStock->driver?->name,
-                    'format' => 'old',
-                    'updated_at' => $driverStock->updated_at,
-                ];
+        
+        $driverStocksOld = collect();
+        if (\Illuminate\Support\Facades\Schema::hasTable('driver_stocks')) {
+            $driverStocksOld = DriverStock::query()
+                ->with(['driver:id,name'])
+                ->whereNotIn('driver_id', $usedDriverIds)
+                ->get()
+                ->map(function (DriverStock $driverStock) use ($iceTypes) {
+                    $row = [
+                        'driver_id' => $driverStock->driver_id,
+                        'driver_name' => $driverStock->driver?->name,
+                        'format' => 'old',
+                        'updated_at' => $driverStock->updated_at,
+                    ];
 
-                foreach ($iceTypes as $iceType) {
-                    if (abs((float) $iceType->weight - 5.0) < 0.01) {
-                        $row["qty_{$iceType->id}"] = (int) $driverStock->stock_5kg;
-                    } elseif (abs((float) $iceType->weight - 20.0) < 0.01) {
-                        $row["qty_{$iceType->id}"] = (int) $driverStock->stock_20kg;
-                    } else {
-                        $row["qty_{$iceType->id}"] = 0;
+                    foreach ($iceTypes as $iceType) {
+                        if (abs((float) $iceType->weight - 5.0) < 0.01) {
+                            $row["qty_{$iceType->id}"] = (int) $driverStock->stock_5kg;
+                        } elseif (abs((float) $iceType->weight - 20.0) < 0.01) {
+                            $row["qty_{$iceType->id}"] = (int) $driverStock->stock_20kg;
+                        } else {
+                            $row["qty_{$iceType->id}"] = 0;
+                        }
                     }
-                }
 
-                return $row;
-            })
-            ->values();
+                    return $row;
+                })
+                ->values();
+        }
 
         return $driverStocksNew
             ->concat($driverStocksOld)

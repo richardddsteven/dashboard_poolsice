@@ -660,7 +660,8 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
   with WidgetsBindingObserver {
   final List<Map<String, dynamic>> _orders = [];
   Timer? _timer;
-  Timer? _routeStopTimer; // Timer khusus lapor posisi jalur setiap 5 menit
+  StreamSubscription<Position>? _positionStreamSubscription; // Stream untuk lacak lokasi di background
+  DateTime? _lastRouteStopReportTime; // Throttling laporan rute
   bool _isLoading = false;
   bool _isLoadingTodayStock = false;
   bool _isSubmittingStock = false;
@@ -697,14 +698,14 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
     _fetchTodayStock();
     _registerFcmToken();
     _setupForegroundFcmListener();
-    _startRouteStopReporting(); // Mulai lapor posisi jalur setiap 5 menit
+    _startRouteStopReporting(); // Mulai lapor posisi jalur setiap 2 menit
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _timer?.cancel();
-    _routeStopTimer?.cancel();
+    _positionStreamSubscription?.cancel();
     _fcmSubscription?.cancel();
     _stock5KgController.dispose();
     _stock20KgController.dispose();
@@ -727,9 +728,8 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
       return;
     }
     if (state == AppLifecycleState.paused) {
-      // _isAppInForeground = false;
-      // _timer?.cancel(); // FCM tetap memberi notifikasi order saat app diminimize
-      _routeStopTimer?.cancel(); // Hemat baterai saat app diminimize
+      // Tidak cancel _positionStreamSubscription di sini, agar Foreground Service Geolocator
+      // tetap mengirimkan stream lokasi di background.
     }
   }
 
@@ -1241,24 +1241,68 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
     });
   }
 
-  /// Mulai timer laporan posisi jalur supir setiap 5 menit.
-  /// Langsung kirim sekali saat dipanggil, lalu jadwalkan ulang.
+  /// Mulai melacak posisi supir menggunakan Stream dari Geolocator.
+  /// Mendukung pelacakan di latar belakang (Background/Foreground Service).
   void _startRouteStopReporting() {
-    _routeStopTimer?.cancel();
-    _reportRouteStop(); // Kirim langsung pertama kali
-    _routeStopTimer = Timer.periodic(const Duration(minutes: 5), (_) {
-      _reportRouteStop();
+    _positionStreamSubscription?.cancel();
+
+    late LocationSettings locationSettings;
+
+    if (defaultTargetPlatform == TargetPlatform.android) {
+      locationSettings = AndroidSettings(
+        accuracy: LocationAccuracy.high,
+        distanceFilter: 20, // Update jika supir pindah minimal 20 meter
+        forceLocationManager: true,
+        // Konfigurasi Foreground Service Android
+        foregroundNotificationConfig: const ForegroundNotificationConfig(
+          notificationText: "Pools Ice sedang memantau lokasi Anda di latar belakang.",
+          notificationTitle: "Mendeteksi Jalur...",
+          enableWakeLock: true,
+        ),
+      );
+    } else if (defaultTargetPlatform == TargetPlatform.iOS || defaultTargetPlatform == TargetPlatform.macOS) {
+      locationSettings = AppleSettings(
+        accuracy: LocationAccuracy.high,
+        activityType: ActivityType.automotiveNavigation,
+        distanceFilter: 20,
+        pauseLocationUpdatesAutomatically: false,
+        showBackgroundLocationIndicator: true,
+        allowBackgroundLocationUpdates: true,
+      );
+    } else {
+      locationSettings = const LocationSettings(
+        accuracy: LocationAccuracy.high,
+        distanceFilter: 20,
+      );
+    }
+
+    _positionStreamSubscription = Geolocator.getPositionStream(locationSettings: locationSettings).listen((Position? position) {
+      if (position != null) {
+        _handleNewPosition(position);
+      }
     });
+
+    // Lapor lokasi sekarang sebagai inisiasi
+    _reportRouteStopWithPosition(null);
+  }
+
+  /// Memproses setiap update posisi dari stream dengan batas waktu (throttling)
+  void _handleNewPosition(Position position) {
+    final now = DateTime.now();
+    // Jangan kirim ke server jika update terakhir belum lewat 2 menit
+    if (_lastRouteStopReportTime != null && now.difference(_lastRouteStopReportTime!).inMinutes < 2) {
+      return;
+    }
+
+    _reportRouteStopWithPosition(position);
   }
 
   /// Ambil GPS supir dan kirim ke endpoint POST /api/driver/route-stop.
-  /// Server akan mendeteksi jalur terdekat dan otomatis menolak order yang sudah terlewat.
-  Future<void> _reportRouteStop() async {
+  Future<void> _reportRouteStopWithPosition(Position? providedPosition) async {
     if (_isReportingRouteStop) return;
     _isReportingRouteStop = true;
 
     try {
-      // Cek izin & dapatkan posisi GPS
       final serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) return;
 
@@ -1266,10 +1310,9 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
       }
-      if (permission == LocationPermission.denied ||
-          permission == LocationPermission.deniedForever) return;
+      if (permission == LocationPermission.denied || permission == LocationPermission.deniedForever) return;
 
-      final position = await Geolocator.getCurrentPosition(
+      final Position position = providedPosition ?? await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high,
         timeLimit: const Duration(seconds: 10),
       );
@@ -1299,6 +1342,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
         if (mounted && stopName.isNotEmpty && stopName != _currentRouteStopName) {
           setState(() => _currentRouteStopName = stopName);
         }
+        _lastRouteStopReportTime = DateTime.now();
       }
     } catch (_) {
       // Gagal diam-diam — tidak mengganggu flow utama
@@ -1545,7 +1589,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
 
   Future<void> _refreshAll() async {
     // Jalankan reporting GPS manual saat pull-to-refresh
-    _reportRouteStop();
+    _reportRouteStopWithPosition(null);
     
     await Future.wait([
       _loadIceTypes(),

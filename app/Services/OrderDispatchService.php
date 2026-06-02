@@ -317,10 +317,14 @@ class OrderDispatchService
         }
 
         $requiredStock = $orderStockDemand ?? $this->resolveOrderStockDemand($order);
-        $driverStock = DriverStock::query()
-            ->where('driver_id', $driverId)
-            ->lockForUpdate()
-            ->first();
+        
+        $driverStock = null;
+        if (\Illuminate\Support\Facades\Schema::hasTable('driver_stocks')) {
+            $driverStock = DriverStock::query()
+                ->where('driver_id', $driverId)
+                ->lockForUpdate()
+                ->first();
+        }
 
         if ($driverStock && ((int) $requiredStock['stock_5kg'] > 0 || (int) $requiredStock['stock_20kg'] > 0)) {
             $driverStock->update([
@@ -343,6 +347,10 @@ class OrderDispatchService
 
         if ($newFormatStocks->isNotEmpty()) {
             return $newFormatStocks->values()->all();
+        }
+
+        if (!\Illuminate\Support\Facades\Schema::hasTable('driver_stocks')) {
+            return [];
         }
 
         $oldFormatStock = DriverStock::query()

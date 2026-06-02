@@ -113,6 +113,12 @@ class CustomerController extends Controller
             'longitude' => 'nullable|numeric|between:-180,180',
         ]);
 
+        $validated['route_stop_id'] = $this->resolveRouteStopId(
+            $validated['zone'] ?? null,
+            $validated['latitude'] ?? null,
+            $validated['longitude'] ?? null
+        );
+
         $customer = Customer::create($validated);
 
         return redirect()->route('customers.index', ['zone' => $customer->zone])
@@ -150,6 +156,12 @@ class CustomerController extends Controller
             'longitude' => 'nullable|numeric|between:-180,180',
         ]);
 
+        $validated['route_stop_id'] = $this->resolveRouteStopId(
+            $validated['zone'] ?? null,
+            $validated['latitude'] ?? null,
+            $validated['longitude'] ?? null
+        );
+
         $customer->update($validated);
 
         return redirect()->route('customers.index', ['zone' => $customer->zone])
@@ -166,5 +178,20 @@ class CustomerController extends Controller
 
         return redirect()->route('customers.index', ['zone' => $zone])
             ->with('success', 'Customer berhasil dihapus.');
+    }
+
+    private function resolveRouteStopId(?string $zoneName, ?float $latitude, ?float $longitude): ?int
+    {
+        if (empty($zoneName) || empty($latitude) || empty($longitude)) {
+            return null;
+        }
+
+        $zone = \App\Models\Zone::whereRaw('LOWER(name) = ?', [strtolower(trim($zoneName))])->first();
+        if (!$zone) {
+            return null;
+        }
+
+        $routeStop = \App\Models\RouteStop::detectForCoordinates((float) $latitude, (float) $longitude, $zone->id);
+        return $routeStop?->id;
     }
 }

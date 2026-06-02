@@ -438,6 +438,10 @@ class WebhookController extends Controller
             return $newFormatStocks->values()->all();
         }
 
+        if (!\Illuminate\Support\Facades\Schema::hasTable('driver_stocks')) {
+            return [];
+        }
+
         $oldFormatStock = DriverStock::query()
             ->where('driver_id', $driverId)
             ->whereDate('date', now()->toDateString())
@@ -736,10 +740,31 @@ class WebhookController extends Controller
     private function hasOrderKeyword(string $message): bool
     {
         $messageLower = strtolower($message);
-        $keywords = ['pesan', 'order', 'kirim', 'memesan', 'beli', 'membeli', 'pesen'];
+        $keywords = ['pesan', 'order', 'memesan', 'beli', 'membeli', 'pesen'];
 
         foreach ($keywords as $keyword) {
             if (str_contains($messageLower, $keyword)) {
+                return true;
+            }
+        }
+
+        // Jika tidak ada kata kunci eksplisit, cek apakah mengandung kata "kirim" secara persis (word boundary)
+        // agar tidak memicu "dikirim", "pengiriman", dsb.
+        if (preg_match('/\bkirim\b/i', $message)) {
+            return true;
+        }
+
+        // Cek apakah pesan langsung menyebutkan jenis es (contoh: "5kg 2 pcs" tanpa kata "pesan")
+        $iceTypes = \App\Models\IceType::getActiveTypes();
+        foreach ($iceTypes as $iceType) {
+            $weightLabel = preg_quote((string) $iceType->weight, '/');
+            $nameLabel = preg_quote((string) $iceType->name, '/');
+
+            if (
+                preg_match('/\b' . $nameLabel . '\b/i', $message) ||
+                preg_match('/\b' . $weightLabel . '\s?kg\b/i', $message) ||
+                preg_match('/\b' . $weightLabel . '\s?kilo\b/i', $message)
+            ) {
                 return true;
             }
         }

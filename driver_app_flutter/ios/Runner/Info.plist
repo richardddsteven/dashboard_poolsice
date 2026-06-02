@@ -48,8 +48,13 @@
 	<key>NSUserNotificationUsageDescription</key>
 	<string>Aplikasi memerlukan notifikasi untuk order baru supir.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Aplikasi memerlukan akses lokasi untuk mengirimkan koordinat GPS saat menambahkan customer.</string>
+	<string>Aplikasi memerlukan akses lokasi untuk menyesuaikan jalur pengiriman Anda secara realtime.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>Aplikasi memerlukan akses lokasi untuk mengirimkan koordinat GPS saat menambahkan customer.</string>
+	<string>Aplikasi memerlukan akses lokasi di latar belakang untuk memperbarui jalur pengiriman bahkan saat Anda tidak membuka aplikasi.</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>location</string>
+		<string>fetch</string>
+	</array>
 </dict>
 </plist>
