@@ -125,15 +125,20 @@ class FcmService
      */
     private function generateAccessToken(): string
     {
-        if (!file_exists($this->credentialsPath)) {
+        // Prioritas 1: baca dari environment variable (untuk Railway/cloud deployment)
+        $credentialsJson = env('FIREBASE_CREDENTIALS_JSON');
+        if ($credentialsJson) {
+            $credentials = json_decode($credentialsJson, true);
+        } elseif (file_exists($this->credentialsPath)) {
+            // Prioritas 2: baca dari file lokal
+            $credentials = json_decode(file_get_contents($this->credentialsPath), true);
+        } else {
             throw new \RuntimeException(
-                "Firebase credentials tidak ditemukan: {$this->credentialsPath}\n" .
-                "Download dari Firebase Console > Project Settings > Service Accounts > Generate new private key\n" .
-                "Simpan sebagai: storage/app/firebase-service-account.json"
+                "Firebase credentials tidak ditemukan.\n" .
+                "Set env FIREBASE_CREDENTIALS_JSON dengan isi JSON service account,\n" .
+                "atau simpan file ke: {$this->credentialsPath}"
             );
         }
-
-        $credentials = json_decode(file_get_contents($this->credentialsPath), true);
 
         if (empty($credentials['private_key']) || empty($credentials['client_email'])) {
             throw new \RuntimeException('Firebase service account JSON tidak valid.');
