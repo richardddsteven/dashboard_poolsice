@@ -84,13 +84,9 @@ class RouteStop extends Model
             return $stop;
         })->sortBy('_computed_distance');
 
-        // Cari jalur dalam radius
-        $inRadius = $stopsWithDistance->first(fn (self $s) => $s->_computed_distance <= $s->radius_meters);
-        if ($inRadius) {
-            return $inRadius;
-        }
-
-        // Fallback: paling dekat meskipun di luar radius
-        return $stopsWithDistance->first();
+        // Cari jalur dalam radius — jika tidak ada yang cocok, kembalikan null
+        // (tidak ada fallback ke jalur terdekat agar posisi supir tidak "nyangkut"
+        //  di jalur terakhir ketika supir berada di luar semua zona jalur)
+        return $stopsWithDistance->first(fn (self $s) => $s->_computed_distance <= $s->radius_meters);
     }
 }
