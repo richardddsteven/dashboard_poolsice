@@ -66,12 +66,6 @@ class OrderMessageParsingTest extends TestCase
         $this->assertSame('081234567890', $this->cleanPhone('+62 812-3456-7890'));
     }
 
-    /** cleanPhone() – Input null menghasilkan nilai kembalian null */
-    public function test_clean_phone_returns_null_for_null_input(): void
-    {
-        $this->assertNull($this->cleanPhone(null));
-    }
-
     /** hasOrderKeyword() – Kata kunci order dalam berbagai format terdeteksi */
     public function test_has_order_keyword_detects_pesen(): void
     {

@@ -549,7 +549,7 @@ Route::get('/driver/orders/notifications', function (Request $request) use ($res
     $pendingOrdersInZone = Order::query()
         ->with(['customer:id,name,address,zone,route_stop_id', 'customer.routeStop:id,name,order_index', 'iceType:id,name,weight'])
         ->where('status', 'pending')
-        ->whereDate('orders.created_at', now()->toDateString()) // Hanya order hari ini
+        ->where('orders.created_at', '>=', now()->subDays(30)->startOfDay()) // Maksimal 30 hari terakhir
         ->where(function ($query) use ($driver) {
             $query->whereNull('driver_id')
                 ->orWhere('driver_id', (int) $driver->id);
@@ -634,7 +634,7 @@ Route::get('/driver/orders/notifications', function (Request $request) use ($res
 
     $orders = Order::query()
         ->with(['customer:id,name,address,zone,route_stop_id', 'customer.routeStop:id,name,order_index', 'iceType:id,name,weight'])
-        ->whereDate('orders.created_at', now()->toDateString()) // Hanya order hari ini
+        ->where('orders.created_at', '>=', now()->subDays(30)->startOfDay()) // Maksimal 30 hari terakhir
         ->whereHas('customer', function ($query) use ($zone) {
             $query->whereRaw('LOWER(zone) = ?', [$zone]);
         })

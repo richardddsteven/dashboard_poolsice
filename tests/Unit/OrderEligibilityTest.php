@@ -23,13 +23,13 @@ class OrderEligibilityTest extends TestCase
         return $s;
     }
 
-    /** isEligibleByIndex() – Order diterima jika supir belum memiliki posisi jalur */
+    /** isEligibilityByIndex() – Order diterima jika supir belum memiliki posisi jalur */
     public function test_eligible_when_driver_has_no_route_stop(): void
     {
         $this->assertTrue($this->isEligibleByIndex(null, $this->makeStop(3)));
     }
 
-    /** isEligibleByIndex() – Order ditolak jika customer sudah di belakang posisi supir */
+    /** isEligibilityByIndex() – Order ditolak jika customer sudah di belakang posisi supir */
     public function test_order_rejected_when_customer_behind_driver(): void
     {
         $this->assertFalse($this->isEligibleByIndex($this->makeStop(5), $this->makeStop(3)));

@@ -1663,6 +1663,19 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
       status == 'approved' && orderDriverId != null && orderDriverId != widget.driverId;
     final isUpdating = _isUpdatingOrderIds.contains(orderId);
 
+    // Tombol selesai antar hanya muncul untuk order hari ini
+    final isOrderToday = () {
+      try {
+        final createdAt = order['created_at'];
+        if (createdAt == null) return false;
+        final dt = DateTime.parse(createdAt.toString()).toLocal();
+        final now = DateTime.now();
+        return dt.year == now.year && dt.month == now.month && dt.day == now.day;
+      } catch (_) {
+        return false;
+      }
+    }();
+
     final itemLabel = (order['items_display'] as String?)?.trim().isNotEmpty == true
       ? order['items_display'].toString()
       : _formatOrderItems(order['items']);
@@ -1805,7 +1818,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
               ),
             ),
             const SizedBox(height: 20),
-            if (isApprovedByCurrentDriver)
+            if (isApprovedByCurrentDriver && isOrderToday)
               SizedBox(
                 width: double.infinity,
                 child: FilledButton.icon(
@@ -2109,40 +2122,108 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
                   ),
               ],
             ),
-            // Label statis tanggal hari ini
-            Container(
-              margin: const EdgeInsets.only(bottom: 16),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              decoration: BoxDecoration(
-                color: const Color(0xFFEFF6FF),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFFBFDBFE), width: 1),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.today_rounded, size: 16, color: Color(0xFF2563EB)),
-                  const SizedBox(width: 8),
-                  Text(
-                    () {
-                      final now = DateTime.now();
-                      const dayNames = ['', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'];
-                      const monthNames = ['', 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
-                        'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
-                      return 'Hari Ini, ${dayNames[now.weekday]} ${now.day} ${monthNames[now.month]} ${now.year}';
-                    }(),
-                    style: const TextStyle(
-                      color: Color(0xFF1D4ED8),
-                      fontWeight: FontWeight.w700,
-                      fontSize: 13,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
+            const SizedBox(height: 16),
             ...(() {
-              final filteredOrders = _orders.toList();
+              final List<DateTime> sortedDates = [];
+              final today = DateTime.now();
+              for (int i = 0; i < 30; i++) {
+                sortedDates.add(today.subtract(Duration(days: i)));
+              }
+
+              return [
+                SizedBox(
+                  height: 80,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: sortedDates.length,
+                    separatorBuilder: (context, index) => const SizedBox(width: 8),
+                    itemBuilder: (context, index) {
+                      final dateObj = sortedDates[index];
+                      final dateStr = _formatDateYmd(dateObj);
+                      final isSelected = dateStr == _selectedFilterDate;
+
+                      String getDayInitials(int weekday) {
+                        switch (weekday) {
+                          case 1: return 'Sen';
+                          case 2: return 'Sel';
+                          case 3: return 'Rab';
+                          case 4: return 'Kam';
+                          case 5: return 'Jum';
+                          case 6: return 'Sab';
+                          case 7: return 'Min';
+                          default: return '';
+                        }
+                      }
+
+                      final dayName = getDayInitials(dateObj.weekday);
+                      final dateNum = dateObj.day.toString();
+
+                      return GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            _selectedFilterDate = dateStr;
+                          });
+                        },
+                        child: Container(
+                          width: 52,
+                          padding: const EdgeInsets.symmetric(vertical: 6),
+                          decoration: BoxDecoration(
+                            color: isSelected ? Colors.white : const Color(0xFFF8FAFC),
+                            borderRadius: BorderRadius.circular(26),
+                            border: Border.all(
+                              color: isSelected ? const Color(0xFF2563EB) : Colors.transparent,
+                              width: 1.5,
+                            ),
+                          ),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                dayName,
+                                style: const TextStyle(
+                                  color: Color(0xFF475569),
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 12,
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              Container(
+                                width: 34,
+                                height: 34,
+                                decoration: BoxDecoration(
+                                  color: isSelected ? const Color(0xFF2563EB) : const Color(0xFFE2E8F0),
+                                  shape: BoxShape.circle,
+                                ),
+                                alignment: Alignment.center,
+                                child: Text(
+                                  dateNum,
+                                  style: TextStyle(
+                                    color: isSelected ? Colors.white : const Color(0xFF64748B),
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ];
+            })(),
+            ...(() {
+              final filteredOrders = _orders.where((order) {
+                if (order['created_at'] != null) {
+                  try {
+                    final dt = DateTime.parse(order['created_at'].toString());
+                    return _formatDateYmd(dt) == _selectedFilterDate;
+                  } catch (_) {}
+                }
+                return false;
+              }).toList();
 
               if (filteredOrders.isEmpty) {
                 return [
@@ -2171,7 +2252,9 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
                         ),
                         const SizedBox(height: 4),
                         Text(
-                           'Belum ada order hari ini.',
+                          _selectedFilterDate == _formatDateYmd(DateTime.now())
+                              ? 'Belum ada order yang masuk.'
+                              : 'Tidak ada order pada tanggal ini.',
                           textAlign: TextAlign.center,
                           style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 13),
                         ),
