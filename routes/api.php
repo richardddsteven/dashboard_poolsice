@@ -562,6 +562,15 @@ Route::get('/driver/orders/notifications', function (Request $request) use ($res
         ->get();
 
     foreach ($pendingOrdersInZone as $pendingOrder) {
+        $rawPayload = is_array($pendingOrder->raw_payload ?? null) ? $pendingOrder->raw_payload : [];
+        $isManualReview = !empty($rawPayload['route_review_required']) &&
+            in_array($rawPayload['route_review_status'] ?? '', ['pending_manual_review', 'needs_followup_review']);
+
+        // Order yang menunggu admin assign jalur jangan dievaluasi jaraknya oleh supir.
+        if ($isManualReview) {
+            continue;
+        }
+
         // Cek kelayakan berdasarkan posisi jalur supir
         if (!Order::isEligibleForDriver($pendingOrder, $driver)) {
             // Order sudah terlewat jauh dan lebih dari 15 menit
@@ -641,6 +650,15 @@ Route::get('/driver/orders/notifications', function (Request $request) use ($res
         ->latest('id')
         ->limit(150)
         ->get()
+        ->filter(function (Order $order) {
+            $rawPayload = is_array($order->raw_payload ?? null) ? $order->raw_payload : [];
+            $isManualReview = !empty($rawPayload['route_review_required']) &&
+                in_array($rawPayload['route_review_status'] ?? '', ['pending_manual_review', 'needs_followup_review']);
+
+            // Sembunyikan order yang sedang direview admin dari list aplikasi supir
+            // agar supir tidak mencoba approve/reject order yang belum punya jalur pasti.
+            return !$isManualReview;
+        })
         ->map(function (Order $order) {
             $iceTypeLabel  = $order->iceType?->name ?? '-';
             $quantityLabel = max(1, (int) ($order->effective_quantity ?? $order->quantity ?? 1));
