@@ -40,9 +40,16 @@ class AppServiceProvider extends ServiceProvider
                 ? ($latestUpdatedOrder->id . '-' . $latestUpdatedOrder->updated_at->format('YmdHisu'))
                 : '';
 
+            $hasRouteReviewPending = Auth::check()
+                ? Order::where('status', 'pending')
+                    ->whereHas('customer', fn ($q) => $q->whereNull('route_stop_id'))
+                    ->exists()
+                : false;
+
             $view->with('pendingOrdersCount', $pendingOrdersCount);
             $view->with('latestOrderIdGlobal', $latestOrderId);
             $view->with('latestUpdateTokenGlobal', $latestUpdateToken);
+            $view->with('hasRouteReviewPending', $hasRouteReviewPending);
         });
 
         // Pre-warm FCM access token di background setelah boot selesai.

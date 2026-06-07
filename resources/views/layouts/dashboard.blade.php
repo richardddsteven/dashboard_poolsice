@@ -830,6 +830,7 @@
                             </svg>
                         </span>
                         <span>Dashboard</span>
+                        <span id="sidebarRouteReviewBadge" class="nav-badge alert-badge" style="{{ (isset($hasRouteReviewPending) && $hasRouteReviewPending) ? 'display: inline-flex;' : 'display: none;' }} background: #DC2626; color: white; padding: 0 6px; justify-content: center; align-items: center; min-width: 20px; font-weight: bold; margin-left: auto;" title="Ada jalur yang perlu di-update">!</span>
                     </a>
                 </div>
 
@@ -1093,6 +1094,12 @@
             badge.style.display = pendingCount > 0 ? 'inline-block' : 'none';
         }
 
+        function renderRouteReviewBadge(hasReviewPending) {
+            const badge = document.getElementById('sidebarRouteReviewBadge');
+            if (!badge) return;
+            badge.style.display = hasReviewPending ? 'inline-flex' : 'none';
+        }
+
         async function pollNewOrdersOnly() {
             const badge = document.getElementById('sidebarPendingBadge');
             if (!badge) return;
@@ -1121,31 +1128,32 @@
                 globalRealtimeLastUpdateToken = latestUpdateToken;
                 const pendingCount = Number(result.pendingCount || 0);
                 renderPendingBadge(pendingCount);
+                renderRouteReviewBadge(result.hasRouteReviewPending);
 
                 if (result.newOrder) {
                     window.dispatchEvent(new CustomEvent('realtime:new-order', { detail: result }));
-                    if (!isDashboardPage && !isOrdersPage) {
-                        const customerName = result.newOrder.customer || 'Pelanggan baru';
-                        const productName = result.newOrder.product || result.newOrder.iceType || 'Pesanan baru';
-                        const zoneName = result.newOrder.zone ? `Zona ${result.newOrder.zone}` : '';
-                        const routeName = result.routeUpdateNotice?.route_name ? `Jalan ${result.routeUpdateNotice.route_name}` : (result.newOrder.route ? `Jalan ${result.newOrder.route}` : '');
-                        const details = [zoneName, routeName].filter(Boolean).join(' • ');
+                    
+                    const customerName = result.newOrder.customer || 'Pelanggan baru';
+                    const productName = result.newOrder.product || result.newOrder.iceType || 'Pesanan baru';
+                    const zoneName = result.newOrder.zone ? `Zona ${result.newOrder.zone}` : '';
+                    const routeName = result.routeUpdateNotice?.route_name ? `Jalan ${result.routeUpdateNotice.route_name}` : (result.newOrder.route ? `Jalan ${result.newOrder.route}` : '');
+                    const details = [zoneName, routeName].filter(Boolean).join(' • ');
 
-                        if (result.routeUpdateNotice?.route_name) {
-                            showRealtimeToast(
-                                'Update Alur Jalur Baru',
-                                details
-                                    ? `Jalan ${result.routeUpdateNotice.route_name} di ${details} perlu diupdate.`
-                                    : `Jalan ${result.routeUpdateNotice.route_name} perlu diupdate.`
-                            );
-                        } else {
-                            showRealtimeToast(
-                                'Order Baru Masuk',
-                                details
-                                    ? `${customerName} - ${productName} (${details})`
-                                    : `${customerName} - ${productName}`
-                            );
-                        }
+                    // Selalu tampilkan notifikasi sementara untuk update jalur di semua halaman
+                    if (result.routeUpdateNotice?.route_name) {
+                        showRealtimeToast(
+                            'Update Alur Jalur Baru',
+                            details
+                                ? `Jalan ${result.routeUpdateNotice.route_name} di ${details} perlu diupdate.`
+                                : `Jalan ${result.routeUpdateNotice.route_name} perlu diupdate.`
+                        );
+                    } else {
+                        showRealtimeToast(
+                            'Order Baru Masuk',
+                            details
+                                ? `${customerName} - ${productName} (${details})`
+                                : `${customerName} - ${productName}`
+                        );
                     }
                 }
                 if (hasStatusUpdate || hasOrderIdReset) {

@@ -31,7 +31,7 @@ class RouteUpdateNotificationService
 
         $routeName = $this->extractRoadName((string) ($customer->address ?? ''));
         if ($routeName === null) {
-            return null;
+            $routeName = 'Lokasi Baru';
         }
 
         $customerName = trim((string) ($customer->name ?: 'Customer baru'));

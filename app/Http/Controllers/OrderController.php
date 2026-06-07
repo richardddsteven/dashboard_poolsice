@@ -156,12 +156,17 @@ class OrderController extends Controller
             ];
         }
 
+        $hasRouteReviewPending = Order::where('status', 'pending')
+            ->whereHas('customer', fn ($q) => $q->whereNull('route_stop_id'))
+            ->exists();
+
         return $this->withNoStoreHeaders(response()->json([
             'latestOrderId' => $latestOrderId,
             'latestUpdateToken' => $latestUpdateToken,
             'pendingCount' => Order::where('status', 'pending')->count(),
             'newOrder' => $newOrder,
             'routeUpdateNotice' => $routeUpdateNotice,
+            'hasRouteReviewPending' => $hasRouteReviewPending,
         ]));
     }
 
