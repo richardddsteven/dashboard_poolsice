@@ -194,17 +194,19 @@ class DashboardController extends Controller
             ->take(8)
             ->get();
 
-        // Notifikasi update jalur terbaru untuk dashboard admin
+        // Notifikasi update jalur terbaru untuk dashboard admin.
+        // Hanya tampilkan untuk order pending dalam 24 jam terakhir
+        // dari customer yang belum memiliki route_stop, bukan semua order terbaru.
         $latestRouteUpdateOrder = Order::with(['customer.routeStop.zone'])
+            ->where('status', 'pending')
+            ->where('created_at', '>=', now()->subHours(24))
+            ->whereHas('customer', fn ($q) => $q->whereNull('route_stop_id'))
             ->latest('id')
             ->first();
         $routeUpdateNotice = app(RouteUpdateNotificationService::class)->buildFromOrder($latestRouteUpdateOrder);
 
-        // Get recent orders
-        $recentOrders = (clone $orderQuery)->with(['customer', 'iceType'])
-            ->latest()
-            ->take(5)
-            ->get();
+        // Gunakan data recentActivities yang sudah di-fetch, tidak perlu query ulang.
+        $recentOrders = $recentActivities->take(5);
         
         // Get top customers
         $topCustomers = Customer::withCount(['orders' => function($q) use ($isFiltered, $selectedMonth, $selectedYear) {
@@ -217,7 +219,8 @@ class DashboardController extends Controller
             ->get();
         
         // Get pending orders count for sidebar badge
-        $pendingOrdersCount = Order::where('status', 'pending')->count();
+        // Gunakan nilai $pendingOrders yang sudah dihitung sebelumnya.
+        $pendingOrdersCount = $pendingOrders;
         $latestOrderId = Order::max('id') ?? 0;
         
         // Get ice type statistics for pie chart (only approved orders)

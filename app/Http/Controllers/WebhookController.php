@@ -160,44 +160,22 @@ class WebhookController extends Controller
 
             // 3. Menunggu alamat toko
             if ($currentState === 'awaiting_address') {
-                $address        = trim($message);
-                $pendingMessage = $customer->pending_message;
-                $detectedZone   = $this->detectZoneFromAddress($address);
+                $address            = trim($message);
+                $pendingMessage     = $customer->pending_message;
+                $detectedZone       = $this->detectZoneFromAddress($address);
                 $addressCoordinates = $this->resolveAddressCoordinates($address);
 
                 Log::info('Customer address saved', [
-                    'phone'   => $phone,
-                    'address' => $address,
-                    'zone'    => $detectedZone,
-                    'latitude' => $addressCoordinates['latitude'] ?? null,
+                    'phone'     => $phone,
+                    'address'   => $address,
+                    'zone'      => $detectedZone,
+                    'latitude'  => $addressCoordinates['latitude'] ?? null,
                     'longitude' => $addressCoordinates['longitude'] ?? null,
-                    'state' => 'awaiting_address',
+                    'state'     => 'awaiting_address',
                 ]);
 
-                // Jika pending_message adalah order yang valid → proses langsung
-                if ($pendingMessage && $pendingMessage !== '__INQUIRY__') {
-                    // Deteksi jalur (route_stop) berdasarkan koordinat
-                    $routeStopId = $this->detectRouteStopId(
-                        $addressCoordinates['latitude'] ?? null,
-                        $addressCoordinates['longitude'] ?? null,
-                        $detectedZone,
-                        $address
-                    );
-
-                    $customer->update([
-                        'address'            => $address,
-                        'zone'               => $detectedZone,
-                        'latitude'           => $addressCoordinates['latitude'] ?? null,
-                        'longitude'          => $addressCoordinates['longitude'] ?? null,
-                        'route_stop_id'      => $routeStopId,
-                        'conversation_state' => null,
-                        'pending_message'    => null,
-                    ]);
-                    return $this->processOrder($phone, $pendingMessage, $customer, $request);
-                }
-
-                // Inquiry / tidak ada order → tanya mau pesan apa
-                // Deteksi jalur berdasarkan koordinat
+                // Deteksi jalur satu kali untuk kedua path (pending order & inquiry)
+                // sehingga tidak ada duplikasi pemanggilan detectRouteStopId.
                 $routeStopId = $this->detectRouteStopId(
                     $addressCoordinates['latitude'] ?? null,
                     $addressCoordinates['longitude'] ?? null,
@@ -205,15 +183,28 @@ class WebhookController extends Controller
                     $address
                 );
 
-                $customer->update([
-                    'address'            => $address,
-                    'zone'               => $detectedZone,
-                    'latitude'           => $addressCoordinates['latitude'] ?? null,
-                    'longitude'          => $addressCoordinates['longitude'] ?? null,
-                    'route_stop_id'      => $routeStopId,
+                $baseUpdate = [
+                    'address'       => $address,
+                    'zone'          => $detectedZone,
+                    'latitude'      => $addressCoordinates['latitude'] ?? null,
+                    'longitude'     => $addressCoordinates['longitude'] ?? null,
+                    'route_stop_id' => $routeStopId,
+                ];
+
+                // Jika pending_message adalah order yang valid → proses langsung
+                if ($pendingMessage && $pendingMessage !== '__INQUIRY__') {
+                    $customer->update(array_merge($baseUpdate, [
+                        'conversation_state' => null,
+                        'pending_message'    => null,
+                    ]));
+                    return $this->processOrder($phone, $pendingMessage, $customer, $request);
+                }
+
+                // Inquiry / tidak ada order → tanya mau pesan apa
+                $customer->update(array_merge($baseUpdate, [
                     'conversation_state' => 'awaiting_order',
                     'pending_message'    => null,
-                ]);
+                ]));
 
                 $this->fonnte->sendMessage(
                     $phone,
@@ -853,25 +844,29 @@ class WebhookController extends Controller
      */
     private function detectRouteStopId(?float $lat, ?float $lng, ?string $zoneName, ?string $address = null): ?int
     {
-        if (is_null($lat) || is_null($lng) || is_null($zoneName)) {
+        // Zone name wajib ada untuk bisa mencari jalur.
+        // Koordinat boleh null — jika tidak ada, hanya gunakan name matching dari teks alamat.
+        if (is_null($zoneName)) {
             return null;
         }
 
-        if (abs($lat) < 0.0001 && abs($lng) < 0.0001) {
-            return null;
-        }
+        // Koordinat (0,0) dianggap tidak valid (default value, bukan posisi nyata)
+        $hasValidCoords = !is_null($lat) && !is_null($lng)
+            && !(abs($lat) < 0.0001 && abs($lng) < 0.0001);
 
         $zone = Zone::whereRaw('LOWER(name) = ?', [strtolower(trim($zoneName))])->first();
         if (!$zone) {
             return null;
         }
 
-        // Prioritas 1: cocokkan nama jalur dari teks alamat customer
+        // cocokkan nama jalur dari teks alamat customer.
+        // Ini berjalan meskipun koordinat tidak tersedia (geocoding gagal).
         $stop = $this->detectRouteStopFromAddressContext($zone, $address);
 
         // Prioritas 2 (fallback): jika nama jalur tidak cocok di alamat,
-        // coba deteksi berdasarkan koordinat GPS (haversine radius check)
-        if (!$stop) {
+        // coba deteksi berdasarkan koordinat GPS (haversine radius check).
+        // Hanya dijalankan jika koordinat valid tersedia.
+        if (!$stop && $hasValidCoords) {
             $stop = RouteStop::detectForCoordinates($lat, $lng, $zone->id);
         }
 
@@ -886,6 +881,7 @@ class WebhookController extends Controller
             'route_stop_id' => $stop->id,
             'stop_name'     => $stop->name,
             'order_index'   => $stop->order_index,
+            'method'        => $hasValidCoords ? 'coords_or_name' : 'name_only',
         ]);
 
         return $stop?->id;
@@ -1018,6 +1014,17 @@ class WebhookController extends Controller
     private function normalizeText(string $text): string
     {
         $normalized = strtolower($text);
+
+        // Normalisasi singkatan jalan sebelum strip karakter,
+        // agar "jl. darmo" dan "jalan darmo" menghasilkan token yang sama
+        // sehingga name-matching jalur lebih akurat.
+        $normalized = preg_replace('/\bjln\.?\b/', 'jalan', $normalized);
+        $normalized = preg_replace('/\bjl\.?\b/', 'jalan', $normalized);
+        $normalized = preg_replace('/\bgg\.?\b/', 'gang', $normalized);
+        $normalized = preg_replace('/\bds\.?\b/', 'desa', $normalized);
+        $normalized = preg_replace('/\bkel\.?\b/', 'kelurahan', $normalized);
+        $normalized = preg_replace('/\bkec\.?\b/', 'kecamatan', $normalized);
+
         $normalized = preg_replace('/[^a-z0-9]+/', '', $normalized);
 
         return $normalized ?? '';

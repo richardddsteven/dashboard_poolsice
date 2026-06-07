@@ -72,15 +72,40 @@ class FcmService
         try {
             $accessToken = $this->getAccessToken();
 
+            $title = $notification['title'] ?? 'Pools Ice';
+            $body  = $notification['body']  ?? '';
+
             $payload = [
                 'message' => [
                     'token' => $token,
+
+                    // Tambah notification block agar FCM bisa menampilkan
+                    // notifikasi secara native bahkan saat app dalam kondisi terminated/killed,
+                    // tanpa harus bergantung pada background handler Flutter.
+                    // Sebelumnya hanya data payload → notifikasi hilang jika handler tidak aktif.
+                    'notification' => [
+                        'title' => $title,
+                        'body'  => $body,
+                    ],
+
                     'android' => [
                         'priority' => 'HIGH',
+                        'notification' => [
+                            // Pastikan notification masuk ke channel yang sama
+                            // dengan yang didefinisikan di Flutter (_kDriverOrderChannel)
+                            'channel_id'     => 'driver_orders_v2',
+                            'notification_priority' => 'PRIORITY_MAX',
+                            'sound'          => 'default',
+                            'default_sound'  => true,
+                            'default_vibrate_timings' => true,
+                        ],
                     ],
+
+                    // Data block tetap ada agar Flutter dapat memproses payload
+                    // saat notifikasi ditap (onMessageOpenedApp) atau saat foreground (onMessage).
                     'data' => array_map('strval', array_merge($data, [
-                        'title' => $notification['title'] ?? 'Pools Ice',
-                        'body'  => $notification['body']  ?? '',
+                        'title' => $title,
+                        'body'  => $body,
                     ])),
                 ],
             ];
@@ -92,7 +117,7 @@ class FcmService
             if ($response->successful()) {
                 Log::info('[FCM] Notifikasi terkirim.', [
                     'fcm_name' => $response->json('name'),
-                    'title'    => $notification['title'],
+                    'title'    => $title,
                 ]);
                 return true;
             }

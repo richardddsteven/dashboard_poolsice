@@ -78,7 +78,8 @@ class CustomerController extends Controller
 
         $customers = collect();
         if ($selectedZone) {
-            $query = Customer::where('zone', $selectedZone);
+            // Gunakan LOWER() agar filter zona case-insensitive.
+            $query = Customer::whereRaw('LOWER(zone) = ?', [strtolower($selectedZone)]);
             if ($search) {
                 $query->where(function ($q) use ($search) {
                     $q->where('name', 'like', "%{$search}%")
@@ -87,6 +88,7 @@ class CustomerController extends Controller
             }
             $customers = $query->oldest()->paginate(15)->withQueryString();
         }
+
         return view('customers.index', compact('zones', 'selectedZone', 'customers', 'latestCustomers', 'search', 'zoneMapPoints'));
     }
 

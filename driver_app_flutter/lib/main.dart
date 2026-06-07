@@ -49,6 +49,15 @@ enum AppSnackBarType { success, error, warning }
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp();
 
+  // Sejak server mengirim 'notification' block di FCM payload, Android FCM SDK
+  // sudah menampilkan notifikasi secara native (system tray) tanpa perlu plugin.show().
+  // Kita hanya perlu plugin.show() sebagai fallback untuk pesan data-only (tanpa notification block).
+  if (message.notification != null) {
+    // FCM sudah tampilkan notifikasi native — tidak perlu double tampil via local notification.
+    return;
+  }
+
+  // Fallback: pesan data-only (notification block tidak ada) — tampilkan manual.
   const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
   final plugin = FlutterLocalNotificationsPlugin();
   await plugin.initialize(const InitializationSettings(android: androidSettings));
@@ -57,11 +66,9 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
       .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
       ?.createNotificationChannel(_kDriverOrderChannel);
 
-  final notification = message.notification;
   final data = message.data;
-
-  final title = notification?.title ?? data['title'] ?? 'Order Baru';
-  final body = notification?.body ?? data['body'] ?? 'Ada pesanan baru masuk!';
+  final title = data['title'] ?? 'Order Baru';
+  final body  = data['body']  ?? 'Ada pesanan baru masuk!';
 
   await plugin.show(
     message.hashCode.abs() % 2147483647,

@@ -7,6 +7,7 @@ use App\Models\Driver;
 use App\Models\DriverStock;
 use App\Models\IceTypeDriverStock;
 use App\Models\Order;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class OrderDispatchService
@@ -297,41 +298,45 @@ class OrderDispatchService
 
     private function reduceDriverStockForOrder(int $driverId, Order $order, ?array $orderStockDemand = null): void
     {
-        $today = now()->toDateString();
+        // Bungkus dalam DB::transaction agar lockForUpdate + update berjalan atomically.
+        // Mencegah kondisi race (stok dikurangi dua kali) dan inkonsistensi data jika terjadi exception.
+        DB::transaction(function () use ($driverId, $order, $orderStockDemand) {
+            $today = now()->toDateString();
 
-        $iceTypeDriverStock = IceTypeDriverStock::query()
-            ->forDate($today)
-            ->where('driver_id', $driverId)
-            ->where('ice_type_id', (int) ($order->ice_type_id ?? 0))
-            ->lockForUpdate()
-            ->first();
-
-        if ($iceTypeDriverStock) {
-            $quantity = (int) ($order->effective_quantity ?? $order->quantity ?? 1);
-
-            $iceTypeDriverStock->update([
-                'quantity' => max(0, $iceTypeDriverStock->quantity - $quantity),
-            ]);
-
-            return;
-        }
-
-        $requiredStock = $orderStockDemand ?? $this->resolveOrderStockDemand($order);
-        
-        $driverStock = null;
-        if (\Illuminate\Support\Facades\Schema::hasTable('driver_stocks')) {
-            $driverStock = DriverStock::query()
+            $iceTypeDriverStock = IceTypeDriverStock::query()
+                ->forDate($today)
                 ->where('driver_id', $driverId)
+                ->where('ice_type_id', (int) ($order->ice_type_id ?? 0))
                 ->lockForUpdate()
                 ->first();
-        }
 
-        if ($driverStock && ((int) $requiredStock['stock_5kg'] > 0 || (int) $requiredStock['stock_20kg'] > 0)) {
-            $driverStock->update([
-                'stock_5kg' => max(0, ((int) $driverStock->stock_5kg) - (int) $requiredStock['stock_5kg']),
-                'stock_20kg' => max(0, ((int) $driverStock->stock_20kg) - (int) $requiredStock['stock_20kg']),
-            ]);
-        }
+            if ($iceTypeDriverStock) {
+                $quantity = (int) ($order->effective_quantity ?? $order->quantity ?? 1);
+
+                $iceTypeDriverStock->update([
+                    'quantity' => max(0, $iceTypeDriverStock->quantity - $quantity),
+                ]);
+
+                return;
+            }
+
+            $requiredStock = $orderStockDemand ?? $this->resolveOrderStockDemand($order);
+
+            $driverStock = null;
+            if (\Illuminate\Support\Facades\Schema::hasTable('driver_stocks')) {
+                $driverStock = DriverStock::query()
+                    ->where('driver_id', $driverId)
+                    ->lockForUpdate()
+                    ->first();
+            }
+
+            if ($driverStock && ((int) $requiredStock['stock_5kg'] > 0 || (int) $requiredStock['stock_20kg'] > 0)) {
+                $driverStock->update([
+                    'stock_5kg'  => max(0, ((int) $driverStock->stock_5kg) - (int) $requiredStock['stock_5kg']),
+                    'stock_20kg' => max(0, ((int) $driverStock->stock_20kg) - (int) $requiredStock['stock_20kg']),
+                ]);
+            }
+        });
     }
 
     private function resolveDriverTodayStock(int $driverId): array

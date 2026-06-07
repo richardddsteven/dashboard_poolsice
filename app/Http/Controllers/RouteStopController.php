@@ -48,7 +48,7 @@ class RouteStopController extends Controller
             'order_index'   => "required|integer|min:1|max:{$maxIndex}",
             'latitude'      => 'required|numeric|between:-90,90',
             'longitude'     => 'required|numeric|between:-180,180',
-            'radius_meters' => 'required|integer|min:50|max:10000',
+            'radius_meters' => 'required|integer|min:150|max:10000', // Min 150m agar customer tidak sering keluar radius
         ]);
 
         $validated['zone_id'] = $zone->id;
@@ -103,7 +103,7 @@ class RouteStopController extends Controller
             'order_index'   => "required|integer|min:1|max:{$totalStops}",
             'latitude'      => 'required|numeric|between:-90,90',
             'longitude'     => 'required|numeric|between:-180,180',
-            'radius_meters' => 'required|integer|min:50|max:10000',
+            'radius_meters' => 'required|integer|min:150|max:10000', // Min 150m agar customer tidak sering keluar radius
         ]);
 
         DB::transaction(function () use ($routeStop, $validated, $zone) {

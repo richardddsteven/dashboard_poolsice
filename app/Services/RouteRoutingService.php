@@ -20,7 +20,11 @@ class RouteRoutingService
         $routingConfig = config('services.routing', []);
         $googleMapsConfig = $routingConfig['google_maps'] ?? [];
 
-        $this->timeoutSeconds = (int) ($routingConfig['timeout'] ?? env('ROUTING_API_TIMEOUT', 8));
+        // Timeout diturunkan dari 8s ke 4s.
+        // Cache sudah berjalan 6 jam sehingga hanya hit pertama yang mahal.
+        // Ini mengurangi blocking webhook dari ~24 detik menjadi ~12 detik worst case.
+        $this->timeoutSeconds = (int) ($routingConfig['timeout'] ?? env('ROUTING_API_TIMEOUT', 4));
+
         $this->googleMapsApiKey = $googleMapsConfig['api_key'] ?? env('GOOGLE_MAPS_API_KEY');
         $this->googleMapsEndpoint = rtrim($googleMapsConfig['endpoint'] ?? env('GOOGLE_MAPS_DIRECTIONS_ENDPOINT', 'https://maps.googleapis.com/maps/api/directions/json'), '/');
         $this->googleMapsMode = (string) ($googleMapsConfig['mode'] ?? env('GOOGLE_MAPS_DIRECTIONS_MODE', 'driving'));

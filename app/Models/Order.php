@@ -130,9 +130,17 @@ class Order extends Model
             return true;
         }
 
-        // Jika supir tidak punya data jalur yang diperbarui dalam 2 jam → anggap posisi tidak valid
+        // Jika data posisi supir sudah lebih dari 2 jam tidak diperbarui,
+        // supir ini kemungkinan sudah selesai bertugas atau GPS-nya tidak aktif.
+        // Lewati supir ini agar tidak mendapat notifikasi order yang sudah tidak relevan.
+        // (Sebelumnya: return true — supir menerima SEMUA order, termasuk yang harusnya sudah selesai)
         if ($driver->route_stop_updated_at && $driver->route_stop_updated_at->diffInMinutes(now()) > 120) {
-            return true;
+            Log::info('[Routing] Driver dilewati karena posisi jalur sudah > 2 jam tidak diperbarui.', [
+                'driver_id'                => $driver->id,
+                'order_id'                 => $order->id,
+                'last_updated_minutes_ago' => (int) $driver->route_stop_updated_at->diffInMinutes(now()),
+            ]);
+            return false;
         }
 
         // Jika customer tidak punya route_stop, pakai koordinat customer agar
