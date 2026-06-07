@@ -236,13 +236,42 @@ class RouteStopController extends Controller
             ->get();
 
         foreach ($customers as $customer) {
+            $oldStopId = $customer->route_stop_id;
+            
             $stop = RouteStop::detectForCoordinates(
                 (float) $customer->latitude,
                 (float) $customer->longitude,
                 $zone->id
             );
 
-            $customer->update(['route_stop_id' => $stop?->id]);
+            if ($stop && $oldStopId !== $stop->id) {
+                $customer->update(['route_stop_id' => $stop->id]);
+
+                // Karena customer mendapatkan jalur baru secara otomatis,
+                // evaluasi kembali order-order mereka yang masih nyangkut di status pending manual review
+                $reviewOrders = Order::query()
+                    ->where('customer_id', $customer->id)
+                    ->where('status', 'pending')
+                    ->get()
+                    ->filter(function (Order $order) {
+                        $rawPayload = is_array($order->raw_payload ?? null) ? $order->raw_payload : [];
+                        return !empty($rawPayload['route_review_required'])
+                            || ($rawPayload['route_review_status'] ?? null) === 'pending_manual_review';
+                    });
+
+                foreach ($reviewOrders as $order) {
+                    $rawPayload = is_array($order->raw_payload ?? null) ? $order->raw_payload : [];
+                    $rawPayload['route_review_status'] = 'route_assigned';
+                    $rawPayload['route_review_assigned_at'] = now()->toDateTimeString();
+                    unset($rawPayload['route_review_required']);
+
+                    $order->update(['raw_payload' => $rawPayload]);
+                    app(OrderDispatchService::class)->dispatch($order->fresh(['customer.routeStop', 'iceType']), $customer->fresh(['routeStop']));
+                }
+            } else if (!$stop && $oldStopId) {
+                 // Jika tidak ketemu jalur lagi, kita set null
+                 $customer->update(['route_stop_id' => null]);
+            }
         }
     }
 
