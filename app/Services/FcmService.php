@@ -110,12 +110,30 @@ class FcmService
     }
 
     /**
+     * Pre-warm FCM access token ke cache.
+     * Dipanggil saat app boot agar order pertama tidak kena delay.
+     */
+    public function warmAccessToken(): void
+    {
+        try {
+            // Hanya generate jika belum ada di cache
+            if (!Cache::has('fcm_access_token')) {
+                $this->getAccessToken();
+            }
+        } catch (\Throwable $e) {
+            // Gagal diam-diam — tidak mengganggu boot
+            Log::warning('[FCM] Gagal pre-warm access token: ' . $e->getMessage());
+        }
+    }
+
+    /**
      * Ambil Google OAuth2 Access Token dari Service Account JSON.
-     * Token di-cache selama 55 menit (expire setiap 60 menit).
+     * Token di-cache selama 50 menit (expire setiap 60 menit).
+     * Lebih pendek dari sebelumnya untuk hindari edge case token hampir expire.
      */
     private function getAccessToken(): string
     {
-        return Cache::remember('fcm_access_token', now()->addMinutes(55), function () {
+        return Cache::remember('fcm_access_token', now()->addMinutes(50), function () {
             return $this->generateAccessToken();
         });
     }

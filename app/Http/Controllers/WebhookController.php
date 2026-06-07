@@ -1078,8 +1078,7 @@ class WebhookController extends Controller
                         $payload['email'] = $email;
                     }
 
-                    $response = Http::timeout($timeout)
-                        ->retry(1, 200)
+                    $response = Http::timeout(5) // Diperpendek dari 8s agar tidak blocking webhook terlalu lama
                         ->withHeaders([
                             'User-Agent' => config('app.name', 'Laravel') . '/1.0 (zone-detection)',
                         ])
