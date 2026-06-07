@@ -866,7 +866,14 @@ class WebhookController extends Controller
             return null;
         }
 
+        // Prioritas 1: cocokkan nama jalur dari teks alamat customer
         $stop = $this->detectRouteStopFromAddressContext($zone, $address);
+
+        // Prioritas 2 (fallback): jika nama jalur tidak cocok di alamat,
+        // coba deteksi berdasarkan koordinat GPS (haversine radius check)
+        if (!$stop) {
+            $stop = RouteStop::detectForCoordinates($lat, $lng, $zone->id);
+        }
 
         if (!$stop) {
             return null;
