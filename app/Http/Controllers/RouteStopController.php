@@ -207,6 +207,10 @@ class RouteStopController extends Controller
             $rawPayload = is_array($order->raw_payload ?? null) ? $order->raw_payload : [];
             $rawPayload['route_review_status'] = 'route_assigned';
             $rawPayload['route_review_assigned_at'] = now()->toDateTimeString();
+            
+            // Hapus flag required agar order dievaluasi seperti biasa. 
+            // Jika supir tidak ada yang eligible (kejauhan / stok habis), maka order akan otomatis rejected.
+            unset($rawPayload['route_review_required']);
 
             $order->update(['raw_payload' => $rawPayload]);
 
