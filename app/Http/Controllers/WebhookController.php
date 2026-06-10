@@ -342,6 +342,14 @@ class WebhookController extends Controller
             ], 400);
         }
 
+        $rawPayload = $request->all();
+        if (!$customer->routeStop) {
+            $rawPayload['route_review_required'] = true;
+            $rawPayload['route_review_reason'] = 'customer_route_unmapped';
+            $rawPayload['route_review_status'] = 'pending_manual_review';
+            $rawPayload['route_review_at'] = now()->toDateTimeString();
+        }
+
         $order = Order::create([
             'customer_id' => $customer->id,
             'ice_type_id' => $parsedOrder['ice_type_id'],
@@ -349,7 +357,7 @@ class WebhookController extends Controller
             'phone'       => $phone,
             'items'       => $message,
             'status'      => 'pending',
-            'raw_payload' => $request->all(),
+            'raw_payload' => $rawPayload,
         ]);
 
         Log::info('Order created', [
@@ -357,10 +365,12 @@ class WebhookController extends Controller
             'customer_id' => $customer->id,
         ]);
 
-        $this->fonnte->sendMessage(
-            $phone,
-            "Terima kasih, {$customer->name}!\n\nPesanan Anda sudah kami terima dan sedang dicek stok supir.\nNanti akan ada update status otomatis ketika pesanan diterima, ditolak, atau selesai diantar."
-        );
+        if ($customer->routeStop) {
+            $this->fonnte->sendMessage(
+                $phone,
+                "Terima kasih, {$customer->name}!\n\nPesanan Anda sudah kami terima dan sedang dicek stok supir.\nNanti akan ada update status otomatis ketika pesanan diterima, ditolak, atau selesai diantar."
+            );
+        }
 
         // Kirim push notification ke semua supir di zona yang sama.
         $this->notifyDriversInZone($order, $customer);
