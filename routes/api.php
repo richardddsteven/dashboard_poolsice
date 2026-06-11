@@ -1083,7 +1083,7 @@ Route::get('/driver/customers', function (Request $request) use ($resolveDriverF
  * POST /api/driver/customers
  * Supir membuat customer baru beserta order-nya
  */
-Route::post('/driver/customers', function (Request $request) use ($resolveDriverFromToken, $detectRouteStopId) {
+Route::post('/driver/customers', function (Request $request) use ($resolveDriverFromToken, $resolveDriverTodayStock, $resolveOrderStockDemand, $checkDriverHasEnoughStock, $reduceDriverStockForOrder) {
     $driver = $resolveDriverFromToken($request);
     if (!$driver) {
         return response()->json([
@@ -1104,25 +1104,18 @@ Route::post('/driver/customers', function (Request $request) use ($resolveDriver
     ]);
 
     try {
-        $result = DB::transaction(function () use ($driver, $validated, $detectRouteStopId) {
+        $result = DB::transaction(function () use ($driver, $validated, $resolveDriverTodayStock, $resolveOrderStockDemand, $checkDriverHasEnoughStock, $reduceDriverStockForOrder) {
             $zone = $driver->zone?->name ?? 'Unknown Zone';
             $customerPhone = trim((string) ($validated['customer_phone'] ?? ''));
             if ($customerPhone === '') {
                 $customerPhone = 'CUST_' . time() . '_' . rand(1000, 9999);
             }
 
-            $routeStopId = $detectRouteStopId(
-                $zone,
-                $validated['customer_address'],
-                isset($validated['latitude']) ? (float) $validated['latitude'] : null,
-                isset($validated['longitude']) ? (float) $validated['longitude'] : null,
-            );
-
             Log::info('[DriverCustomer] Prepared customer payload.', [
                 'driver_id' => $driver->id,
                 'zone' => $zone,
                 'customer_phone' => $customerPhone,
-                'route_stop_id' => $routeStopId,
+                'route_stop_id' => null, // Dihapus deteksi route stop
                 'has_existing_customer_id' => !empty($validated['existing_customer_id']),
             ]);
 
@@ -1145,7 +1138,7 @@ Route::post('/driver/customers', function (Request $request) use ($resolveDriver
                     'phone' => $customerPhone,
                     'latitude' => (float) ($validated['latitude'] ?? 0),
                     'longitude' => (float) ($validated['longitude'] ?? 0),
-                    'route_stop_id' => $routeStopId,
+                    'route_stop_id' => null, // Tidak perlu route stop
                 ]);
             } else {
                 $customer->update([
@@ -1155,22 +1148,29 @@ Route::post('/driver/customers', function (Request $request) use ($resolveDriver
                     'phone' => $customerPhone,
                     'latitude' => (float) ($validated['latitude'] ?? 0),
                     'longitude' => (float) ($validated['longitude'] ?? 0),
-                    'route_stop_id' => $routeStopId,
+                    'route_stop_id' => null, // Tidak perlu route stop
                 ]);
             }
 
-            // Buat order untuk customer ini
-            // Gunakan ice_type_id dan quantity yang dikirim user
             $itemsString = trim($validated['items']);
 
-            $order = \App\Models\Order::create([
+            $order = \App\Models\Order::make([
                 'customer_id' => $customer->id,
-                'phone' => $customerPhone, // Phone dari customer yang baru dibuat
-                'ice_type_id' => $validated['ice_type_id'], // Gunakan dari request, bukan hardcode
+                'phone' => $customerPhone,
+                'ice_type_id' => $validated['ice_type_id'],
                 'items' => $itemsString,
-                'status' => 'pending',
+                'status' => 'approved', // Langsung approved
+                'driver_id' => $driver->id, // Langsung diassign ke supir
                 'quantity' => (int) $validated['quantity'],
             ]);
+            $order->setRelation('iceType', \App\Models\IceType::find($validated['ice_type_id']));
+
+            if (!$checkDriverHasEnoughStock((int) $driver->id, $order, $resolveDriverTodayStock)) {
+                throw new \Exception('STOCK_INSUFFICIENT');
+            }
+
+            $order->save();
+            $reduceDriverStockForOrder((int) $driver->id, $order, $resolveOrderStockDemand);
 
             return [
                 'customer' => $customer,
@@ -1179,7 +1179,7 @@ Route::post('/driver/customers', function (Request $request) use ($resolveDriver
         });
 
         return response()->json([
-            'message' => 'Customer dan order berhasil dibuat.',
+            'message' => 'Customer dan order berhasil dibuat dan diterima.',
             'data' => [
                 'customer_id' => $result['customer']->id,
                 'customer_name' => $result['customer']->name,
@@ -1189,6 +1189,12 @@ Route::post('/driver/customers', function (Request $request) use ($resolveDriver
             ],
         ], 201);
     } catch (\Throwable $e) {
+        if ($e->getMessage() === 'STOCK_INSUFFICIENT') {
+            return response()->json([
+                'message' => 'Kuantitas pesanan melebihi sisa stok yang Anda bawa.',
+            ], 422);
+        }
+
         Log::error('[DriverCustomer] Failed to create customer and order.', [
             'driver_id' => $driver->id ?? null,
             'customer_name' => $validated['customer_name'] ?? null,
