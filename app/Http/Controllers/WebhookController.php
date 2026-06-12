@@ -927,11 +927,13 @@ class WebhookController extends Controller
                 'latitude' => $customer->latitude,
                 'longitude' => $customer->longitude,
             ];
+            $correctedAddress = $customer->address;
             
-            $this->attemptGlobalFallbackForAddress($customer->address, $zone, $coordinates, $routeStopId);
+            $this->attemptGlobalFallbackForAddress($correctedAddress, $zone, $coordinates, $routeStopId);
 
             if ($routeStopId) {
                 $customer->zone = $zone;
+                $customer->address = $correctedAddress;
                 $customer->latitude = $coordinates['latitude'] ?? null;
                 $customer->longitude = $coordinates['longitude'] ?? null;
                 $customer->save();
@@ -957,16 +959,37 @@ class WebhookController extends Controller
      * Lakukan pencarian jalur secara global (tanpa zone), auto-assign zona,
      * dan coba re-geocoding ulang untuk akurasi terbaik.
      */
-    private function attemptGlobalFallbackForAddress(string $address, ?string &$zone, ?array &$coordinates, ?int &$routeStopId): void
+    private function attemptGlobalFallbackForAddress(string &$address, ?string &$zone, ?array &$coordinates, ?int &$routeStopId): void
     {
         $fallbackStop = $this->detectRouteStopFromAddressContext(null, $address);
         if ($fallbackStop && $fallbackStop->zone) {
             $zone = $fallbackStop->zone->name;
             $routeStopId = $fallbackStop->id;
             
-            // Lapis 2: Re-geocoding dengan nama jalan & kota yang benar
-            $reGeocodeAddress = $fallbackStop->name . ', ' . $zone;
+            // Lapis 2: Auto-Correct Typo di Alamat Asli (Street-level accuracy)
+            $words = explode(' ', $address);
+            $stopWords = explode(' ', $fallbackStop->name);
+            
+            foreach ($stopWords as $stopWord) {
+                $bestWordIndex = -1;
+                $bestWordScore = 0;
+                foreach ($words as $index => $word) {
+                    similar_text(strtolower($word), strtolower($stopWord), $score);
+                    if ($score > $bestWordScore) {
+                        $bestWordScore = $score;
+                        $bestWordIndex = $index;
+                    }
+                }
+                if ($bestWordIndex !== -1 && $bestWordScore > 60) {
+                    $words[$bestWordIndex] = $stopWord;
+                }
+            }
+            $correctedAddress = implode(' ', $words);
+            
+            $reGeocodeAddress = $correctedAddress . ', ' . $zone;
             $reGeocodeResult = $this->resolveAddressCoordinates($reGeocodeAddress);
+            
+            $address = $correctedAddress;
             
             if ($reGeocodeResult && $reGeocodeResult['latitude']) {
                 $coordinates = [
