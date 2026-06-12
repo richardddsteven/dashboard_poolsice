@@ -598,7 +598,9 @@ Route::get('/driver/orders/notifications', function (Request $request) use ($res
             continue;
         }
 
-        DB::transaction(function () use ($pendingOrder, $driver, $resolveOrderStockDemand, $checkDriverHasEnoughStock, $resolveDriverTodayStock, $reduceDriverStockForOrder) {
+        $statusChangedByMe = false;
+
+        DB::transaction(function () use ($pendingOrder, $driver, $resolveOrderStockDemand, $checkDriverHasEnoughStock, $resolveDriverTodayStock, $reduceDriverStockForOrder, &$statusChangedByMe) {
             $freshOrder = Order::query()
                 ->with('iceType:id,name,weight')
                 ->lockForUpdate()
@@ -622,9 +624,11 @@ Route::get('/driver/orders/notifications', function (Request $request) use ($res
             if ($hasEnoughStock) {
                 $reduceDriverStockForOrder((int) $driver->id, $freshOrder, $resolveOrderStockDemand);
             }
+            $statusChangedByMe = true;
         });
 
-        $updatedOrder = Order::query()
+        if ($statusChangedByMe) {
+            $updatedOrder = Order::query()
             ->with(['customer:id,name,phone', 'iceType:id,name,weight'])
             ->find($pendingOrder->id);
 
@@ -638,6 +642,7 @@ Route::get('/driver/orders/notifications', function (Request $request) use ($res
                     'Stok bawaan supir tidak cukup untuk pesanan ini.'
                 );
             }
+        }
         }
     }
 

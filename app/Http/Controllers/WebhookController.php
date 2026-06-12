@@ -51,6 +51,12 @@ class WebhookController extends Controller
         }
 
         try {
+            // Mencegah Webhook Retry Duplicate dari Fonnte (Batas 60 detik)
+            $payloadHash = md5($request->getContent());
+            if (!\Illuminate\Support\Facades\Cache::add('fonnte_webhook_' . $payloadHash, true, 60)) {
+                return response()->json(['status' => 'ok', 'note' => 'duplicate webhook ignored']);
+            }
+
             // Skip state-only payloads (read/delivered)
             if ($request->has('state') && !$request->has('message') && !$request->has('text')) {
                 return response()->json(['status' => 'ok']);

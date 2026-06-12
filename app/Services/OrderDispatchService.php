@@ -105,44 +105,46 @@ class OrderDispatchService
             }
 
             if ($eligibleDriversCount > 0) {
-                $rawPayload = is_array($order->raw_payload ?? null) ? $order->raw_payload : [];
-                if (($rawPayload['route_review_status'] ?? null) === 'pending_manual_review') {
-                    $rawPayload['route_review_status'] = 'resolved';
-                    $rawPayload['route_review_resolved_at'] = now()->toDateTimeString();
-                    $order->update(['raw_payload' => $rawPayload]);
-                }
+                $statusChangedByMe = false;
 
-                $updateData = [];
-                $wasPending = $order->status === 'pending';
-                if ($order->status !== 'approved') {
-                    $updateData['status'] = 'approved';
-                }
-                if (empty($order->driver_id) && $assignedDriverId !== null) {
-                    $updateData['driver_id'] = $assignedDriverId;
-                }
+                DB::transaction(function () use ($order, $assignedDriverId, &$statusChangedByMe) {
+                    $freshOrder = Order::lockForUpdate()->find($order->id);
+                    if ($freshOrder && $freshOrder->status === 'pending') {
+                        $updateData = ['status' => 'approved'];
+                        if (empty($freshOrder->driver_id) && $assignedDriverId !== null) {
+                            $updateData['driver_id'] = $assignedDriverId;
+                        }
 
-                if (!empty($updateData)) {
-                    $order->update($updateData);
-                }
+                        $rawPayload = is_array($freshOrder->raw_payload ?? null) ? $freshOrder->raw_payload : [];
+                        if (($rawPayload['route_review_status'] ?? null) === 'pending_manual_review') {
+                            $rawPayload['route_review_status'] = 'resolved';
+                            $rawPayload['route_review_resolved_at'] = now()->toDateTimeString();
+                            $updateData['raw_payload'] = $rawPayload;
+                        }
 
-                if ($wasPending && !empty($order->driver_id)) {
+                        $freshOrder->update($updateData);
+                        $statusChangedByMe = true;
+                    }
+                });
+
+                if ($statusChangedByMe) {
                     $freshOrder = $order->fresh(['iceType']);
                     $orderStockDemand = $freshOrder ? $this->resolveOrderStockDemand($freshOrder) : null;
-                    $this->reduceDriverStockForOrder((int) $order->driver_id, $freshOrder ?? $order, $orderStockDemand);
+                    $this->reduceDriverStockForOrder((int) $freshOrder->driver_id, $freshOrder, $orderStockDemand);
+
+                    app(FonnteService::class)->sendOrderStatusUpdate(
+                        $customer->phone,
+                        $freshOrder->loadMissing('customer'),
+                        'approved'
+                    );
+
+                    Log::info('[Webhook] Order disetujui setelah ada supir eligible.', [
+                        'order_id' => $order->id,
+                        'zone' => $customerZone,
+                        'eligible_driver_count' => $eligibleDriversCount,
+                        'assigned_driver_id' => $assignedDriverId,
+                    ]);
                 }
-
-                app(FonnteService::class)->sendOrderStatusUpdate(
-                    $customer->phone,
-                    $order->fresh(['customer', 'iceType']),
-                    'approved'
-                );
-
-                Log::info('[Webhook] Order disetujui setelah ada supir eligible.', [
-                    'order_id' => $order->id,
-                    'zone' => $customerZone,
-                    'eligible_driver_count' => $eligibleDriversCount,
-                    'assigned_driver_id' => $assignedDriverId,
-                ]);
 
                 return;
             }
