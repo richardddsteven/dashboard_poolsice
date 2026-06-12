@@ -165,6 +165,14 @@ class WebhookController extends Controller
                 $detectedZone       = $this->detectZoneFromAddress($address);
                 $addressCoordinates = $this->resolveAddressCoordinates($address);
 
+                $routeStopId = null;
+
+                // --- GLOBAL FALLBACK LOGIC ---
+                if (!$detectedZone) {
+                    $this->attemptGlobalFallbackForAddress($address, $detectedZone, $addressCoordinates, $routeStopId);
+                }
+                // -----------------------------
+
                 Log::info('Customer address saved', [
                     'phone'     => $phone,
                     'address'   => $address,
@@ -176,12 +184,14 @@ class WebhookController extends Controller
 
                 // Deteksi jalur satu kali untuk kedua path (pending order & inquiry)
                 // sehingga tidak ada duplikasi pemanggilan detectRouteStopId.
-                $routeStopId = $this->detectRouteStopId(
-                    $addressCoordinates['latitude'] ?? null,
-                    $addressCoordinates['longitude'] ?? null,
-                    $detectedZone,
-                    $address
-                );
+                if (!$routeStopId) {
+                    $routeStopId = $this->detectRouteStopId(
+                        $addressCoordinates['latitude'] ?? null,
+                        $addressCoordinates['longitude'] ?? null,
+                        $detectedZone,
+                        $address
+                    );
+                }
 
                 $baseUpdate = [
                     'address'       => $address,
@@ -910,6 +920,25 @@ class WebhookController extends Controller
             $customer->address
         );
 
+        // --- GLOBAL FALLBACK ---
+        if (!$routeStopId && !$customer->zone && $customer->address) {
+            $zone = $customer->zone;
+            $coordinates = [
+                'latitude' => $customer->latitude,
+                'longitude' => $customer->longitude,
+            ];
+            
+            $this->attemptGlobalFallbackForAddress($customer->address, $zone, $coordinates, $routeStopId);
+
+            if ($routeStopId) {
+                $customer->zone = $zone;
+                $customer->latitude = $coordinates['latitude'] ?? null;
+                $customer->longitude = $coordinates['longitude'] ?? null;
+                $customer->save();
+            }
+        }
+        // -----------------------
+
         if (!$routeStopId) {
             return;
         }
@@ -925,10 +954,47 @@ class WebhookController extends Controller
     }
 
     /**
+     * Lakukan pencarian jalur secara global (tanpa zone), auto-assign zona,
+     * dan coba re-geocoding ulang untuk akurasi terbaik.
+     */
+    private function attemptGlobalFallbackForAddress(string $address, ?string &$zone, ?array &$coordinates, ?int &$routeStopId): void
+    {
+        $fallbackStop = $this->detectRouteStopFromAddressContext(null, $address);
+        if ($fallbackStop && $fallbackStop->zone) {
+            $zone = $fallbackStop->zone->name;
+            $routeStopId = $fallbackStop->id;
+            
+            // Lapis 2: Re-geocoding dengan nama jalan & kota yang benar
+            $reGeocodeAddress = $fallbackStop->name . ', ' . $zone;
+            $reGeocodeResult = $this->resolveAddressCoordinates($reGeocodeAddress);
+            
+            if ($reGeocodeResult && $reGeocodeResult['latitude']) {
+                $coordinates = [
+                    'latitude' => $reGeocodeResult['latitude'],
+                    'longitude' => $reGeocodeResult['longitude'],
+                ];
+            } else {
+                // Lapis 1: Fallback koordinat dari jalur
+                $coordinates = [
+                    'latitude' => $fallbackStop->latitude,
+                    'longitude' => $fallbackStop->longitude,
+                ];
+            }
+
+            Log::info('[Address Correction] Global fallback applied', [
+                'original_address' => $address,
+                'corrected_zone'   => $zone,
+                'corrected_stop'   => $fallbackStop->name,
+                'coordinates_source'=> ($reGeocodeResult && $reGeocodeResult['latitude']) ? 're_geocoding' : 'route_stop_fallback'
+            ]);
+        }
+    }
+
+    /**
      * Cari jalur yang namanya paling cocok dengan konteks alamat customer.
      * Kalau tidak ada kecocokan, anggap jalurnya belum diinput admin.
      */
-    private function detectRouteStopFromAddressContext(Zone $zone, ?string $address = null): ?RouteStop
+    private function detectRouteStopFromAddressContext(?Zone $zone, ?string $address = null): ?RouteStop
     {
         $customerAddress = trim((string) $address);
         if ($customerAddress === '') {
@@ -940,7 +1006,11 @@ class WebhookController extends Controller
             return null;
         }
 
-        $stops = RouteStop::where('zone_id', $zone->id)->get();
+        if ($zone) {
+            $stops = RouteStop::where('zone_id', $zone->id)->get();
+        } else {
+            $stops = RouteStop::with('zone')->get();
+        }
 
         foreach ($stops as $stop) {
             $normalizedStopName = $this->normalizeText((string) $stop->name);
