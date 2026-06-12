@@ -1019,19 +1019,22 @@ class WebhookController extends Controller
             }
         }
 
+        $matchScore = 0.0;
         $bestStopName = $this->findBestFuzzyMatch(
             $normalizedAddress,
             $stops->pluck('name')->filter()->values()->all(),
-            84.0
+            70.0,
+            $matchScore
         );
 
         if ($bestStopName !== null) {
             foreach ($stops as $stop) {
                 if (strcasecmp(trim((string) $stop->name), $bestStopName) === 0) {
                     Log::info('[RouteStop] Fuzzy match digunakan untuk customer address.', [
-                        'zone_id' => $zone->id,
+                        'zone_id' => $zone ? $zone->id : 'GLOBAL',
                         'stop_name' => $stop->name,
                         'address' => $customerAddress,
+                        'score' => round($matchScore, 2) . '%',
                     ]);
 
                     return $stop;
@@ -1046,7 +1049,7 @@ class WebhookController extends Controller
      * Cari kandidat teks paling mirip dengan input customer.
      * Mengembalikan null jika skor kemiripan belum cukup aman.
      */
-    private function findBestFuzzyMatch(string $needle, array $candidates, float $minimumScore = 80.0): ?string
+    private function findBestFuzzyMatch(string $needle, array $candidates, float $minimumScore = 80.0, &$outScore = null): ?string
     {
         $needle = trim($needle);
         if ($needle === '') {
@@ -1068,6 +1071,7 @@ class WebhookController extends Controller
             }
 
             if (str_contains($needle, $normalizedCandidate) || str_contains($normalizedCandidate, $needle)) {
+                $outScore = 100.0;
                 return $candidateText;
             }
 
@@ -1079,6 +1083,7 @@ class WebhookController extends Controller
         }
 
         if ($bestCandidate !== null && $bestScore >= $minimumScore) {
+            $outScore = $bestScore;
             Log::info('[RouteStop] Fuzzy text match accepted.', [
                 'needle' => $needle,
                 'candidate' => $bestCandidate,
