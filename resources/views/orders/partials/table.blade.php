@@ -61,7 +61,8 @@
                     </td>
                     <td>
                         <div style="max-width: 200px; font-size: 13px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
-                            {{ Permintaan pak greg ?? 'Tidak ada permintaan khusus' }}
+                            Permintaan Pak Greg
+                        </div>
                     </td>
                     <td>
                         @if($order->status === 'pending')
