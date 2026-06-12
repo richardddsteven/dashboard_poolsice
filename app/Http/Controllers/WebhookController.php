@@ -1157,10 +1157,6 @@ class WebhookController extends Controller
     {
         $geocoding = $this->getAddressGeocodingResult($address);
 
-        if (!$geocoding) {
-            return '';
-        }
-
         return $geocoding['context'] ?? '';
     }
 
