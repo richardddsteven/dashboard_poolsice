@@ -1023,7 +1023,7 @@ class WebhookController extends Controller
         $bestStopName = $this->findBestFuzzyMatch(
             $normalizedAddress,
             $stops->pluck('name')->filter()->values()->all(),
-            70.0,
+            50.0,
             $matchScore
         );
 
@@ -1082,15 +1082,24 @@ class WebhookController extends Controller
             }
         }
 
-        if ($bestCandidate !== null && $bestScore >= $minimumScore) {
-            $outScore = $bestScore;
-            Log::info('[RouteStop] Fuzzy text match accepted.', [
-                'needle' => $needle,
-                'candidate' => $bestCandidate,
-                'score' => $bestScore,
-            ]);
+        if ($bestCandidate !== null) {
+            if ($bestScore >= $minimumScore) {
+                $outScore = $bestScore;
+                Log::info('[RouteStop] Fuzzy text match accepted.', [
+                    'needle' => $needle,
+                    'candidate' => $bestCandidate,
+                    'score' => $bestScore,
+                ]);
 
-            return $bestCandidate;
+                return $bestCandidate;
+            } else {
+                Log::info('[RouteStop] Fuzzy text match rejected.', [
+                    'needle' => $needle,
+                    'best_candidate' => $bestCandidate,
+                    'score' => $bestScore,
+                    'threshold' => $minimumScore
+                ]);
+            }
         }
 
         return null;
