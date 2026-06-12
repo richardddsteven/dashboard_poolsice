@@ -9,6 +9,7 @@
                     <th>Produk</th>
                     <th>Jumlah</th>
                     <th>Tanggal Order</th>
+                    <th>Permintaan</th>
                     <th>Status</th>
                 </tr>
             </thead>
@@ -57,6 +58,10 @@
                     <td>
                         <div style="font-weight: 600; font-size: 14px; color: var(--text-main);">{{ $order->created_at->format('d M Y') }}</div>
                         <div style="font-size: 12px; color: var(--text-light);">{{ $order->created_at->format('H:i') }}</div>
+                    </td>
+                    <td>
+                        <div style="max-width: 200px; font-size: 13px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                            {{ Permintaan pak greg ?? 'Tidak ada permintaan khusus' }}
                     </td>
                     <td>
                         @if($order->status === 'pending')
