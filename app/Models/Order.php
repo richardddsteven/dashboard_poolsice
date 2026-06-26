@@ -216,22 +216,26 @@ class Order extends Model
 
     public static function driverCustomerDistanceInfo(self $order, \App\Models\Driver $driver): array
     {
+        // Cache key per-request: cukup order_id + driver_id.
+        // RouteRoutingService memiliki cache 6 jam tersendiri berdasarkan koordinat origin-destination,
+        // sehingga Google Maps tidak dipanggil ulang meskipun supir bergerak sedikit.
         $cacheKey = $order->id . ':' . $driver->id;
+
         if (array_key_exists($cacheKey, self::$distanceInfoCache)) {
             return self::$distanceInfoCache[$cacheKey];
         }
 
         $result = [
-            'route_distance_meters' => null,
+            'route_distance_meters'    => null,
             'straight_distance_meters' => null,
         ];
 
         $freshDriver = $driver->fresh(['currentRouteStop']);
-        $freshOrder = $order->fresh(['customer.routeStop']);
+        $freshOrder  = $order->fresh(['customer.routeStop']);
 
         if (!$freshDriver || !$freshOrder) {
             Log::info('[Routing] Distance info skipped because order/driver could not be refreshed.', [
-                'order_id' => $order->id,
+                'order_id'  => $order->id,
                 'driver_id' => $driver->id,
             ]);
             self::$distanceInfoCache[$cacheKey] = $result;
@@ -240,25 +244,38 @@ class Order extends Model
         }
 
         $driver = $freshDriver;
-        $order = $freshOrder;
+        $order  = $freshOrder;
 
-        $driverStop = $driver->currentRouteStop;
-        $customerStop = $order->customer?->routeStop;
-        $customerLatitude = $order->customer?->latitude;
+        $driverStop      = $driver->currentRouteStop;
+        $customerStop    = $order->customer?->routeStop;
+        $customerLatitude  = $order->customer?->latitude;
         $customerLongitude = $order->customer?->longitude;
 
         $hasCustomerCoordinates = is_numeric($customerLatitude) && is_numeric($customerLongitude)
             && abs((float) $customerLatitude) >= 0.0001
             && abs((float) $customerLongitude) >= 0.0001;
 
-        if (!$driverStop || (!$customerStop && !$hasCustomerCoordinates)) {
-            Log::info('[Routing] Distance info skipped because driver/customer route stop is missing.', [
-                'order_id' => $order->id,
-                'driver_id' => $driver->id,
-                'driver_stop_id' => $driverStop?->id,
-                'customer_stop_id' => $customerStop?->id,
-                'driver_has_stop' => (bool) $driverStop,
-                'customer_has_stop' => (bool) $customerStop,
+        // Gunakan GPS presisi supir jika tersedia, fallback ke koordinat route stop.
+        $driverGpsLat = (float) ($driver->current_latitude ?? 0);
+        $driverGpsLng = (float) ($driver->current_longitude ?? 0);
+        $hasDriverGps = abs($driverGpsLat) >= 0.0001 && abs($driverGpsLng) >= 0.0001;
+
+        // Tentukan koordinat origin (posisi supir)
+        // Prioritas: GPS presisi → koordinat route stop
+        $originLatitude  = $hasDriverGps ? $driverGpsLat : (float) ($driverStop?->latitude ?? 0);
+        $originLongitude = $hasDriverGps ? $driverGpsLng : (float) ($driverStop?->longitude ?? 0);
+
+        $hasOrigin = abs($originLatitude) >= 0.0001 && abs($originLongitude) >= 0.0001;
+
+        if (!$hasOrigin || (!$customerStop && !$hasCustomerCoordinates)) {
+            Log::info('[Routing] Distance info skipped because driver/customer coordinates are missing.', [
+                'order_id'                 => $order->id,
+                'driver_id'                => $driver->id,
+                'driver_stop_id'           => $driverStop?->id,
+                'customer_stop_id'         => $customerStop?->id,
+                'driver_has_gps'           => $hasDriverGps,
+                'driver_has_stop'          => (bool) $driverStop,
+                'customer_has_stop'        => (bool) $customerStop,
                 'customer_has_coordinates' => $hasCustomerCoordinates,
             ]);
             self::$distanceInfoCache[$cacheKey] = $result;
@@ -266,24 +283,25 @@ class Order extends Model
             return $result;
         }
 
-        $targetLatitude = $customerStop ? (float) $customerStop->latitude : (float) $customerLatitude;
+        // Tujuan: koordinat route stop customer (lebih stabil) → koordinat langsung customer
+        $targetLatitude  = $customerStop ? (float) $customerStop->latitude  : (float) $customerLatitude;
         $targetLongitude = $customerStop ? (float) $customerStop->longitude : (float) $customerLongitude;
 
         if (
-            abs((float) $driverStop->latitude) < 0.0001 ||
-            abs((float) $driverStop->longitude) < 0.0001 ||
-            abs($targetLatitude) < 0.0001 ||
+            abs($originLatitude)  < 0.0001 ||
+            abs($originLongitude) < 0.0001 ||
+            abs($targetLatitude)  < 0.0001 ||
             abs($targetLongitude) < 0.0001
         ) {
-            Log::warning('[Routing] Invalid route stop coordinates detected, skipping distance calculation.', [
-                'order_id' => $order->id,
-                'driver_id' => $driver->id,
-                'driver_stop_id' => $driverStop->id,
-                'driver_latitude' => (float) $driverStop->latitude,
-                'driver_longitude' => (float) $driverStop->longitude,
+            Log::warning('[Routing] Invalid coordinates detected, skipping distance calculation.', [
+                'order_id'         => $order->id,
+                'driver_id'        => $driver->id,
+                'origin_latitude'  => $originLatitude,
+                'origin_longitude' => $originLongitude,
+                'driver_source'    => $hasDriverGps ? 'gps_precise' : 'route_stop',
                 'customer_stop_id' => $customerStop?->id,
-                'customer_latitude' => $targetLatitude,
-                'customer_longitude' => $targetLongitude,
+                'target_latitude'  => $targetLatitude,
+                'target_longitude' => $targetLongitude,
             ]);
 
             self::$distanceInfoCache[$cacheKey] = $result;
@@ -291,38 +309,67 @@ class Order extends Model
             return $result;
         }
 
-        Log::info('[Routing] Calculating driver-customer distance using route stops.', [
-            'order_id' => $order->id,
-            'driver_id' => $driver->id,
-            'driver_stop_id' => $driverStop->id,
-            'driver_stop_name' => $driverStop->name,
-            'driver_stop_index' => $driverStop->order_index,
-            'driver_latitude' => (float) $driverStop->latitude,
-            'driver_longitude' => (float) $driverStop->longitude,
+        $driverSource = $hasDriverGps ? 'gps_precise' : 'route_stop';
+
+        Log::info('[Routing] Calculating driver-customer distance.', [
+            'order_id'         => $order->id,
+            'driver_id'        => $driver->id,
+            'driver_source'    => $driverSource,
+            'driver_stop_id'   => $driverStop?->id,
+            'driver_stop_name' => $driverStop?->name,
+            'driver_stop_index'=> $driverStop?->order_index,
+            'origin_latitude'  => $originLatitude,
+            'origin_longitude' => $originLongitude,
             'customer_stop_id' => $customerStop?->id,
             'customer_stop_name' => $customerStop?->name,
             'customer_stop_index' => $customerStop?->order_index,
-            'customer_latitude' => $targetLatitude,
-            'customer_longitude' => $targetLongitude,
-            'customer_source' => $customerStop ? 'route_stop' : 'customer_coordinates',
+            'target_latitude'  => $targetLatitude,
+            'target_longitude' => $targetLongitude,
+            'customer_source'  => $customerStop ? 'route_stop' : 'customer_coordinates',
         ]);
 
+        // Jarak jalan nyata via Google Maps Directions API (di-cache 6 jam)
         $routeDistanceMeters = app(RouteRoutingService::class)->roadDistanceMeters(
-            (float) $driverStop->latitude,
-            (float) $driverStop->longitude,
+            $originLatitude,
+            $originLongitude,
             $targetLatitude,
             $targetLongitude
         );
 
-        $straightDistanceMeters = $driverStop->distanceMetersFrom(
-            $targetLatitude,
-            $targetLongitude
-        );
+        // Jarak lurus Haversine sebagai fallback jika Google Maps gagal
+        $earthRadius  = 6371000.0;
+        $latFrom      = deg2rad($originLatitude);
+        $latTo        = deg2rad($targetLatitude);
+        $deltaLat     = deg2rad($targetLatitude - $originLatitude);
+        $deltaLon     = deg2rad($targetLongitude - $originLongitude);
+        $a            = sin($deltaLat / 2) ** 2 + cos($latFrom) * cos($latTo) * sin($deltaLon / 2) ** 2;
+        $straightDistanceMeters = $earthRadius * 2 * atan2(sqrt($a), sqrt(1 - $a));
 
         $result = [
-            'route_distance_meters' => $routeDistanceMeters,
+            'route_distance_meters'    => $routeDistanceMeters,
             'straight_distance_meters' => $straightDistanceMeters,
         ];
+
+        // Log hasil jarak supir → customer agar mudah dipantau di log Laravel.
+        // Muncul sekali per cache-miss (setiap 6 jam per pasangan supir-customer).
+        Log::info('[Routing] ✅ Jarak dihitung.', [
+            'order_id'              => $order->id,
+            'customer_name'         => $order->customer?->name,
+            'driver_id'             => $driver->id,
+            'driver_source'         => $driverSource,
+            'driver_jalur'          => $driverStop?->name,
+            'customer_jalur'        => $customerStop?->name ?? 'koordinat langsung',
+            // Jarak jalan nyata (Google Maps) — mengikuti rute jalan sesungguhnya
+            'google_maps_meter'     => $routeDistanceMeters !== null
+                ? (int) round($routeDistanceMeters) . ' m'
+                : 'gagal / tidak tersedia',
+            // Jarak lurus udara (Haversine) — sebagai pembanding
+            'haversine_meter'       => (int) round($straightDistanceMeters) . ' m',
+            // Jarak yang dipakai untuk pengurutan antrian
+            'dipakai_untuk_sort'    => $routeDistanceMeters !== null
+                ? (int) round($routeDistanceMeters) . ' m (Google Maps)'
+                : (int) round($straightDistanceMeters) . ' m (Haversine fallback)',
+        ]);
 
         self::$distanceInfoCache[$cacheKey] = $result;
 

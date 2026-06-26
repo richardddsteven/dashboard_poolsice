@@ -44,7 +44,7 @@ class FcmService
         $items = $order['items'] ?? '-';
 
         return $this->send($fcmToken, [
-            'title' => "Order Baru #$orderId",
+            'title' => "Order Baru",
             'body'  => "Pelanggan: $customerName | Zona: $zone",
         ], [
             'order_id'      => (string) $orderId,

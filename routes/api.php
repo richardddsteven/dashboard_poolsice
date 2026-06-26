@@ -459,6 +459,8 @@ Route::post('/driver/route-stop', function (Request $request) use ($resolveDrive
     $driver->update([
         'current_route_stop_id' => $currentStop?->id,
         'route_stop_updated_at' => now(),
+        'current_latitude'      => $validated['latitude'],
+        'current_longitude'     => $validated['longitude'],
     ]);
 
     // Auto-reject order pending yang jalurnya sudah terlalu jauh
@@ -647,7 +649,7 @@ Route::get('/driver/orders/notifications', function (Request $request) use ($res
     }
 
     $orders = Order::query()
-        ->with(['customer:id,name,address,zone,route_stop_id', 'customer.routeStop:id,name,order_index', 'iceType:id,name,weight'])
+        ->with(['customer:id,name,address,zone,route_stop_id,latitude,longitude', 'customer.routeStop:id,name,order_index,latitude,longitude', 'iceType:id,name,weight'])
         ->where('orders.created_at', '>=', now()->subDays(30)->startOfDay()) // Maksimal 30 hari terakhir
         ->whereHas('customer', function ($query) use ($zone) {
             $query->whereRaw('LOWER(zone) = ?', [$zone]);
@@ -664,9 +666,33 @@ Route::get('/driver/orders/notifications', function (Request $request) use ($res
             // agar supir tidak mencoba approve/reject order yang belum punya jalur pasti.
             return !$isManualReview;
         })
-        ->map(function (Order $order) {
+        ->map(function (Order $order) use ($driver) {
             $iceTypeLabel  = $order->iceType?->name ?? '-';
             $quantityLabel = max(1, (int) ($order->effective_quantity ?? $order->quantity ?? 1));
+
+            // Hitung jarak jalan nyata supir → customer menggunakan Google Maps Directions API.
+            // driverCustomerDistanceInfo() sudah dilengkapi cache in-memory & cache 6 jam,
+            // sehingga order pending yang sudah dihitung di loop eligibility di atas tidak
+            // memanggil API ulang.
+            $distanceInfo         = Order::driverCustomerDistanceInfo($order, $driver);
+            $routeDistanceMeters  = $distanceInfo['route_distance_meters'];    // Google Maps (meter)
+            $straightDistMeters   = $distanceInfo['straight_distance_meters']; // Haversine fallback
+
+            // Gunakan jarak jalan nyata jika tersedia, fallback ke jarak lurus
+            $distanceMeters = $routeDistanceMeters !== null
+                ? (int) round($routeDistanceMeters)
+                : ($straightDistMeters !== null ? (int) round($straightDistMeters) : null);
+
+            // Deteksi apakah order ini mengharuskan supir putar balik.
+            // Putar balik = jalur customer berada di belakang jalur supir saat ini.
+            // null = tidak bisa ditentukan (salah satu pihak tidak punya route stop).
+            $driverStopIndex   = $driver->currentRouteStop !== null
+                ? (int) $driver->currentRouteStop->order_index
+                : -1;
+            $customerStopIndex = $order->customer?->routeStop?->order_index;
+            $isBacktrack = ($driverStopIndex >= 0 && $customerStopIndex !== null)
+                ? ((int) $customerStopIndex < $driverStopIndex)
+                : null;
 
             return [
                 'id'               => $order->id,
@@ -683,8 +709,21 @@ Route::get('/driver/orders/notifications', function (Request $request) use ($res
                 'quantity'         => $quantityLabel,
                 'status'           => $order->status,
                 'created_at'       => $order->created_at,
+                'distance_meters'  => $distanceMeters, // Jarak jalan nyata supir → customer (meter)
+                'is_backtrack'     => $isBacktrack,    // true = perlu putar balik, false = maju, null = tidak diketahui
             ];
         })
+        // Urutkan antrian: order terdekat dari posisi supir (jarak jalan nyata) tampil paling atas.
+        // Ini memastikan order baru yang mendadak muncul di posisi yang tepat dalam antrian
+        // (bukan selalu di bawah/atas), sesuai urutan pengiriman yang efisien.
+        // Order tanpa info jarak (null) ditempatkan di akhir, lalu ID desc sebagai tie-breaker.
+        ->sortBy([
+            fn ($a, $b) => (
+                ($a['distance_meters'] === null ? PHP_INT_MAX : $a['distance_meters'])
+                <=> ($b['distance_meters'] === null ? PHP_INT_MAX : $b['distance_meters'])
+            ),
+            fn ($a, $b) => ($b['id'] <=> $a['id']), // Tie-breaker: ID terbaru dulu
+        ])
         ->values();
 
     return response()->json([

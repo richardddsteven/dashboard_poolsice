@@ -1401,7 +1401,30 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
             return incomingId > 0;
           }));
 
+        // Urutkan antrian order berdasarkan jarak supir ke customer.
+        // Order yang lokasinya paling dekat dengan posisi supir saat ini
+        // disisipkan lebih awal (bukan ditaruh di akhir daftar).
+        // Order tanpa info jarak (null) → diletakkan di akhir.
+        // Tie-breaker: ID terbesar (order terbaru) tampil lebih dulu.
         _orders.sort((a, b) {
+          final distA = a['distance_meters'] as int?;
+          final distB = b['distance_meters'] as int?;
+
+          // Keduanya ada jarak → urutkan terdekat dulu
+          if (distA != null && distB != null) {
+            final cmp = distA.compareTo(distB);
+            if (cmp != 0) return cmp;
+            // Jarak sama → order terbaru (ID lebih besar) lebih dulu
+            final idA = a['id'] as int? ?? 0;
+            final idB = b['id'] as int? ?? 0;
+            return idB.compareTo(idA);
+          }
+
+          // Salah satu tidak ada jarak → yang ada jarak tampil dulu
+          if (distA != null) return -1;
+          if (distB != null) return 1;
+
+          // Keduanya tidak ada jarak → fallback ke ID descending
           final idA = a['id'] as int? ?? 0;
           final idB = b['id'] as int? ?? 0;
           return idB.compareTo(idA);
@@ -1656,7 +1679,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
     }
   }
 
-  Widget _buildOrderCard(Map<String, dynamic> order) {
+  Widget _buildOrderCard(Map<String, dynamic> order, {int? queueNumber}) {
     final orderId = order['id'] as int? ?? 0;
     final status = (order['status'] as String? ?? '-').trim().toLowerCase();
     final isPending = status == 'pending';
@@ -1687,13 +1710,20 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
       ? order['items_display'].toString()
       : _formatOrderItems(order['items']);
 
+    final isBacktrack = order['is_backtrack'] == true;
+
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(24),
+        border: isBacktrack
+            ? Border.all(color: const Color(0xFFF59E0B), width: 1.5)
+            : null,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
+            color: isBacktrack
+                ? const Color(0xFFF59E0B).withValues(alpha: 0.08)
+                : Colors.black.withValues(alpha: 0.03),
             blurRadius: 20,
             offset: const Offset(0, 10),
             spreadRadius: -4,
@@ -1711,6 +1741,34 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Banner peringatan putar balik — muncul di atas card jika is_backtrack = true
+            if (isBacktrack) ...
+              [
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFEF3C7),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.u_turn_left_rounded, size: 16, color: Color(0xFFB45309)),
+                      const SizedBox(width: 8),
+                      const Text(
+                        'Perlu Putar Balik',
+                        style: TextStyle(
+                          color: Color(0xFFB45309),
+                          fontWeight: FontWeight.w800,
+                          fontSize: 12,
+                          letterSpacing: 0.2,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 14),
+              ],
             Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
@@ -1723,7 +1781,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
-                    '#$orderId',
+                    queueNumber != null ? '$queueNumber' : '#$orderId',
                     style: const TextStyle(
                       color: Color(0xFF475569),
                       fontSize: 14,
@@ -2271,10 +2329,14 @@ class _DriverHomeScreenState extends State<DriverHomeScreen>
                 ];
               }
 
-              return filteredOrders.map((order) => Padding(
-                padding: const EdgeInsets.only(bottom: 16),
-                child: _buildOrderCard(order),
-              )).toList();
+              return filteredOrders.asMap().entries.map((entry) {
+                final index = entry.key;
+                final order = entry.value;
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 16),
+                  child: _buildOrderCard(order, queueNumber: index + 1),
+                );
+              }).toList();
             })(),
           ],
         ),

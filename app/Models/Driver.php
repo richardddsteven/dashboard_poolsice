@@ -9,12 +9,15 @@ class Driver extends Model
     protected $fillable = [
         'name', 'phone', 'zone_id', 'username', 'password',
         'api_token', 'fcm_token', 'current_route_stop_id', 'route_stop_updated_at',
+        'current_latitude', 'current_longitude',
     ];
 
     protected $hidden = ['password', 'api_token'];
 
     protected $casts = [
         'route_stop_updated_at' => 'datetime',
+        'current_latitude'      => 'float',
+        'current_longitude'     => 'float',
     ];
 
     public function zone()
